@@ -1,0 +1,88 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Garden.Engine/1.0.0": {
+        "dependencies": {
+          "Garden.Contracts": "1.0.0",
+          "Garden.Core": "1.0.0",
+          "Garden.Shared": "1.0.0",
+          "Garden.World": "1.0.0"
+        },
+        "runtime": {
+          "Garden.Engine.dll": {}
+        }
+      },
+      "Garden.Contracts/1.0.0": {
+        "dependencies": {
+          "Garden.Core": "1.0.0"
+        },
+        "runtime": {
+          "Garden.Contracts.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Garden.Core/1.0.0": {
+        "runtime": {
+          "Garden.Core.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Garden.Shared/1.0.0": {
+        "runtime": {
+          "Garden.Shared.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Garden.World/1.0.0": {
+        "dependencies": {
+          "Garden.Core": "1.0.0",
+          "Garden.Shared": "1.0.0"
+        },
+        "runtime": {
+          "Garden.World.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Garden.Engine/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Garden.Contracts/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Garden.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Garden.Shared/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Garden.World/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
