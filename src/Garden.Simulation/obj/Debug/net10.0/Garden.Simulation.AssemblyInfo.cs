@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Garden.Simulation")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7b7d10b91bcf3dcc063008a8a04629b45ab9a899")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+00a74b936d823bd0c3000195bd0bcb3681e756a1")]
 [assembly: System.Reflection.AssemblyProductAttribute("Garden.Simulation")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Garden.Simulation")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

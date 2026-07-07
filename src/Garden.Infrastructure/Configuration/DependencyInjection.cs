@@ -1,8 +1,10 @@
 using Garden.Core.Interfaces;
 using Garden.Engine.Events;
+using Garden.Engine.Generation;
 using Garden.Engine.Random;
 using Garden.Engine.Scheduling;
 using Garden.Engine.Services;
+using Garden.Engine.Systems;
 using Garden.Engine.Time;
 using Garden.Infrastructure.Persistence;
 using Garden.World.Collections;
@@ -32,8 +34,15 @@ public static class DependencyInjection
         services.AddSingleton<IEventBus, EventBus>();
         services.AddSingleton<ISimulationScheduler, SimulationScheduler>();
         services.AddSingleton<SimulationCoordinator>();
+        services.AddSingleton<WorldInitializer>();
         services.AddSingleton(_ => new SimulationRandom(Environment.TickCount));
         services.AddHostedService<SimulationHostedService>();
+
+        services.AddSingleton<WeatherSystem>();
+        services.AddSingleton<SeasonSystem>();
+        services.AddSingleton<HydrologySystem>();
+        services.AddSingleton<ResourceSystem>();
+        services.AddSingleton<EcologySystem>();
 
         return services;
     }

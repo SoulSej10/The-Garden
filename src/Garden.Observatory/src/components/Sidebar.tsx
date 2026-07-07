@@ -2,6 +2,8 @@ import { NavLink } from 'react-router-dom'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '⊞' },
+  { to: '/environment', label: 'Environment', icon: '🌍' },
+  { to: '/map', label: 'World Map', icon: '🗺' },
 ]
 
 export default function Sidebar() {

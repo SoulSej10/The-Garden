@@ -1,8 +1,17 @@
 {
   "version": 2,
-  "dgSpecHash": "W6WtYwUAzjI=",
+  "dgSpecHash": "NJ6S0ABc290=",
   "success": true,
   "projectFilePath": "D:\\Projects\\Claude - OpenCode\\The Garden\\src\\Garden.Engine\\Garden.Engine.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\MIS\\.nuget\\packages\\microsoft.extensions.configuration.abstractions\\10.0.0-preview.3.25171.5\\microsoft.extensions.configuration.abstractions.10.0.0-preview.3.25171.5.nupkg.sha512",
+    "C:\\Users\\MIS\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\10.0.0-preview.3.25171.5\\microsoft.extensions.dependencyinjection.abstractions.10.0.0-preview.3.25171.5.nupkg.sha512",
+    "C:\\Users\\MIS\\.nuget\\packages\\microsoft.extensions.diagnostics.abstractions\\10.0.0-preview.3.25171.5\\microsoft.extensions.diagnostics.abstractions.10.0.0-preview.3.25171.5.nupkg.sha512",
+    "C:\\Users\\MIS\\.nuget\\packages\\microsoft.extensions.fileproviders.abstractions\\10.0.0-preview.3.25171.5\\microsoft.extensions.fileproviders.abstractions.10.0.0-preview.3.25171.5.nupkg.sha512",
+    "C:\\Users\\MIS\\.nuget\\packages\\microsoft.extensions.hosting.abstractions\\10.0.0-preview.3.25171.5\\microsoft.extensions.hosting.abstractions.10.0.0-preview.3.25171.5.nupkg.sha512",
+    "C:\\Users\\MIS\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\10.0.0-preview.3.25171.5\\microsoft.extensions.logging.abstractions.10.0.0-preview.3.25171.5.nupkg.sha512",
+    "C:\\Users\\MIS\\.nuget\\packages\\microsoft.extensions.options\\10.0.0-preview.3.25171.5\\microsoft.extensions.options.10.0.0-preview.3.25171.5.nupkg.sha512",
+    "C:\\Users\\MIS\\.nuget\\packages\\microsoft.extensions.primitives\\10.0.0-preview.3.25171.5\\microsoft.extensions.primitives.10.0.0-preview.3.25171.5.nupkg.sha512"
+  ],
   "logs": []
 }

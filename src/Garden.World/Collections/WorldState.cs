@@ -1,3 +1,4 @@
+using Garden.Core.Events;
 using Garden.Core.Time;
 using Garden.World.Entities;
 
@@ -8,7 +9,9 @@ public class WorldState
     public SimulationTime CurrentTime { get; set; }
     public List<Citizen> Citizens { get; } = [];
     public List<Settlement> Settlements { get; } = [];
-    public double GlobalFood { get; set; }
-    public double GlobalWood { get; set; }
-    public double GlobalStone { get; set; }
+    public WorldMap Map { get; set; } = new();
+    public WeatherStateData Weather { get; set; } = new();
+    public List<ClimateData> ClimateZones { get; } = [];
+    public List<EnvironmentalEvent> EnvironmentEvents { get; } = [];
+    public bool IsInitialized { get; set; }
 }
