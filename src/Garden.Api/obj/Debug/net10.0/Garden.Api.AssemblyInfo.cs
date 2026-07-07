@@ -10,10 +10,11 @@
 using System;
 using System.Reflection;
 
+[assembly: Microsoft.Extensions.Configuration.UserSecrets.UserSecretsIdAttribute("39900215-5d21-43c5-b516-4b438f9e6aa6")]
 [assembly: System.Reflection.AssemblyCompanyAttribute("Garden.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+486efd435998fd9a7a2d5a6eb545e82ec89e7458")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+11cdcb2fec77297c6051fd662546d7c9093855a0")]
 [assembly: System.Reflection.AssemblyProductAttribute("Garden.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Garden.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -19,6 +19,21 @@ public class SimulationCoordinator
 
     public IReadOnlyList<IRule> Rules => _rules.AsReadOnly();
     public SimulationClock Clock => _clock;
+    public bool IsRunning => _clock.IsRunning;
+    public double TargetSpeed => _clock.SpeedMultiplier;
+
+    public SimulationDiagnostics GetDiagnostics()
+    {
+        return new SimulationDiagnostics
+        {
+            TickRate = _clock.SpeedMultiplier,
+            TickDurationMs = 0,
+            UptimeMs = (long)(DateTime.UtcNow - _lastStartTime).TotalMilliseconds,
+            RegisteredSystems = _scheduler.AllSystems.Count()
+        };
+    }
+
+    private DateTime _lastStartTime = DateTime.UtcNow;
 
     public SimulationCoordinator(
         SimulationClock clock,
@@ -79,9 +94,33 @@ public class SimulationCoordinator
         await Task.CompletedTask;
     }
 
+    public void Start()
+    {
+        _clock.Start();
+        _lastStartTime = DateTime.UtcNow;
+    }
+
+    public void Pause()
+    {
+        _clock.Pause();
+    }
+
+    public void SetSpeed(double multiplier)
+    {
+        _clock.SetSpeed(multiplier);
+    }
+
     private record RuleContext(
         SimulationTime CurrentTime,
         long Tick,
         IEventBus EventBus,
         IMutationCollector Mutations) : IRuleContext;
+}
+
+public class SimulationDiagnostics
+{
+    public double TickRate { get; init; }
+    public double TickDurationMs { get; init; }
+    public long UptimeMs { get; init; }
+    public int RegisteredSystems { get; init; }
 }

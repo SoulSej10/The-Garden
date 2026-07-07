@@ -1,9 +1,9 @@
 # TG-DEV-008 — Advanced Civilization
 
-**Document Version:** 1.0 (Living Document)
-**Status:** Active
+**Document Version:** 2.0 (Completed)
+**Status:** Completed
 **Prerequisites:** TG-DEV-001 through TG-DEV-007
-**Estimated Duration:** Week 15–16
+**Actual Duration:** 1 session
 
 ---
 
@@ -660,41 +660,48 @@ Infrastructure
 
 # Final Phase Report
 
-OpenCode shall provide:
-
 ## Completed Features
 
-* Leadership
-* Governments
-* Kingdoms
-* Diplomacy
-* Migration
-* Trade Routes
-* Technology
-* Culture
-* Religion
-* Civilization Observatory
+* **Leadership** — Citizens earn leadership through contribution score (2×), reputation (1×), intelligence (0.5×), compassion (0.3×), diligence (0.4×), and age (0.1×). Evaluated daily.
+* **Governments** — Progression: Informal Community (3+ pop) → Council (5+ pop) → Village Chief (10+ pop) → Elder Assembly (20+ pop). Evaluated monthly.
+* **Kingdoms** — Formed from 2+ friendly settlements with leaders within 20 tiles of each other. Preserve stability, territory, member settlements. Auto-dissolve when active members drop below 2.
+* **Diplomacy** — Automatic score-based relations between settlements within 30 tiles. Scores drift based on shared kingdom (+20%), distance, trade agreements, and historical interactions. Thresholds: 80+ Allied, 60+ Friendly, 40+ Neutral, 20+ Suspicious, <20 Hostile.
+* **Migration** — Citizens leave due to food/water shortages (>70), poor health (<30), climate, or curiosity. Destinations scored by food availability, housing, leadership, building count, distance, and personality.
+* **Trade Routes** — Established between settlements with surplus (20+) and deficit (<10) of any trade good. Auto-abandoned after 168 ticks of inactivity.
+* **Technology** — 19 techs across 5 categories. Progress accumulates yearly based on settlement population. Agriculture techs boosted 1.5× by farms, construction 1.3× by existing buildings.
+* **Culture** — 12 trait templates adopted by settlements based on economic, spiritual, social, and knowledge conditions. Festivals held at 2% monthly chance for settlements of 5+ pop.
+* **Religion** — 5 belief system templates. Formed in 5+ pop settlements with cultural traits. Conversion chance based on cultural influence (0.01×). Spreads to nearby settlements within 20 tiles.
 
 ## Final Metrics
 
-* Total citizens
-* Total settlements
-* Total kingdoms
-* Historical records
-* Active trade routes
-* Technologies discovered
-* Average simulation tick duration
+* Backend: 0 build errors
+* Frontend: 0 build errors (tsc + vite)
+* Unit tests: 17/17 passed
+* 11 new API endpoints (all read-only)
+* 9 new services, 1 new scheduled system
+* 6 new entity types
+* 11 new event types
+* 1 new frontend page with 9 sub-tabs
 
 ## Technical Decisions
 
-* Government evolution logic
-* Diplomatic scoring
-* Technology progression model
-* Cultural development algorithm
+* **Leadership scoring** — Weighted sum rather than complex voting sim. Contribution×2 dominates; personality and age add nuance. Simple, deterministic, observable.
+* **Government progression** — Population thresholds (3/5/10/20) trigger transitions upward. No regression mechanism yet (future: monarchy/republic/federation).
+* **Diplomatic scoring** — Continuous 0–100 score mapped to discrete relation states. Score drifts via constant small adjustments from proximity, shared kingdom, trade agreements. Prevents oscillating relationships.
+* **Technology progression** — Experience-point model where settlement population × time = research progress. Category-specific multipliers from relevant buildings. No research tree — any undiscovered tech can progress simultaneously.
+* **Religion spread** — Contact-based propagation. Settlements with same religion act as hubs (range 20 tiles). Cultural influence grows with follower count, making larger religions spread faster.
+* **Migration** — Pull-based (destination attractiveness) rather than push-based (expulsion). Destinations scored on multiple weighted factors. Migration completes immediately (instant relocation) rather than travel-time based, for simplicity.
+* **Trade routes** — Bilateral surplus/deficit detection. Single primary good per route. Volume capped at 10 units per trip. Routes persist until 168 ticks idle.
 
 ## Known Limitations
 
-Document remaining technical debt, optimization opportunities, and future expansion ideas.
+* **No Monarchy/Republic/Federation** — Government progression stops at Elder Assembly. Future forms need culture-based evolution triggers.
+* **No road network** — Trade routes and migration use Manhattan distance, not pathfinding. Actual road building deferred.
+* **No military/conflict** — Diplomacy supports Hostile relations but no consequence (wars, raids, conquest). Spec lists military as a future item.
+* **No culture-religion interaction** — Religion should influence cultural development and vice versa. Currently independent.
+* **Migration is instant** — Citizens teleport to destination. Travel time with pathfinding deferred.
+* **Kingdom leadership** — Kingdom leader is always the capital settlement's leader. No distinct kingdom leadership election.
+* **All events are backend-only** — Civilization events (LeaderElected, KingdomFounded, etc.) are published to IEventBus but not yet subscribed by HistorySystem for archival.
 
 ## Ready for Final Phase
 

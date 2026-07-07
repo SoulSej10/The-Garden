@@ -1,0 +1,49 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5088:5088"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=db;Database=TheGarden;Username=postgres;Password=garden_secret
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - garden-saves:/app/saves
+      - garden-backups:/app/backups
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: TheGarden
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: garden_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - garden-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d TheGarden"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  observatory:
+    build:
+      context: ./src/Garden.Observatory
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  garden-db:
+  garden-saves:
+  garden-backups:

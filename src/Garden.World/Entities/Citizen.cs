@@ -24,6 +24,11 @@ public class Citizen
     public PersonalityTraits Personality { get; set; } = new();
     public CitizenNeeds Needs { get; set; } = new();
     public List<CitizenMemory> Memories { get; init; } = [];
+
+    public double ContributionScore { get; set; }
+    public double Reputation { get; set; } = 50.0;
+    public GameEntityId? ReligionId { get; set; }
+    public string ReligionName { get; set; } = string.Empty;
 }
 
 public enum LifeStage
@@ -37,7 +42,7 @@ public enum LifeStage
 
 public class CitizenAttributes
 {
-    public double Strength { get; set; } = 5.0;
+    public double Strength { get; set; }
     public double Endurance { get; set; } = 5.0;
     public double Intelligence { get; set; } = 5.0;
     public double Dexterity { get; set; } = 5.0;

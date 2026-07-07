@@ -7,6 +7,7 @@ using Garden.Engine.Services;
 using Garden.Engine.Systems;
 using Garden.Engine.Time;
 using Garden.Infrastructure.Persistence;
+using Garden.Infrastructure.Services;
 using Garden.World.Collections;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -23,6 +24,9 @@ public static class DependencyInjection
         services.AddDbContext<GardenDbContext>(options =>
             options.UseNpgsql(
                 configuration.GetConnectionString("DefaultConnection")));
+
+        services.AddHostedService<WorldPersistenceService>();
+        services.AddHostedService<BackupService>();
 
         return services;
     }
@@ -47,6 +51,32 @@ public static class DependencyInjection
         services.AddSingleton<AgingSystem>();
         services.AddSingleton<SpawnSystem>();
         services.AddSingleton<PopulationManager>();
+        services.AddSingleton<SettlementManager>();
+        services.AddSingleton<ConstructionSystem>();
+        services.AddSingleton<AgricultureSystem>();
+        services.AddSingleton<EconomySystem>();
+
+        services.AddSingleton<HistoricalArchive>();
+        services.AddSingleton<SignificanceEvaluator>();
+        services.AddSingleton<TimelineService>();
+        services.AddSingleton<MemoryService>();
+        services.AddSingleton<StoryEngine>();
+        services.AddSingleton<HistoryManager>();
+        services.AddSingleton<HistorySystem>();
+
+        services.AddSingleton<LeadershipService>();
+        services.AddSingleton<GovernanceService>();
+        services.AddSingleton<KingdomService>();
+        services.AddSingleton<DiplomacyService>();
+        services.AddSingleton<MigrationService>();
+        services.AddSingleton<TradeRouteService>();
+        services.AddSingleton<TechnologyService>();
+        services.AddSingleton<CultureService>();
+        services.AddSingleton<ReligionService>();
+        services.AddSingleton<CivilizationSystem>();
+
+        services.AddSingleton<SaveLoadService>();
+        services.AddSingleton<NarrationService>();
 
         return services;
     }

@@ -3,6 +3,12 @@ import DashboardPage from './pages/DashboardPage.tsx'
 import EnvironmentPage from './pages/EnvironmentPage.tsx'
 import WorldMapPage from './pages/WorldMapPage.tsx'
 import CitizensPage from './pages/CitizensPage.tsx'
+import SettlementsPage from './pages/SettlementsPage.tsx'
+import EconomyPage from './pages/EconomyPage.tsx'
+import HistoryPage from './pages/HistoryPage.tsx'
+import CivilizationPage from './pages/CivilizationPage.tsx'
+import ProductionDashboardPage from './pages/ProductionDashboardPage.tsx'
+import DiagnosticsPage from './pages/DiagnosticsPage.tsx'
 import Layout from './components/Layout.tsx'
 
 function App() {
@@ -13,6 +19,12 @@ function App() {
         <Route path="/environment" element={<EnvironmentPage />} />
         <Route path="/map" element={<WorldMapPage />} />
         <Route path="/citizens" element={<CitizensPage />} />
+        <Route path="/settlements" element={<SettlementsPage />} />
+        <Route path="/economy" element={<EconomyPage />} />
+        <Route path="/history" element={<HistoryPage />} />
+        <Route path="/civilization" element={<CivilizationPage />} />
+        <Route path="/production" element={<ProductionDashboardPage />} />
+        <Route path="/diagnostics" element={<DiagnosticsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

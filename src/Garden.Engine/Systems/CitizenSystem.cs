@@ -16,6 +16,8 @@ public class CitizenSystem : IScheduledSystem
     private readonly IEventBus _eventBus;
     private readonly ILogger<CitizenSystem> _logger;
     private readonly PopulationManager _populationManager;
+    private readonly SettlementManager _settlementManager;
+    private readonly ConstructionSystem _constructionSystem;
     private long _nextExecutionTick;
 
     public string Name => "CitizenSystem";
@@ -26,12 +28,16 @@ public class CitizenSystem : IScheduledSystem
         WorldState worldState,
         IEventBus eventBus,
         ILogger<CitizenSystem> logger,
-        PopulationManager populationManager)
+        PopulationManager populationManager,
+        SettlementManager settlementManager,
+        ConstructionSystem constructionSystem)
     {
         _worldState = worldState;
         _eventBus = eventBus;
         _logger = logger;
         _populationManager = populationManager;
+        _settlementManager = settlementManager;
+        _constructionSystem = constructionSystem;
     }
 
     public void Execute()
@@ -118,6 +124,63 @@ public class CitizenSystem : IScheduledSystem
             citizen.CurrentGoal = "Rest";
             citizen.CurrentActivity = "Resting";
             return;
+        }
+
+        if (citizen.HomeSettlementId == null)
+        {
+            var nearby = _settlementManager.FindNearbySettlement(citizen.TileX, citizen.TileY, 15);
+            if (nearby != null)
+            {
+                _settlementManager.JoinSettlement(nearby, citizen);
+                citizen.CurrentGoal = "JoinSettlement";
+                citizen.CurrentActivity = "Joining Settlement";
+                return;
+            }
+
+            var communityUrge = citizen.Personality.Compassion + (100 - citizen.Personality.Introversion);
+            if (communityUrge > 110 && citizen.Needs.Energy > 30)
+            {
+                var name = GenerateSettlementName();
+                var settlement = _settlementManager.FoundSettlement(
+                    citizen, name, citizen.TileX, citizen.TileY,
+                    _worldState.CurrentTime.Tick);
+                citizen.CurrentGoal = "BuildSettlement";
+                citizen.CurrentActivity = "Founding Settlement";
+                return;
+            }
+        }
+
+        if (citizen.HomeSettlementId != null)
+        {
+            var settlement = _worldState.Settlements
+                .FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+            if (settlement != null)
+            {
+                var incomplete = settlement.Buildings
+                    .FirstOrDefault(b => b.Status == BuildingStatus.Planned
+                        && Math.Abs(b.TileX - citizen.TileX) + Math.Abs(b.TileY - citizen.TileY) <= 3);
+                if (incomplete != null)
+                {
+                    _constructionSystem.AssignWorker(incomplete, citizen);
+                    citizen.CurrentGoal = "Build";
+                    citizen.CurrentActivity = $"Building {incomplete.BuildingType}";
+                    return;
+                }
+
+                if (_settlementManager.HasResourcesFor(
+                    new Building { BuildingType = BuildingTypes.Storage }, settlement))
+                {
+                    _settlementManager.DeductResources(
+                        new Building { BuildingType = BuildingTypes.Storage }, settlement);
+                    _constructionSystem.PlanBuilding(
+                        settlement, BuildingTypes.Storage,
+                        settlement.TileX + settlement.Buildings.Count % 5 - 2,
+                        settlement.TileY + settlement.Buildings.Count / 5 - 2);
+                    citizen.CurrentGoal = "Build";
+                    citizen.CurrentActivity = "Planning Storage";
+                    return;
+                }
+            }
         }
 
         if (drinkScore > eatScore && drinkScore > restScore && drinkScore > exploreScore)
@@ -300,6 +363,15 @@ public class CitizenSystem : IScheduledSystem
     {
         return tile.Resources.Any(r => r.Type == ResourceType.WildPlants && r.Quantity > 0)
             || tile.Terrain == TerrainType.Forest;
+    }
+
+    private static string GenerateSettlementName()
+    {
+        var prefixes = new[] { "New", "Old", "North", "South", "East", "West", "Great", "Little", "Upper", "Lower", "Far", "Deep" };
+        var stems = new[] { "haven", "dale", "ford", "brook", "ridge", "field", "wood", "gate", "ford", "bridge", "mill", "bury" };
+        var p = prefixes[System.Random.Shared.Next(prefixes.Length)];
+        var s = stems[System.Random.Shared.Next(stems.Length)];
+        return $"{p}{s}";
     }
 
     private void Die(Citizen citizen, long tick, string cause)

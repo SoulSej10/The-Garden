@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "observatory",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "src/Garden.Observatory", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}
