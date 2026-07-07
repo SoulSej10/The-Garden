@@ -1,0 +1,84 @@
+using Garden.Core.World;
+using Garden.World.Collections;
+
+namespace Garden.Engine.Pathfinding;
+
+public static class Pathfinder
+{
+    public static List<(int X, int Y)> FindPath(WorldMap map, int startX, int startY, int endX, int endY)
+    {
+        var openSet = new SortedSet<(double F, int X, int Y)> { (0, startX, startY) };
+        var cameFrom = new Dictionary<(int, int), (int, int)>();
+        var gScore = new Dictionary<(int, int), double> { [(startX, startY)] = 0 };
+        var fScore = new Dictionary<(int, int), double> { [(startX, startY)] = Heuristic(startX, startY, endX, endY) };
+
+        while (openSet.Count > 0)
+        {
+            var (_, cx, cy) = openSet.Min;
+            openSet.Remove(openSet.Min);
+
+            if (cx == endX && cy == endY)
+                return ReconstructPath(cameFrom, cx, cy);
+
+            foreach (var neighbor in map.GetNeighbors(cx, cy))
+            {
+                if (!IsWalkable(neighbor)) continue;
+
+                var tentG = gScore[(cx, cy)] + GetMovementCost(neighbor);
+                var key = (neighbor.X, neighbor.Y);
+
+                if (tentG < gScore.GetValueOrDefault(key, double.MaxValue))
+                {
+                    cameFrom[key] = (cx, cy);
+                    gScore[key] = tentG;
+                    var f = tentG + Heuristic(neighbor.X, neighbor.Y, endX, endY);
+                    fScore[key] = f;
+                    openSet.Add((f, neighbor.X, neighbor.Y));
+                }
+            }
+        }
+
+        return [];
+    }
+
+    private static bool IsWalkable(World.Entities.WorldTile tile)
+    {
+        return tile.Terrain is not TerrainType.Ocean
+            and not TerrainType.Lake
+            and not TerrainType.Mountains;
+    }
+
+    private static double GetMovementCost(World.Entities.WorldTile tile)
+    {
+        return tile.Terrain switch
+        {
+            TerrainType.Plains => 1.0,
+            TerrainType.Grassland => 1.1,
+            TerrainType.Forest => 1.5,
+            TerrainType.Hills => 2.0,
+            TerrainType.Swamp => 2.5,
+            TerrainType.Coast => 1.2,
+            TerrainType.River => 1.8,
+            _ => 1.0
+        };
+    }
+
+    private static double Heuristic(int x1, int y1, int x2, int y2)
+    {
+        return Math.Sqrt(Math.Pow(x2 - x1, 2) + Math.Pow(y2 - y1, 2));
+    }
+
+    private static List<(int X, int Y)> ReconstructPath(
+        Dictionary<(int, int), (int, int)> cameFrom, int cx, int cy)
+    {
+        var path = new List<(int X, int Y)> { (cx, cy) };
+        var current = (cx, cy);
+        while (cameFrom.ContainsKey(current))
+        {
+            current = cameFrom[current];
+            path.Add(current);
+        }
+        path.Reverse();
+        return path;
+    }
+}

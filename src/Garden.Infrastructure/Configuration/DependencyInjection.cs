@@ -43,6 +43,10 @@ public static class DependencyInjection
         services.AddSingleton<HydrologySystem>();
         services.AddSingleton<ResourceSystem>();
         services.AddSingleton<EcologySystem>();
+        services.AddSingleton<CitizenSystem>();
+        services.AddSingleton<AgingSystem>();
+        services.AddSingleton<SpawnSystem>();
+        services.AddSingleton<PopulationManager>();
 
         return services;
     }

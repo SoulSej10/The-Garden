@@ -39,8 +39,13 @@ using (var scope = app.Services.CreateScope())
     scheduler.Register(scope.ServiceProvider.GetRequiredService<HydrologySystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<ResourceSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<EcologySystem>());
+    scheduler.Register(scope.ServiceProvider.GetRequiredService<CitizenSystem>());
+    scheduler.Register(scope.ServiceProvider.GetRequiredService<AgingSystem>());
 
     initializer.Initialize(width: 100, height: 100, seed: 42);
+
+    var spawnSystem = scope.ServiceProvider.GetRequiredService<SpawnSystem>();
+    spawnSystem.SpawnInitialPopulation(count: 50);
 }
 
 app.UseCors();

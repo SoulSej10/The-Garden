@@ -4,6 +4,7 @@ const navItems = [
   { to: '/', label: 'Dashboard', icon: '⊞' },
   { to: '/environment', label: 'Environment', icon: '🌍' },
   { to: '/map', label: 'World Map', icon: '🗺' },
+  { to: '/citizens', label: 'Citizens', icon: '👥' },
 ]
 
 export default function Sidebar() {

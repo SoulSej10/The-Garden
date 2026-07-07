@@ -149,3 +149,103 @@ export async function pauseSimulation() {
   const { data } = await api.post('/simulation/pause')
   return data
 }
+
+export interface CitizenSummary {
+  id: string
+  name: string
+  age: number
+  stage: string
+  currentActivity: string
+  currentGoal: string
+  tileX: number
+  tileY: number
+  health: number
+  hunger: number
+  thirst: number
+  energy: number
+  warmth: number
+}
+
+export interface CitizensData {
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+  citizens: CitizenSummary[]
+}
+
+export interface PopulationData {
+  total: number
+  alive: number
+  dead: number
+  totalBirths: number
+  totalDeaths: number
+  averageAge: number
+}
+
+export interface CitizenDetail {
+  id: string
+  firstName: string
+  lastName: string
+  age: number
+  stage: string
+  biologicalSex: string
+  isAlive: boolean
+  currentActivity: string
+  currentGoal: string
+  tileX: number
+  tileY: number
+  attributes: {
+    strength: number
+    endurance: number
+    intelligence: number
+    dexterity: number
+    perception: number
+  }
+  personality: {
+    curiosity: number
+    patience: number
+    aggression: number
+    compassion: number
+    diligence: number
+    introversion: number
+  }
+  needs: {
+    hunger: number
+    thirst: number
+    energy: number
+    warmth: number
+    health: number
+  }
+}
+
+export interface CitizenDetailData {
+  citizen: CitizenDetail
+  recentEvents: Array<{
+    tick: number
+    eventType: string
+    description: string
+  }>
+}
+
+export async function fetchCitizens(
+  page = 1,
+  pageSize = 50,
+  sortBy = 'name',
+  search = ''
+): Promise<CitizensData> {
+  const { data } = await api.get('/citizens', {
+    params: { page, pageSize, sortBy, search: search || undefined },
+  })
+  return data
+}
+
+export async function fetchPopulation(): Promise<PopulationData> {
+  const { data } = await api.get('/citizens/population')
+  return data
+}
+
+export async function fetchCitizenDetail(id: string): Promise<CitizenDetailData> {
+  const { data } = await api.get(`/citizens/${id}`)
+  return data
+}
