@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddSingleton<ISimulationScheduler, SimulationScheduler>();
         services.AddSingleton<SimulationCoordinator>();
         services.AddSingleton(_ => new SimulationRandom(Environment.TickCount));
+        services.AddHostedService<SimulationHostedService>();
 
         return services;
     }
