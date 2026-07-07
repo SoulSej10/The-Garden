@@ -1,39 +1,19 @@
-import { useState, useCallback, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useCallback, useState } from 'react'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { fetchMap, fetchTile } from '@/lib/api'
+import { fetchMap, fetchTile, fetchWorldStatus } from '@/lib/api'
 import type { TileData } from '@/lib/api'
-
-const TERRAIN_COLORS: Record<string, string> = {
-  Ocean: '#3b82f6',
-  Coast: '#93c5fd',
-  Plains: '#fef9c3',
-  Grassland: '#86efac',
-  Hills: '#d97706',
-  Mountains: '#a8a29e',
-  Forest: '#15803d',
-  Swamp: '#064e3b',
-  River: '#22d3ee',
-  Lake: '#60a5fa',
-}
-
-const TERRAIN_LABELS: Record<string, string> = {
-  Ocean: '~',
-  Coast: '~',
-  Plains: '.',
-  Grassland: '"',
-  Hills: '^',
-  Mountains: '^',
-  Forest: '#',
-  Swamp: '~',
-  River: '~',
-  Lake: '~',
-}
+import { WorldMapCanvas } from '@/components/WorldMapCanvas'
+import { TERRAIN_ORDER, TERRAIN_PALETTE } from '@/lib/terrainColors'
 
 const VIEW_SIZES = [10, 20, 30, 50] as const
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
+}
 
 export default function WorldMapPage() {
   const [viewSize, setViewSize] = useState<number>(20)
@@ -41,12 +21,20 @@ export default function WorldMapPage() {
   const [offsetY, setOffsetY] = useState(0)
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null)
   const [showLabels, setShowLabels] = useState(false)
-  const dragRef = useRef({ dragging: false, startX: 0, startY: 0, offX: 0, offY: 0 })
+
+  const { data: worldStatus } = useQuery({
+    queryKey: ['world-status-bounds'],
+    queryFn: fetchWorldStatus,
+    staleTime: Infinity,
+  })
+  const worldWidth = worldStatus?.width ?? 100
+  const worldHeight = worldStatus?.height ?? 100
 
   const { data: mapData, isLoading } = useQuery({
     queryKey: ['world-map', viewSize, offsetX, offsetY],
     queryFn: () => fetchMap(offsetX, offsetY, viewSize, viewSize),
     refetchInterval: 5000,
+    placeholderData: keepPreviousData,
   })
 
   const { data: tileData } = useQuery({
@@ -55,40 +43,51 @@ export default function WorldMapPage() {
     enabled: selectedTile !== null,
   })
 
-  const handleTileClick = useCallback((x: number, y: number) => {
+  const handleSelectTile = useCallback((x: number, y: number) => {
     setSelectedTile((prev) => (prev?.x === x && prev?.y === y ? null : { x, y }))
   }, [])
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    dragRef.current.dragging = true
-    dragRef.current.startX = e.clientX
-    dragRef.current.startY = e.clientY
-    dragRef.current.offX = offsetX
-    dragRef.current.offY = offsetY
-  }, [offsetX, offsetY])
+  const handlePan = useCallback(
+    (deltaTilesX: number, deltaTilesY: number) => {
+      setOffsetX((prev) => clamp(prev + deltaTilesX, 0, Math.max(0, worldWidth - viewSize)))
+      setOffsetY((prev) => clamp(prev + deltaTilesY, 0, Math.max(0, worldHeight - viewSize)))
+    },
+    [viewSize, worldWidth, worldHeight]
+  )
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!dragRef.current.dragging) return
-    const dx = dragRef.current.startX - e.clientX
-    const dy = dragRef.current.startY - e.clientY
-    const tileSize = 16
-    const newOffX = Math.max(0, Math.min(100 - viewSize, dragRef.current.offX + Math.round(dx / tileSize)))
-    const newOffY = Math.max(0, Math.min(100 - viewSize, dragRef.current.offY + Math.round(dy / tileSize)))
-    setOffsetX(newOffX)
-    setOffsetY(newOffY)
-    dragRef.current.startX = e.clientX
-    dragRef.current.startY = e.clientY
-    dragRef.current.offX = newOffX
-    dragRef.current.offY = newOffY
-  }, [viewSize])
+  const handleZoom = useCallback(
+    (direction: 1 | -1, centerTile: { x: number; y: number }) => {
+      const currentIndex = VIEW_SIZES.indexOf(viewSize as (typeof VIEW_SIZES)[number])
+      const nextIndex =
+        direction === 1 ? Math.max(0, currentIndex - 1) : Math.min(VIEW_SIZES.length - 1, currentIndex + 1)
+      const newSize = VIEW_SIZES[nextIndex]
+      if (newSize === viewSize) return
 
-  const handleMouseUp = useCallback(() => {
-    dragRef.current.dragging = false
-  }, [])
+      const maxOffsetX = Math.max(0, worldWidth - newSize)
+      const maxOffsetY = Math.max(0, worldHeight - newSize)
+      setViewSize(newSize)
+      setOffsetX(clamp(centerTile.x - Math.floor(newSize / 2), 0, maxOffsetX))
+      setOffsetY(clamp(centerTile.y - Math.floor(newSize / 2), 0, maxOffsetY))
+    },
+    [viewSize, worldWidth, worldHeight]
+  )
+
+  const handleViewSizeChange = useCallback(
+    (size: number) => {
+      const centerX = offsetX + Math.floor(viewSize / 2)
+      const centerY = offsetY + Math.floor(viewSize / 2)
+      const maxOffsetX = Math.max(0, worldWidth - size)
+      const maxOffsetY = Math.max(0, worldHeight - size)
+      setViewSize(size)
+      setOffsetX(clamp(centerX - Math.floor(size / 2), 0, maxOffsetX))
+      setOffsetY(clamp(centerY - Math.floor(size / 2), 0, maxOffsetY))
+    },
+    [offsetX, offsetY, viewSize, worldWidth, worldHeight]
+  )
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">World Map</h1>
           <p className="text-sm text-muted-foreground">
@@ -102,20 +101,13 @@ export default function WorldMapPage() {
                 key={size}
                 variant={viewSize === size ? 'default' : 'ghost'}
                 size="xs"
-                onClick={() => {
-                  setViewSize(size)
-                  setSelectedTile(null)
-                }}
+                onClick={() => handleViewSizeChange(size)}
               >
                 {size}x{size}
               </Button>
             ))}
           </div>
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={() => setShowLabels(!showLabels)}
-          >
+          <Button variant="outline" size="xs" onClick={() => setShowLabels((v) => !v)}>
             {showLabels ? 'Hide Labels' : 'Show Labels'}
           </Button>
         </div>
@@ -123,62 +115,34 @@ export default function WorldMapPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <Card>
+          <Card className="h-full">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Terrain View</CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-80 w-full" />
+              {isLoading && !mapData ? (
+                <Skeleton className="mx-auto aspect-square w-full max-w-[640px]" />
               ) : mapData?.tiles ? (
-                <div
-                  className="select-none overflow-hidden rounded-md border"
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                >
-                  <div className="flex flex-col" style={{ cursor: 'grab' }}>
-                    {Array.from({ length: mapData.height }, (_, row) => (
-                      <div key={row} className="flex">
-                        {mapData.tiles
-                          .filter((t) => t.y === mapData.offsetY + row)
-                          .sort((a, b) => a.x - b.x)
-                          .map((tile) => {
-                            const isSelected =
-                              selectedTile?.x === tile.x && selectedTile?.y === tile.y
-                            const isRiver = tile.isRiver
-                            const isLake = tile.isLake || tile.terrain === 'Lake'
-                            const color = isRiver
-                              ? '#22d3ee'
-                              : isLake
-                                ? '#60a5fa'
-                                : TERRAIN_COLORS[tile.terrain] ?? '#ccc'
-                            return (
-                              <div
-                                key={`${tile.x}-${tile.y}`}
-                                className="flex items-center justify-center text-[9px] font-mono text-black/40 transition-colors hover:ring-1 hover:ring-ring"
-                                style={{
-                                  width: 16,
-                                  height: 16,
-                                  backgroundColor: color,
-                                  outline: isSelected ? '2px solid #000' : '1px solid rgba(0,0,0,0.08)',
-                                  outlineOffset: isSelected ? -2 : 0,
-                                }}
-                                onClick={() => handleTileClick(tile.x, tile.y)}
-                                title={`(${tile.x},${tile.y}) ${tile.terrain}`}
-                              >
-                                {showLabels ? TERRAIN_LABELS[tile.terrain] ?? '?' : ''}
-                              </div>
-                            )
-                          })}
-                      </div>
-                    ))}
-                  </div>
+                <div className="mx-auto aspect-square w-full max-w-[640px]">
+                  <WorldMapCanvas
+                    tiles={mapData.tiles}
+                    gridWidth={viewSize}
+                    gridHeight={viewSize}
+                    offsetX={offsetX}
+                    offsetY={offsetY}
+                    selectedTile={selectedTile}
+                    showLabels={showLabels}
+                    onSelectTile={handleSelectTile}
+                    onPan={handlePan}
+                    onZoom={handleZoom}
+                  />
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">Not initialized.</p>
               )}
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                Drag to pan &middot; Scroll to zoom &middot; Click a tile to inspect
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -196,9 +160,7 @@ export default function WorldMapPage() {
                   <Skeleton className="h-48 w-full" />
                 )
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  Click a tile to inspect.
-                </p>
+                <p className="text-sm text-muted-foreground">Click a tile to inspect.</p>
               )}
             </CardContent>
           </Card>
@@ -208,14 +170,14 @@ export default function WorldMapPage() {
               <CardTitle className="text-sm">Legend</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-1 text-xs">
-                {Object.entries(TERRAIN_COLORS).map(([name, color]) => (
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                {TERRAIN_ORDER.map((name) => (
                   <div key={name} className="flex items-center gap-2">
                     <span
-                      className="inline-block h-3 w-3 rounded-sm"
-                      style={{ backgroundColor: color }}
+                      className="inline-block h-3 w-3 shrink-0 rounded-sm border border-black/10"
+                      style={{ backgroundColor: TERRAIN_PALETTE[name].color }}
                     />
-                    {name}
+                    <span className="text-muted-foreground">{TERRAIN_PALETTE[name].label}</span>
                   </div>
                 ))}
               </div>
@@ -260,9 +222,7 @@ function TileDetails({ tile }: { tile: TileData }) {
         </div>
         <div>
           <p className="text-xs text-muted-foreground">River/Lake</p>
-          <p className="font-medium">
-            {tile.isRiver ? 'River' : tile.isLake ? 'Lake' : 'No'}
-          </p>
+          <p className="font-medium">{tile.isRiver ? 'River' : tile.isLake ? 'Lake' : 'No'}</p>
         </div>
       </div>
 
