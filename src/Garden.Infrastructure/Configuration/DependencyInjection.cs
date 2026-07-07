@@ -26,7 +26,8 @@ public static class DependencyInjection
                 configuration.GetConnectionString("DefaultConnection")));
 
         services.AddHostedService<WorldPersistenceService>();
-        services.AddHostedService<BackupService>();
+        services.AddSingleton<BackupService>();
+        services.AddHostedService(sp => sp.GetRequiredService<BackupService>());
 
         return services;
     }
