@@ -27,12 +27,13 @@ public class AgingSystem : IScheduledSystem
     public void Execute()
     {
         var tick = _worldState.CurrentTime.Tick;
-        var currentYear = _worldState.CurrentTime.Year;
 
         foreach (var citizen in _worldState.Citizens.Where(c => c.IsAlive))
         {
-            var birthYear = (int)(citizen.BirthTick / (24L * 30 * 12)) + 1;
-            var newAge = currentYear - birthYear;
+            // Whole years elapsed since birth, measured in ticks rather than
+            // calendar-year subtraction (which rounded newborns down to 0
+            // whenever birth and current tick fell in the same in-game year).
+            var newAge = (int)Math.Max(0, (tick - citizen.BirthTick) / (24L * 30 * 12));
 
             if (newAge != citizen.Age)
             {

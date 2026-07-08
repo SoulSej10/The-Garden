@@ -18,4 +18,10 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Garden.Core\Garden.Core.csproj" />
+    <ProjectReference Include="..\..\src\Garden.World\Garden.World.csproj" />
+    <ProjectReference Include="..\..\src\Garden.Engine\Garden.Engine.csproj" />
+  </ItemGroup>
+
 </Project>

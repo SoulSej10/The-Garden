@@ -44,18 +44,21 @@ public class SpawnSystem
         {
             var idx = rng.Next(habitable.Count);
             var tile = habitable[idx];
+            var age = rng.Next(16, 50);
 
             var citizen = new Citizen
             {
                 FirstName = NameGenerator.GenerateFirstName(),
                 LastName = NameGenerator.GenerateLastName(),
-                Age = rng.Next(16, 50),
+                Age = age,
                 BiologicalSex = rng.NextDouble() < 0.5 ? "Male" : "Female",
                 TileX = tile.X,
                 TileY = tile.Y,
                 Stage = LifeStage.Adult,
                 IsAlive = true,
-                BirthTick = tick - (long)(rng.NextDouble() * 365 * 24),
+                // BirthTick must agree with Age, since AgingSystem recomputes
+                // Age from BirthTick every in-game day.
+                BirthTick = tick - age * 24L * 30 * 12 - (long)(rng.NextDouble() * 24 * 30 * 12),
                 Needs = new CitizenNeeds
                 {
                     Hunger = rng.NextDouble() * 40,

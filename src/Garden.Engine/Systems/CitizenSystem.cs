@@ -64,27 +64,63 @@ public class CitizenSystem : IScheduledSystem
         citizen.Needs.Hunger = Math.Min(MaxHunger, citizen.Needs.Hunger + 0.5);
         citizen.Needs.Thirst = Math.Min(MaxThirst, citizen.Needs.Thirst + 0.7);
         citizen.Needs.Energy = Math.Max(0, citizen.Needs.Energy - 0.3);
-        citizen.Needs.Health = Math.Max(0, citizen.Needs.Health - 0.01);
+
+        // Health has no other source of recovery, so without this a citizen
+        // whose needs are consistently well met would still ratchet toward
+        // death from pure passive decay - no amount of food/water ever
+        // undoes the damage. A well-rested, fed, and hydrated body heals.
+        var isThriving = citizen.Needs.Hunger < HungerWarningThreshold
+            && citizen.Needs.Thirst < ThirstWarningThreshold
+            && citizen.Needs.Energy > EnergyWarningThreshold
+            && citizen.Needs.Warmth > WarmthWarningThreshold;
+        citizen.Needs.Health = isThriving
+            ? Math.Min(MaxHealth, citizen.Needs.Health + 0.08)
+            : Math.Max(0, citizen.Needs.Health - 0.01);
 
         var tile = _worldState.Map.GetTile(citizen.TileX, citizen.TileY);
-        var targetWarmth = Math.Clamp(tile.Temperature / 30.0 * 100, 0, 100);
+        var effectiveTemperature = tile.Temperature + ShelterInsulationBonus(citizen);
+        var targetWarmth = Math.Clamp(effectiveTemperature / 30.0 * 100, 0, 100);
         citizen.Needs.Warmth += (targetWarmth - citizen.Needs.Warmth) * 0.02;
+    }
+
+    private double ShelterInsulationBonus(Citizen citizen)
+    {
+        if (citizen.HomeSettlementId == null) return 0;
+
+        var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+        if (settlement == null) return 0;
+
+        var hasShelter = settlement.Buildings.Any(b =>
+            b.BuildingType is BuildingTypes.Shelter or BuildingTypes.House
+            && b.Status == BuildingStatus.Completed);
+
+        // A roof and a fire take the edge off the cold even away from home -
+        // representing warm clothing/supplies a settlement provides its members.
+        return hasShelter ? 18.0 : 0.0;
     }
 
     private void CheckHealth(Citizen citizen, long tick)
     {
-        if (citizen.Needs.Hunger >= HungerCriticalThreshold)
-            citizen.Needs.Health -= 1.0;
-        if (citizen.Needs.Thirst >= ThirstCriticalThreshold)
-            citizen.Needs.Health -= 2.0;
-        if (citizen.Needs.Warmth <= WarmthCriticalThreshold)
-            citizen.Needs.Health -= 0.5;
-        if (citizen.Needs.Energy <= EnergyCriticalThreshold)
-            citizen.Needs.Health -= 0.3;
+        var hungerLoss = citizen.Needs.Hunger >= HungerCriticalThreshold ? 1.0 : 0.0;
+        var thirstLoss = citizen.Needs.Thirst >= ThirstCriticalThreshold ? 2.0 : 0.0;
+        var coldLoss = citizen.Needs.Warmth <= WarmthCriticalThreshold ? 0.5 : 0.0;
+        var exhaustionLoss = citizen.Needs.Energy <= EnergyCriticalThreshold ? 0.3 : 0.0;
+
+        citizen.Needs.Health -= hungerLoss + thirstLoss + coldLoss + exhaustionLoss;
 
         if (citizen.Needs.Health <= 0)
         {
-            Die(citizen, tick, "Starvation");
+            // Attribute death to whichever need was doing the most damage,
+            // instead of always reporting "Starvation" regardless of cause.
+            var cause = new[]
+            {
+                (Cause: "Dehydration", Loss: thirstLoss),
+                (Cause: "Starvation", Loss: hungerLoss),
+                (Cause: "Exposure", Loss: coldLoss),
+                (Cause: "Exhaustion", Loss: exhaustionLoss)
+            }.OrderByDescending(x => x.Loss).First().Cause;
+
+            Die(citizen, tick, cause);
             return;
         }
 
@@ -126,6 +162,36 @@ public class CitizenSystem : IScheduledSystem
             return;
         }
 
+        // Below critical but past the warning line: top needs up before
+        // returning to work. Without this, settled citizens gathering or
+        // building never break away until a need is fully critical - by
+        // which point thirst (which rises faster than hunger) is often
+        // critical too, and the compounding health drain from multiple
+        // simultaneous critical needs outpaces what a single trip can fix.
+        var thirstWarning = citizen.Needs.Thirst >= ThirstWarningThreshold;
+        var hungerWarning = citizen.Needs.Hunger >= HungerWarningThreshold;
+        var energyWarning = citizen.Needs.Energy <= EnergyWarningThreshold;
+
+        if (thirstWarning || hungerWarning || energyWarning)
+        {
+            if (drinkScore >= eatScore && drinkScore >= restScore)
+            {
+                citizen.CurrentGoal = "FindWater";
+                citizen.CurrentActivity = "Seeking Water";
+            }
+            else if (eatScore >= restScore)
+            {
+                citizen.CurrentGoal = "FindFood";
+                citizen.CurrentActivity = "Foraging";
+            }
+            else
+            {
+                citizen.CurrentGoal = "Rest";
+                citizen.CurrentActivity = "Resting";
+            }
+            return;
+        }
+
         if (citizen.HomeSettlementId == null)
         {
             var nearby = _settlementManager.FindNearbySettlement(citizen.TileX, citizen.TileY, 15);
@@ -137,8 +203,13 @@ public class CitizenSystem : IScheduledSystem
                 return;
             }
 
-            var communityUrge = citizen.Personality.Compassion + (100 - citizen.Personality.Introversion);
-            if (communityUrge > 110 && citizen.Needs.Energy > 30)
+            // Personality traits are rolled on a 0-10 scale (see SpawnSystem).
+            var communityUrge = citizen.Personality.Compassion + (10 - citizen.Personality.Introversion);
+            // Require water within a short walk - a settlement founded far
+            // from any water source dooms its members to a losing race
+            // against thirst on every supply run for the rest of its life.
+            var nearWater = Pathfinder.FindNearestPath(_worldState.Map, citizen.TileX, citizen.TileY, HasWaterAt, maxRadius: 8).Count > 0;
+            if (communityUrge > 11 && citizen.Needs.Energy > 30 && nearWater)
             {
                 var name = GenerateSettlementName();
                 var settlement = _settlementManager.FoundSettlement(
@@ -167,17 +238,25 @@ public class CitizenSystem : IScheduledSystem
                     return;
                 }
 
+                var neededBuilding = GetNextNeededBuilding(settlement);
                 if (_settlementManager.HasResourcesFor(
-                    new Building { BuildingType = BuildingTypes.Storage }, settlement))
+                    new Building { BuildingType = neededBuilding }, settlement))
                 {
                     _settlementManager.DeductResources(
-                        new Building { BuildingType = BuildingTypes.Storage }, settlement);
+                        new Building { BuildingType = neededBuilding }, settlement);
                     _constructionSystem.PlanBuilding(
-                        settlement, BuildingTypes.Storage,
+                        settlement, neededBuilding,
                         settlement.TileX + settlement.Buildings.Count % 5 - 2,
                         settlement.TileY + settlement.Buildings.Count / 5 - 2);
                     citizen.CurrentGoal = "Build";
-                    citizen.CurrentActivity = "Planning Storage";
+                    citizen.CurrentActivity = $"Planning {neededBuilding}";
+                    return;
+                }
+
+                if (GetNeededMaterial(settlement) != null)
+                {
+                    citizen.CurrentGoal = "GatherResources";
+                    citizen.CurrentActivity = "Gathering Materials";
                     return;
                 }
             }
@@ -215,7 +294,7 @@ public class CitizenSystem : IScheduledSystem
             return;
         }
 
-        if (citizen.CurrentGoal == "FindWater" && HasWaterAt(tile))
+        if (citizen.CurrentGoal == "FindWater" && HasWaterAccess(citizen, tile))
         {
             Drink(citizen);
             return;
@@ -227,13 +306,23 @@ public class CitizenSystem : IScheduledSystem
             return;
         }
 
-        var target = FindTargetTile(citizen);
-        if (target == null) return;
+        if (citizen.CurrentGoal == "GatherResources" && citizen.HomeSettlementId != null)
+        {
+            var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+            var material = settlement != null ? GetNeededMaterial(settlement) : null;
+            if (settlement != null && material != null
+                && MaterialToResource.TryGetValue(material, out var resType))
+            {
+                var deposit = tile.Resources.FirstOrDefault(r => r.Type == resType && r.Quantity > 0);
+                if (deposit != null)
+                {
+                    Gather(citizen, settlement, deposit, material);
+                    return;
+                }
+            }
+        }
 
-        var path = Pathfinder.FindPath(
-            _worldState.Map, citizen.TileX, citizen.TileY,
-            target.Value.X, target.Value.Y);
-
+        var path = FindTargetPath(citizen);
         if (path.Count > 1)
         {
             var next = path[1];
@@ -255,40 +344,74 @@ public class CitizenSystem : IScheduledSystem
         }
     }
 
-    private (int X, int Y)? FindTargetTile(Citizen citizen)
+    /// <summary>
+    /// Finds a path toward the citizen's current goal using a single
+    /// early-exit BFS per call (see Pathfinder.FindNearestPath), rather than
+    /// scanning every tile on the map and running a full A* search against
+    /// each one just to test reachability.
+    /// </summary>
+    private List<(int X, int Y)> FindTargetPath(Citizen citizen)
     {
-        var tiles = _worldState.Map.GetAllTiles().ToList();
+        var map = _worldState.Map;
 
         if (citizen.CurrentGoal == "FindWater")
         {
-            var water = tiles
-                .Where(t => HasWaterAt(t) && Pathfinder.FindPath(
-                    _worldState.Map, citizen.TileX, citizen.TileY, t.X, t.Y).Count > 0)
-                .OrderBy(t => Math.Abs(t.X - citizen.TileX) + Math.Abs(t.Y - citizen.TileY))
-                .FirstOrDefault();
-            if (water != null) return (water.X, water.Y);
+            var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY, t => HasWaterAccess(citizen, t));
+            if (path.Count > 0) return path;
         }
 
         if (citizen.CurrentGoal == "FindFood")
         {
-            var food = tiles
-                .Where(t => HasFoodAt(t) && Pathfinder.FindPath(
-                    _worldState.Map, citizen.TileX, citizen.TileY, t.X, t.Y).Count > 0)
-                .OrderBy(t => Math.Abs(t.X - citizen.TileX) + Math.Abs(t.Y - citizen.TileY))
-                .FirstOrDefault();
-            if (food != null) return (food.X, food.Y);
+            var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY, HasFoodAt);
+            if (path.Count > 0) return path;
         }
 
-        var explore = tiles
-            .Where(t => Math.Abs(t.X - citizen.TileX) + Math.Abs(t.Y - citizen.TileY) > 5)
-            .OrderBy(_ => System.Random.Shared.Next())
-            .FirstOrDefault();
-        return explore != null ? (explore.X, explore.Y) : null;
+        if (citizen.CurrentGoal == "GatherResources" && citizen.HomeSettlementId != null)
+        {
+            var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+            var material = settlement != null ? GetNeededMaterial(settlement) : null;
+            if (material != null && MaterialToResource.TryGetValue(material, out var resType))
+            {
+                var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY,
+                    t => t.Resources.Any(r => r.Type == resType && r.Quantity > 0));
+                if (path.Count > 0) return path;
+            }
+        }
+
+        var dx = System.Random.Shared.Next(-8, 9);
+        var dy = System.Random.Shared.Next(-8, 9);
+        var targetX = Math.Clamp(citizen.TileX + dx, 0, map.Width - 1);
+        var targetY = Math.Clamp(citizen.TileY + dy, 0, map.Height - 1);
+        return Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY,
+            t => t.X == targetX && t.Y == targetY);
     }
 
     private void Eat(Citizen citizen)
     {
         var tile = _worldState.Map.GetTile(citizen.TileX, citizen.TileY);
+
+        // Prefer stored settlement food (from farming/foraging deposits) if a member.
+        if (citizen.HomeSettlementId != null)
+        {
+            var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+            if (settlement != null && settlement.Storage.GetQuantity("Food") >= 1)
+            {
+                var stored = settlement.Storage.Remove("Food", 15);
+                citizen.Needs.Hunger = Math.Max(0, citizen.Needs.Hunger - stored);
+                citizen.Needs.Energy = Math.Min(MaxEnergy, citizen.Needs.Energy + stored * 0.3);
+                citizen.CurrentActivity = "Eating (Stored Food)";
+
+                _eventBus.Publish(new CitizenAteEvent
+                {
+                    Tick = _worldState.CurrentTime.Tick,
+                    CitizenId = citizen.Id,
+                    CitizenName = $"{citizen.FirstName} {citizen.LastName}",
+                    FoodSource = "Stored",
+                    Amount = stored
+                });
+                return;
+            }
+        }
 
         var foodSource = tile.Resources.FirstOrDefault(r => r.Type == ResourceType.WildPlants);
         if (foodSource != null && foodSource.Quantity > 0)
@@ -297,7 +420,7 @@ public class CitizenSystem : IScheduledSystem
             foodSource.Quantity -= amount;
             citizen.Needs.Hunger = Math.Max(0, citizen.Needs.Hunger - amount);
             citizen.Needs.Energy = Math.Min(MaxEnergy, citizen.Needs.Energy + amount * 0.3);
-            citizen.CurrentActivity = "Eating";
+            citizen.CurrentActivity = "Foraging";
 
             _eventBus.Publish(new CitizenAteEvent
             {
@@ -307,7 +430,76 @@ public class CitizenSystem : IScheduledSystem
                 FoodSource = "WildPlants",
                 Amount = amount
             });
+            return;
         }
+
+        var isWater = tile.IsRiver || tile.IsLake || tile.Terrain is TerrainType.Coast;
+        if (isWater || CanForageOrHunt(tile))
+        {
+            // Hunting/fishing/foraging - success scales with perception/dexterity,
+            // yields less than a proper harvest but never fully runs out.
+            var skill = (citizen.Attributes.Perception + citizen.Attributes.Dexterity) / 20.0;
+            var success = System.Random.Shared.NextDouble() < Math.Clamp(0.35 + skill * 0.3, 0.2, 0.85);
+            citizen.CurrentActivity = isWater ? "Fishing" : tile.Terrain == TerrainType.Forest ? "Hunting" : "Foraging";
+
+            if (success)
+            {
+                var amount = 6 + System.Random.Shared.NextDouble() * 4;
+                citizen.Needs.Hunger = Math.Max(0, citizen.Needs.Hunger - amount);
+                citizen.Needs.Energy = Math.Min(MaxEnergy, citizen.Needs.Energy + amount * 0.2);
+
+                _eventBus.Publish(new CitizenAteEvent
+                {
+                    Tick = _worldState.CurrentTime.Tick,
+                    CitizenId = citizen.Id,
+                    CitizenName = $"{citizen.FirstName} {citizen.LastName}",
+                    FoodSource = isWater ? "Fish" : tile.Terrain == TerrainType.Forest ? "Game" : "Forage",
+                    Amount = amount
+                });
+            }
+        }
+    }
+
+    private static readonly Dictionary<string, ResourceType> MaterialToResource = new()
+    {
+        ["Wood"] = ResourceType.Trees,
+        ["Stone"] = ResourceType.Stone,
+        ["Clay"] = ResourceType.Clay,
+    };
+
+    private static string GetNextNeededBuilding(Settlement settlement)
+    {
+        bool Has(string type) => settlement.Buildings
+            .Any(b => b.BuildingType == type && b.Status != BuildingStatus.Ruined);
+
+        if (!Has(BuildingTypes.Storage)) return BuildingTypes.Storage;
+        if (!Has(BuildingTypes.Well)) return BuildingTypes.Well;
+        if (!Has(BuildingTypes.Farm)) return BuildingTypes.Farm;
+        if (!settlement.HasAvailableHousing) return BuildingTypes.House;
+        if (!Has(BuildingTypes.Workshop)) return BuildingTypes.Workshop;
+        return BuildingTypes.House;
+    }
+
+    private static string? GetNeededMaterial(Settlement settlement)
+    {
+        var neededBuilding = GetNextNeededBuilding(settlement);
+        var costs = BuildingTypes.GetCost(neededBuilding);
+
+        return costs
+            .Select(c => (c.Material, Shortfall: c.Amount - settlement.Storage.GetQuantity(c.Material)))
+            .Where(c => c.Shortfall > 0)
+            .OrderByDescending(c => c.Shortfall)
+            .Select(c => c.Material)
+            .FirstOrDefault();
+    }
+
+    private void Gather(Citizen citizen, Settlement settlement, ResourceDeposit deposit, string material)
+    {
+        var amount = Math.Min(10, deposit.Quantity);
+        deposit.Quantity -= amount;
+        settlement.Storage.Add(material, amount);
+        citizen.Needs.Energy = Math.Max(0, citizen.Needs.Energy - 1.0);
+        citizen.CurrentActivity = $"Gathering {material}";
     }
 
     private void Drink(Citizen citizen)
@@ -335,6 +527,23 @@ public class CitizenSystem : IScheduledSystem
                 WaterSource = tile.IsRiver ? "River" : tile.IsLake ? "Lake" : "Ground",
                 Amount = amount
             });
+            return;
+        }
+
+        if (HasWellAccess(citizen))
+        {
+            var amount = 10.0;
+            citizen.Needs.Thirst = Math.Max(0, citizen.Needs.Thirst - amount * 2);
+            citizen.CurrentActivity = "Drinking (Well)";
+
+            _eventBus.Publish(new CitizenDrankEvent
+            {
+                Tick = _worldState.CurrentTime.Tick,
+                CitizenId = citizen.Id,
+                CitizenName = $"{citizen.FirstName} {citizen.LastName}",
+                WaterSource = "Well",
+                Amount = amount
+            });
         }
     }
 
@@ -359,10 +568,52 @@ public class CitizenSystem : IScheduledSystem
             || tile.Resources.Any(r => r.Type == ResourceType.FreshWater && r.Quantity > 0);
     }
 
+    /// <summary>
+    /// A tile has water access for a citizen if it's naturally wet, or if
+    /// it's within a home settlement that has built a completed Well -
+    /// otherwise a Well building is pointless busywork with no gameplay
+    /// effect, and every settled citizen must trek back to a natural water
+    /// body no matter how developed their settlement is.
+    /// </summary>
+    private bool HasWaterAccess(Citizen citizen, World.Entities.WorldTile tile)
+    {
+        if (HasWaterAt(tile)) return true;
+        if (citizen.HomeSettlementId == null) return false;
+
+        var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+        return settlement != null
+            && settlement.IsWithinTerritory(tile.X, tile.Y)
+            && settlement.Buildings.Any(b => b.BuildingType == BuildingTypes.Well && b.Status == BuildingStatus.Completed);
+    }
+
+    private bool HasWellAccess(Citizen citizen)
+    {
+        if (citizen.HomeSettlementId == null) return false;
+        var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+        return settlement != null
+            && settlement.IsWithinTerritory(citizen.TileX, citizen.TileY)
+            && settlement.Buildings.Any(b => b.BuildingType == BuildingTypes.Well && b.Status == BuildingStatus.Completed);
+    }
+
     private static bool HasFoodAt(World.Entities.WorldTile tile)
     {
-        return tile.Resources.Any(r => r.Type == ResourceType.WildPlants && r.Quantity > 0)
-            || tile.Terrain == TerrainType.Forest;
+        if (tile.Resources.Any(r => r.Type == ResourceType.WildPlants && r.Quantity > 0))
+            return true;
+
+        // Forest/grassland tiles support hunting/foraging even once formal
+        // WildPlants deposits are depleted - real forests still have game.
+        // Water tiles support fishing.
+        if (tile.Terrain is TerrainType.Forest or TerrainType.Grassland or TerrainType.Plains)
+            return CanForageOrHunt(tile);
+
+        return tile.IsRiver || tile.IsLake || tile.Terrain is TerrainType.Coast;
+    }
+
+    private static bool CanForageOrHunt(World.Entities.WorldTile tile)
+    {
+        // Ambient wildlife/forage density - always available in small amounts,
+        // richer where moisture supports plant/animal life.
+        return tile.Moisture > 0.15;
     }
 
     private static string GenerateSettlementName()

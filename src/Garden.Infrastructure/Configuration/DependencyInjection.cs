@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddSingleton<EcologySystem>();
         services.AddSingleton<CitizenSystem>();
         services.AddSingleton<AgingSystem>();
+        services.AddSingleton<ReproductionSystem>();
         services.AddSingleton<SpawnSystem>();
         services.AddSingleton<PopulationManager>();
         services.AddSingleton<SettlementManager>();
