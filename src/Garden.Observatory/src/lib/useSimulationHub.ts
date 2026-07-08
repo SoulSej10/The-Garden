@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import * as signalR from '@microsoft/signalr'
 
-const BASE = import.meta.env.DEV ? 'http://localhost:5088' : ''
+const BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:5088' : '')
 
 export function useSimulationHub() {
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null)

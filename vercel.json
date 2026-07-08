@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd src/Garden.Observatory && npm install && npm run build",
+  "outputDirectory": "src/Garden.Observatory/dist",
+  "framework": null
+}
