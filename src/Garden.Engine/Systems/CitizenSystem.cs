@@ -437,11 +437,23 @@ public class CitizenSystem : IScheduledSystem
         {
             var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
             var material = settlement != null ? GetNeededMaterial(settlement) : null;
-            if (material != null && MaterialToResource.TryGetValue(material, out var resType))
+            if (settlement != null && material != null && MaterialToResource.TryGetValue(material, out var resType))
             {
-                var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY,
-                    t => t.Resources.Any(r => r.Type == resType && r.Quantity > 0));
-                if (path.Count > 0) return path;
+                // Search from the settlement's home base with a bounded
+                // radius, not an unbounded search from the citizen's
+                // current position - otherwise a gatherer chasing a scarce
+                // resource can drift 50+ tiles from any known water source
+                // over successive gather cycles, and by the time thirst
+                // forces them to turn back it's already too late.
+                var nearHome = Pathfinder.FindNearestPath(map, settlement.TileX, settlement.TileY,
+                    t => t.Resources.Any(r => r.Type == resType && r.Quantity > 0), maxRadius: 30);
+                if (nearHome.Count > 0)
+                {
+                    var target = nearHome[^1];
+                    var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY,
+                        t => t.X == target.X && t.Y == target.Y, maxRadius: 70);
+                    if (path.Count > 0) return path;
+                }
             }
         }
 
@@ -573,10 +585,37 @@ public class CitizenSystem : IScheduledSystem
     {
         var tile = _worldState.Map.GetTile(citizen.TileX, citizen.TileY);
 
-        var waterSource = tile.Resources.FirstOrDefault(r => r.Type == ResourceType.FreshWater)
-            ?? (tile.IsRiver || tile.IsLake || tile.Terrain == TerrainType.Coast
-                ? new ResourceDeposit { Quantity = 1000, Type = ResourceType.FreshWater }
-                : null);
+        // Natural water bodies (river/lake/coast) are never exhausted by
+        // people drinking from them - treat them as infinite regardless of
+        // whether a FreshWater ResourceDeposit object happens to sit on the
+        // tile. Previously the tile's FreshWater deposit (added by world
+        // generation with MaxCapacity=1000) was drained on every drink and
+        // only regenerated once every 24 ticks; a settlement's own citizens
+        // could drain their adjacent coastline/river dry faster than it
+        // could refill. HasWaterAt/HasWaterAccess still reported the tile
+        // as "has water" (they don't check quantity for natural bodies),
+        // so citizens would stand at (what looked like) water forever,
+        // goal stuck on "Seeking Water," silently failing to drink while
+        // thirst climbed straight to critical and killed them - a citizen
+        // could die of dehydration standing directly on the coast.
+        if (tile.IsRiver || tile.IsLake || tile.Terrain == TerrainType.Coast)
+        {
+            const double amount = 10.0;
+            citizen.Needs.Thirst = Math.Max(0, citizen.Needs.Thirst - amount * 2);
+            citizen.CurrentActivity = "Drinking";
+
+            _eventBus.Publish(new CitizenDrankEvent
+            {
+                Tick = _worldState.CurrentTime.Tick,
+                CitizenId = citizen.Id,
+                CitizenName = $"{citizen.FirstName} {citizen.LastName}",
+                WaterSource = tile.IsRiver ? "River" : tile.IsLake ? "Lake" : "Coast",
+                Amount = amount
+            });
+            return;
+        }
+
+        var waterSource = tile.Resources.FirstOrDefault(r => r.Type == ResourceType.FreshWater);
 
         if (waterSource != null && waterSource.Quantity > 0)
         {
@@ -591,7 +630,7 @@ public class CitizenSystem : IScheduledSystem
                 Tick = _worldState.CurrentTime.Tick,
                 CitizenId = citizen.Id,
                 CitizenName = $"{citizen.FirstName} {citizen.LastName}",
-                WaterSource = tile.IsRiver ? "River" : tile.IsLake ? "Lake" : "Ground",
+                WaterSource = "Ground",
                 Amount = amount
             });
             return;

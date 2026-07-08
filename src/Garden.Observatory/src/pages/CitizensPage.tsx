@@ -149,6 +149,7 @@ export default function CitizensPage() {
               ))}
             </div>
           ) : citizensData?.citizens?.length ? (
+            <div className="max-h-[65vh] overflow-y-auto rounded-md">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -208,6 +209,7 @@ export default function CitizensPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           ) : (
             <p className="p-6 text-sm text-muted-foreground">No citizens found.</p>
           )}

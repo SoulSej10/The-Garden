@@ -39,6 +39,10 @@ public class WorldGenerator
 
     private int[] _perm = [];
 
+    // Percentile-derived terrain cutoffs (see GenerateElevation) - guarantee
+    // consistent land/sea/mountain proportions on every seed.
+    private double _oceanCutoff, _coastCutoff, _plainsCutoff, _grasslandCutoff, _hillsCutoff;
+
     private void GenerateElevation()
     {
         _perm = BuildPermutationTable();
@@ -52,10 +56,22 @@ public class WorldGenerator
         // almost the entire interior above the mountain threshold (~80%
         // mountains, matching the reported bug) even though the raw noise
         // itself was well distributed.
+        var flat = new double[_width * _height];
+        var idx = 0;
+
         for (var x = 0; x < _width; x++)
         for (var y = 0; y < _height; y++)
         {
-            var n = FractalNoise(x * 0.015, y * 0.015, octaves: 5, persistence: 0.5, lacunarity: 2.0);
+            var n = FractalNoise(x * 0.02, y * 0.02, octaves: 5, persistence: 0.5, lacunarity: 2.0);
+
+            // A secondary ridged-noise layer gives high ground a linear,
+            // range-like character (mountain ridges) instead of round
+            // blobs - it only meaningfully affects tiles that are already
+            // fairly elevated, so it shapes mountain ranges without
+            // changing which tiles count as high ground overall.
+            var ridge = 1.0 - Math.Abs(FractalNoise(x * 0.045 + 500, y * 0.045 + 500, octaves: 3, persistence: 0.55, lacunarity: 2.0));
+            var highGroundWeight = Math.Clamp((n + 1.0) / 2.0, 0.0, 1.0);
+            n = n * 0.8 + (ridge * 2.0 - 1.0) * 0.2 * highGroundWeight;
 
             // Blend toward deep ocean near the map border only - a fixed
             // blend, not a subtraction, so it cannot distort the mapping
@@ -64,9 +80,33 @@ public class WorldGenerator
             n = n * (1 - edgeFalloff) + -1.0 * edgeFalloff;
 
             var elevation = Math.Clamp((n + 1.0) / 2.0, 0.0, 1.0);
+            flat[idx++] = elevation;
             var tile = new WorldTile { X = x, Y = y, Elevation = elevation };
             _map.SetTile(x, y, tile);
         }
+
+        // Percentile-based terrain cutoffs: a single low-octave noise field
+        // only has a couple of wavelengths across a 100-tile map, so a
+        // particular seed can easily produce one dominant high-elevation
+        // region covering half the map - fixed absolute elevation
+        // thresholds have no way to guard against that. Deriving cutoffs
+        // from the actual distribution of THIS map's elevations guarantees
+        // the same terrain-type proportions on every seed, while still
+        // preserving the underlying noise's spatial structure (so high
+        // ground still clusters into contiguous ranges, it's just always
+        // the top ~12% of tiles that qualify as Mountains).
+        Array.Sort(flat);
+        _oceanCutoff = Percentile(flat, 0.20);
+        _coastCutoff = Percentile(flat, 0.26);
+        _plainsCutoff = Percentile(flat, 0.52);
+        _grasslandCutoff = Percentile(flat, 0.72);
+        _hillsCutoff = Percentile(flat, 0.88);
+    }
+
+    private static double Percentile(double[] sorted, double p)
+    {
+        var i = (int)Math.Clamp(p * (sorted.Length - 1), 0, sorted.Length - 1);
+        return sorted[i];
     }
 
     private double EdgeFalloff(int x, int y)
@@ -148,13 +188,14 @@ public class WorldGenerator
         for (var y = 0; y < _height; y++)
         {
             var tile = _map.GetTile(x, y);
-            tile.Terrain = tile.Elevation switch
+            var e = tile.Elevation;
+            tile.Terrain = e switch
             {
-                < 0.2 => TerrainType.Ocean,
-                < 0.25 => TerrainType.Coast,
-                < 0.4 => TerrainType.Plains,
-                < 0.5 => TerrainType.Grassland,
-                < 0.58 => TerrainType.Hills,
+                _ when e < _oceanCutoff => TerrainType.Ocean,
+                _ when e < _coastCutoff => TerrainType.Coast,
+                _ when e < _plainsCutoff => TerrainType.Plains,
+                _ when e < _grasslandCutoff => TerrainType.Grassland,
+                _ when e < _hillsCutoff => TerrainType.Hills,
                 _ => TerrainType.Mountains
             };
         }

@@ -81,6 +81,7 @@ export default function SettlementsPage() {
           <CardTitle>All Settlements</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="max-h-[65vh] overflow-y-auto rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
@@ -129,6 +130,7 @@ export default function SettlementsPage() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -151,6 +153,28 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
         </SheetDescription>
       </SheetHeader>
 
+      <div>
+        <h3 className="mb-2 text-sm font-medium">Overview</h3>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="flex items-center justify-between rounded border px-3 py-1.5">
+            <span className="text-muted-foreground">Leader</span>
+            <span className="font-medium">{detail.leaderName || 'None'}</span>
+          </div>
+          <div className="flex items-center justify-between rounded border px-3 py-1.5">
+            <span className="text-muted-foreground">Government</span>
+            <span className="font-medium">{detail.governmentType}</span>
+          </div>
+          <div className="flex items-center justify-between rounded border px-3 py-1.5">
+            <span className="text-muted-foreground">Religion</span>
+            <span className="font-medium">{detail.religionName || 'None'}</span>
+          </div>
+          <div className="flex items-center justify-between rounded border px-3 py-1.5">
+            <span className="text-muted-foreground">Technology</span>
+            <span className="font-medium">{detail.technologyProgress.toFixed(0)}%</span>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-lg border p-3">
           <p className="text-xs text-muted-foreground">Population</p>
@@ -168,6 +192,72 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
           <p className="text-xs text-muted-foreground">Members</p>
           <p className="text-xl font-semibold">{detail.members.length}</p>
         </div>
+      </div>
+
+      {detail.currentProblems.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-medium">Current Problems</h3>
+          <div className="space-y-1">
+            {detail.currentProblems.map((p) => (
+              <div key={p} className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-sm text-amber-700 dark:text-amber-400">
+                {p}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {detail.wellbeing && (
+        <div>
+          <h3 className="mb-2 text-sm font-medium">Wellbeing</h3>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Averaged across living members - no dedicated morale system yet, so this reflects real citizen needs.
+          </p>
+          <div className="space-y-2">
+            <WellbeingBar label="Health" value={detail.wellbeing.averageHealth} goodHigh />
+            <WellbeingBar label="Hunger" value={detail.wellbeing.averageHunger} goodHigh={false} />
+            <WellbeingBar label="Thirst" value={detail.wellbeing.averageThirst} goodHigh={false} />
+            <WellbeingBar label="Energy" value={detail.wellbeing.averageEnergy} goodHigh />
+          </div>
+        </div>
+      )}
+
+      {detail.ongoingProjects.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-medium">Ongoing Projects</h3>
+          <div className="space-y-2">
+            {detail.ongoingProjects.map((p, i) => (
+              <div key={i} className="rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{p.buildingType}</span>
+                  <Badge variant="secondary">{p.status}</Badge>
+                </div>
+                <Progress value={p.buildTimeRequired > 0 ? (p.buildProgress / p.buildTimeRequired) * 100 : 0} className="mt-2 h-1.5" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {detail.nearbyResources.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-medium">Nearby Resources</h3>
+          <div className="grid grid-cols-2 gap-1">
+            {detail.nearbyResources.map((r) => (
+              <div key={r.type} className="flex items-center justify-between rounded border px-3 py-1.5 text-sm">
+                <span>{r.type}</span>
+                <span className="font-medium">{r.total}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h3 className="mb-2 text-sm font-medium">Not Yet Tracked</h3>
+        <p className="text-xs text-muted-foreground">
+          Families, security, and trade relationships aren't modeled in the simulation yet - this panel will show them here once those systems exist.
+        </p>
       </div>
 
       <div>
@@ -221,6 +311,19 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+function WellbeingBar({ label, value, goodHigh }: { label: string; value: number; goodHigh: boolean }) {
+  const effective = goodHigh ? value : 100 - value
+  const color = effective >= 60 ? 'bg-green-500' : effective >= 35 ? 'bg-yellow-500' : 'bg-red-500'
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-14 text-xs text-muted-foreground">{label}</span>
+      <Progress value={value} indicatorClassName={color} />
+      <span className="w-8 text-right text-xs">{value.toFixed(0)}</span>
     </div>
   )
 }

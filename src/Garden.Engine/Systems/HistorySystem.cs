@@ -51,6 +51,8 @@ public class HistorySystem : IScheduledSystem
     private void SubscribeToEvents()
     {
         _eventBus.Subscribe<CitizenSpawnedEvent>(OnCitizenSpawned);
+        _eventBus.Subscribe<CitizenBornEvent>(OnCitizenBorn);
+        _eventBus.Subscribe<CitizenAgedEvent>(OnCitizenAged);
         _eventBus.Subscribe<CitizenDiedEvent>(OnCitizenDied);
         _eventBus.Subscribe<SettlementFoundedEvent>(OnSettlementFounded);
         _eventBus.Subscribe<BuildingCompletedEvent>(OnBuildingCompleted);
@@ -58,6 +60,46 @@ public class HistorySystem : IScheduledSystem
         _eventBus.Subscribe<TradeCompletedEvent>(OnTradeCompleted);
         _eventBus.Subscribe<SettlementExpandedEvent>(OnSettlementExpanded);
         _eventBus.Subscribe<GoodsCraftedEvent>(OnGoodsCrafted);
+    }
+
+    private void OnCitizenBorn(CitizenBornEvent e)
+    {
+        // Previously ReproductionSystem published CitizenBornEvent but
+        // nothing subscribed to it - Births Recorded stayed at 0 in History
+        // even while population was genuinely growing.
+        Archive(HistoryCategories.Birth, "CitizenBorn", $"{e.CitizenName} Is Born",
+            $"{e.CitizenName} was born at ({e.TileX}, {e.TileY}).",
+            string.Empty, e.TileX, e.Tick,
+            [e.CitizenId.Value.ToString(), e.ParentAId.Value.ToString(), e.ParentBId.Value.ToString()],
+            [e.CitizenName], 4.0,
+            e.SettlementId?.Value.ToString() ?? "");
+
+        _historyManager.Memory.AddCitizenMemory(
+            e.CitizenId.Value.ToString(), e.Tick, "Born",
+            "Birth", $"You were born at ({e.TileX}, {e.TileY}).", 0.9);
+    }
+
+    private void OnCitizenAged(CitizenAgedEvent e)
+    {
+        // Only archive entry into a new life stage (Child/Teen/Adult/Elder),
+        // not every single year of aging - a life story with a milestone
+        // every year would drown out everything else in the timeline.
+        if (e.LifeStage is not ("Child" or "Teen" or "Adult" or "Elder")) return;
+        if (e.NewAge is not (2 or 13 or 18 or 60)) return;
+
+        var milestone = e.LifeStage switch
+        {
+            "Child" => "began childhood",
+            "Teen" => "became a teenager",
+            "Adult" => "reached adulthood",
+            "Elder" => "became an elder",
+            _ => "grew older"
+        };
+
+        Archive(HistoryCategories.Discovery, "CitizenAged", $"{e.CitizenName} {milestone}",
+            $"{e.CitizenName} {milestone} at age {e.NewAge}.",
+            string.Empty, 0, e.Tick,
+            [e.CitizenId.Value.ToString()], [e.CitizenName], 1.5);
     }
 
     private void OnCitizenSpawned(CitizenSpawnedEvent e)
@@ -179,7 +221,7 @@ public class HistorySystem : IScheduledSystem
             HistoryCategories.Settlement, HistoryCategories.Birth,
             HistoryCategories.Death, HistoryCategories.Building,
             HistoryCategories.Disaster, HistoryCategories.Harvest,
-            HistoryCategories.Trade })
+            HistoryCategories.Trade, HistoryCategories.Discovery })
         {
             _historyManager.StoryEngine.GenerateStoriesForCategory(category, 2);
         }

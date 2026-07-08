@@ -2,6 +2,7 @@ using Garden.Core.Events;
 using Garden.Core.Interfaces;
 using Garden.Core.World;
 using Garden.Engine.Generators;
+using Garden.Engine.Pathfinding;
 using Garden.World.Collections;
 using Garden.World.Entities;
 using Microsoft.Extensions.Logging;
@@ -24,12 +25,14 @@ public class SpawnSystem
     public List<Citizen> SpawnInitialPopulation(int count)
     {
         var spawned = new List<Citizen>();
-        var habitable = _worldState.Map.GetAllTiles()
-            .Where(t => t.Terrain is not TerrainType.Ocean
-                and not TerrainType.Lake
-                and not TerrainType.Mountains
-                and not TerrainType.River)
-            .ToList();
+        var map = _worldState.Map;
+
+        static bool IsHabitable(World.Entities.WorldTile t) => t.Terrain is not TerrainType.Ocean
+            and not TerrainType.Lake
+            and not TerrainType.Mountains
+            and not TerrainType.River;
+
+        var habitable = map.GetAllTiles().Where(IsHabitable).ToList();
 
         if (habitable.Count == 0)
         {
@@ -40,10 +43,52 @@ public class SpawnSystem
         var rng = new System.Random(_worldState.CurrentTime.GetHashCode() ^ count);
         var tick = _worldState.CurrentTime.Tick;
 
-        for (var i = 0; i < count && habitable.Count > 0; i++)
+        // Prefer habitable tiles within a short walk of fresh water - a
+        // lone citizen who spawns far from any water source is in trouble
+        // before they've even made a decision.
+        bool NearWater(World.Entities.WorldTile t) => Pathfinder.FindNearestPath(
+            map, t.X, t.Y,
+            w => w.IsRiver || w.IsLake || w.Terrain == TerrainType.Coast,
+            maxRadius: 12).Count > 0;
+
+        var goodSites = habitable.Where(NearWater).ToList();
+        var siteSource = goodSites.Count > 0 ? goodSites : habitable;
+
+        // Spawn in small clusters instead of scattering every citizen
+        // independently across the whole continent - a lone citizen with
+        // no one nearby has almost no chance of cooperating into a
+        // settlement before something kills them. Clusters are spread out
+        // with a minimum separation so several independent groups (and,
+        // eventually, cultures) can emerge instead of everyone colliding
+        // into one settlement immediately.
+        const int targetClusterSize = 8;
+        var clusterCount = Math.Max(1, (int)Math.Ceiling(count / (double)targetClusterSize));
+        var minSeparation = Math.Max(12, Math.Min(map.Width, map.Height) / (clusterCount + 1));
+
+        var shuffledSites = siteSource.OrderBy(_ => rng.Next()).ToList();
+        var centers = new List<World.Entities.WorldTile>();
+        foreach (var candidate in shuffledSites)
         {
-            var idx = rng.Next(habitable.Count);
-            var tile = habitable[idx];
+            if (centers.Count >= clusterCount) break;
+            if (centers.All(c => Math.Abs(c.X - candidate.X) + Math.Abs(c.Y - candidate.Y) >= minSeparation))
+            {
+                centers.Add(candidate);
+            }
+        }
+        if (centers.Count == 0) centers.Add(shuffledSites[0]);
+        // Not enough well-separated sites for the target cluster count (small
+        // or cramped map) - fill remaining clusters ignoring the separation
+        // constraint rather than leaving citizens unclustered.
+        foreach (var candidate in shuffledSites)
+        {
+            if (centers.Count >= clusterCount) break;
+            if (!centers.Contains(candidate)) centers.Add(candidate);
+        }
+
+        for (var i = 0; i < count; i++)
+        {
+            var center = centers[i % centers.Count];
+            var tile = FindNearbyHabitableTile(center, habitable, rng) ?? center;
             var age = rng.Next(16, 50);
 
             var citizen = new Citizen
@@ -103,5 +148,20 @@ public class SpawnSystem
 
         _logger.LogInformation("Spawned {Count} citizens", spawned.Count);
         return spawned;
+    }
+
+    /// <summary>
+    /// Finds a habitable tile within a small radius of a cluster center, so
+    /// citizens in the same cluster land near each other (never fully
+    /// isolated) rather than on the exact same tile.
+    /// </summary>
+    private static World.Entities.WorldTile? FindNearbyHabitableTile(
+        World.Entities.WorldTile center, List<World.Entities.WorldTile> habitable, System.Random rng)
+    {
+        var nearby = habitable
+            .Where(t => Math.Abs(t.X - center.X) + Math.Abs(t.Y - center.Y) <= 5)
+            .ToList();
+
+        return nearby.Count > 0 ? nearby[rng.Next(nearby.Count)] : center;
     }
 }

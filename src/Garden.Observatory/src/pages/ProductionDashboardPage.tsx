@@ -230,6 +230,16 @@ export default function ProductionDashboardPage() {
                   <span>{summary.statistics.technologiesDiscovered} techs</span>
                 </div>
               </div>
+              {summary.insights?.length > 0 && (
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {summary.insights.map((insight) => (
+                    <div key={insight.topic} className="rounded border p-3 text-sm">
+                      <div className="mb-1 text-xs font-medium text-muted-foreground">{insight.topic}</div>
+                      <p className="text-sm">{insight.summary}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </section>

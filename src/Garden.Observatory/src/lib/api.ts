@@ -279,6 +279,11 @@ export interface SettlementDetail {
   tileY: number
   territoryRadius: number
   foundedTick: number
+  leaderName: string
+  governmentType: string
+  religionName: string
+  technologyProgress: number
+  culturalTraits: Array<{ name: string; description: string }>
   storage: Array<{ itemType: string; quantity: number; weight: number }>
   buildings: Array<{
     id: string
@@ -301,6 +306,18 @@ export interface SettlementDetail {
     tileY: number
     isAlive: boolean
   }>
+  wellbeing: {
+    averageHealth: number
+    averageHunger: number
+    averageThirst: number
+    averageEnergy: number
+  } | null
+  nearbyResources: Array<{ type: string; total: number }>
+  ongoingProjects: Array<{ buildingType: string; status: string; buildProgress: number; buildTimeRequired: number }>
+  currentProblems: string[]
+  families: unknown
+  security: unknown
+  tradeRelationships: unknown
 }
 
 export interface EconomyData {
@@ -620,6 +637,7 @@ export interface AssistantSummary {
     technologiesDiscovered: number
     historyRecordCount: number
   }
+  insights: Array<{ topic: string; summary: string }>
 }
 
 export async function fetchSystemHealth(): Promise<SystemHealth> {

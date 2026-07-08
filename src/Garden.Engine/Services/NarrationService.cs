@@ -50,8 +50,103 @@ public class NarrationService
                 TotalTradeRoutes = _worldState.TradeRoutes.Count(r => r.IsActive),
                 TechnologiesDiscovered = _worldState.Technologies.Count(t => t.IsDiscovered),
                 HistoryRecordCount = records.Count
-            }
+            },
+            Insights = BuildInsights(time, alive, settlements, kingdoms, records)
         };
+    }
+
+    /// <summary>
+    /// Every insight here is computed directly from live simulation state or
+    /// the historical archive - nothing here is invented, per "Answers must
+    /// always reference historical records... never fabricate simulation
+    /// facts." Sections the simulation doesn't yet model (culture depth,
+    /// detailed economic forecasting) are simply omitted rather than
+    /// guessed at.
+    /// </summary>
+    private List<WorldInsight> BuildInsights(
+        SimulationTime time, List<Citizen> alive, List<Settlement> settlements,
+        List<Kingdom> kingdoms, IReadOnlyList<HistoricalRecord> records)
+    {
+        var insights = new List<WorldInsight>();
+
+        // Overall world health
+        var avgHealth = alive.Count > 0 ? alive.Average(c => c.Needs.Health) : 0;
+        insights.Add(new WorldInsight("World Health",
+            alive.Count == 0
+                ? "No living citizens remain - the world is currently uninhabited."
+                : $"{alive.Count} citizens alive, averaging {avgHealth:F0}/100 health. " +
+                  (avgHealth >= 70 ? "The population is thriving." : avgHealth >= 40 ? "The population is under moderate stress." : "The population is in poor condition.")));
+
+        // Population trends (recent births vs deaths from history)
+        var recentBirths = records.Count(r => r.Category == HistoryCategories.Birth && r.Tick >= time.Tick - 24 * 30);
+        var recentDeaths = records.Count(r => r.Category == HistoryCategories.Death && r.Tick >= time.Tick - 24 * 30);
+        insights.Add(new WorldInsight("Population Trend",
+            $"In the last in-game month: {recentBirths} birth(s), {recentDeaths} death(s). " +
+            (recentBirths > recentDeaths ? "Population is growing." : recentBirths < recentDeaths ? "Population is declining." : "Population is holding steady.")));
+
+        // Food security
+        var totalFood = settlements.Sum(s => s.Storage.GetQuantity("Food"));
+        var foodPerCapita = alive.Count > 0 ? totalFood / alive.Count : 0;
+        insights.Add(new WorldInsight("Food Security",
+            settlements.Count == 0
+                ? "No settlements exist yet, so there is no stored food supply - citizens rely on individual foraging."
+                : $"Settlements hold {totalFood:F0} stored food ({foodPerCapita:F1} per living citizen). " +
+                  (foodPerCapita >= 5 ? "Reserves look healthy." : foodPerCapita >= 1 ? "Reserves are thin." : "Reserves are critically low.")));
+
+        // Resource availability
+        var wood = settlements.Sum(s => s.Storage.GetQuantity("Wood"));
+        var stone = settlements.Sum(s => s.Storage.GetQuantity("Stone"));
+        var clay = settlements.Sum(s => s.Storage.GetQuantity("Clay"));
+        insights.Add(new WorldInsight("Resource Availability",
+            $"Settlements hold {wood:F0} wood, {stone:F0} stone, {clay:F0} clay in storage."));
+
+        // Emerging civilizations / settlement growth
+        insights.Add(new WorldInsight("Settlements & Civilizations",
+            settlements.Count == 0
+                ? "No settlements have formed yet."
+                : $"{settlements.Count} settlement(s) with {settlements.Sum(s => s.Population)} residents. " +
+                  (kingdoms.Count > 0
+                      ? $"{kingdoms.Count} kingdom(s) have formed: {string.Join(", ", kingdoms.Select(k => k.Name))}."
+                      : "No settlements have united into a kingdom yet.")));
+
+        // Climate conditions
+        var weather = _worldState.Weather;
+        insights.Add(new WorldInsight("Climate Conditions",
+            $"Currently {time.Season}, weather is {weather.CurrentWeather} " +
+            $"(intensity {weather.Intensity:F1}, temperature modifier {weather.TemperatureModifier:+0.0;-0.0}°C)."));
+
+        // Notable historical events
+        var notable = records.Where(r => r.Importance is "High" or "Critical")
+            .OrderByDescending(r => r.Tick).Take(3).ToList();
+        insights.Add(new WorldInsight("Notable Recent Events",
+            notable.Count > 0
+                ? string.Join(" ", notable.Select(r => $"{r.Title} (Year {r.Year})."))
+                : "No high-importance events recorded recently."));
+
+        // Potential risks
+        var risks = new List<string>();
+        if (foodPerCapita < 2 && alive.Count > 0) risks.Add("food shortage");
+        if (avgHealth < 50 && alive.Count > 0) risks.Add("widespread poor health");
+        if (recentDeaths > recentBirths * 2 && recentDeaths > 0) risks.Add("population decline outpacing births");
+        if (settlements.Any(s => !s.HasAvailableHousing)) risks.Add("housing shortages in at least one settlement");
+        insights.Add(new WorldInsight("Potential Risks",
+            risks.Count > 0 ? $"Watch for: {string.Join(", ", risks)}." : "No significant risks detected from current data."));
+
+        // Exploration / discoveries
+        var discoveries = records.Count(r => r.Category == HistoryCategories.Discovery);
+        insights.Add(new WorldInsight("Exploration & Discoveries",
+            $"{discoveries} discovery/discoveries recorded in history " +
+            $"and {_worldState.Technologies.Count(t => t.IsDiscovered)} technologies discovered."));
+
+        // Recommendation for investigation
+        var recommendation = risks.Count > 0
+            ? $"Investigate the {risks[0]} first - it is the most immediate threat to the population."
+            : settlements.Count == 0
+                ? "Watch whether any citizens successfully found a settlement."
+                : "The world is currently stable - no urgent investigation needed.";
+        insights.Add(new WorldInsight("Recommendation", recommendation));
+
+        return insights;
     }
 
     public string AnswerQuestion(string question)
@@ -190,7 +285,10 @@ public class WorldSummary
     public string Season { get; init; } = string.Empty;
     public string Narrative { get; init; } = string.Empty;
     public WorldStats Statistics { get; init; } = new();
+    public List<WorldInsight> Insights { get; init; } = [];
 }
+
+public record WorldInsight(string Topic, string Summary);
 
 public class WorldStats
 {

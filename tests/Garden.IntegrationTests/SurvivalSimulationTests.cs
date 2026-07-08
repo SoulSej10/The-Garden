@@ -150,4 +150,85 @@ public class SurvivalSimulationTests
             $"Population went fully extinct within 3 years. Death causes: " +
             $"{string.Join(", ", populationManager.DeathCauses.Select(kv => $"{kv.Key}={kv.Value}"))}");
     }
+
+    /// <summary>
+    /// Traces the exact tick-by-tick needs/goal/position history of the
+    /// first few citizens who die of Dehydration, to see what actually
+    /// happens leading up to death rather than guessing from aggregate
+    /// statistics.
+    /// </summary>
+    [Fact]
+    public void Diagnostic_TraceDehydrationDeaths()
+    {
+        var worldState = new WorldState();
+        var eventBus = new EventBus();
+
+        var generator = new WorldGenerator(seed: 42);
+        worldState.Map = generator.Generate(100, 100);
+        worldState.IsInitialized = true;
+
+        var populationManager = new PopulationManager();
+        var settlementManager = new SettlementManager(worldState, eventBus, NullLogger<SettlementManager>.Instance);
+        var constructionSystem = new ConstructionSystem(worldState, settlementManager, eventBus, NullLogger<ConstructionSystem>.Instance);
+        var citizenSystem = new CitizenSystem(worldState, eventBus, NullLogger<CitizenSystem>.Instance, populationManager, settlementManager, constructionSystem);
+        var agingSystem = new AgingSystem(worldState, eventBus, NullLogger<AgingSystem>.Instance);
+        var reproductionSystem = new ReproductionSystem(worldState, eventBus, NullLogger<ReproductionSystem>.Instance, populationManager);
+        var resourceSystem = new ResourceSystem(worldState, eventBus, NullLogger<ResourceSystem>.Instance);
+        var agricultureSystem = new AgricultureSystem(worldState, eventBus, NullLogger<AgricultureSystem>.Instance);
+        var economySystem = new EconomySystem(worldState, NullLogger<EconomySystem>.Instance);
+
+        var spawnSystem = new SpawnSystem(worldState, eventBus, NullLogger<SpawnSystem>.Instance);
+        spawnSystem.SpawnInitialPopulation(50);
+
+        var history = new Dictionary<Garden.Core.Identifiers.GameEntityId, List<string>>();
+        var tracedDeaths = 0;
+        const int maxTracedDeaths = 3;
+
+        var citizenLookup = worldState.Citizens.ToDictionary(c => c.Id);
+
+        eventBus.Subscribe<Garden.Core.Events.CitizenDiedEvent>(e =>
+        {
+            if (tracedDeaths >= maxTracedDeaths) return;
+            if (e.CauseOfDeath != "Dehydration") return;
+            if (!history.TryGetValue(e.CitizenId, out var log)) return;
+
+            tracedDeaths++;
+            _output.WriteLine($"=== Death trace: {e.CitizenName} (cause={e.CauseOfDeath}, age={e.AgeAtDeath}) ===");
+            foreach (var line in log.TakeLast(40)) _output.WriteLine(line);
+            _output.WriteLine("");
+        });
+
+        const int ticksToRun = 24 * 60; // 2 months
+        for (long tick = 1; tick <= ticksToRun; tick++)
+        {
+            worldState.CurrentTime = SimulationTime.FromTick(tick);
+
+            resourceSystem.Execute();
+            citizenSystem.Execute();
+            agingSystem.Execute();
+            reproductionSystem.Execute();
+            constructionSystem.Execute();
+            agricultureSystem.Execute();
+            economySystem.Execute();
+
+            foreach (var c in worldState.Citizens.Where(c => c.IsAlive))
+            {
+                if (!history.TryGetValue(c.Id, out var log))
+                {
+                    log = [];
+                    history[c.Id] = log;
+                }
+                log.Add($"tick={tick} pos=({c.TileX},{c.TileY}) settlement={(c.HomeSettlementId != null ? "yes" : "no")} " +
+                        $"goal={c.CurrentGoal} activity={c.CurrentActivity} hunger={c.Needs.Hunger:F0} thirst={c.Needs.Thirst:F0} " +
+                        $"energy={c.Needs.Energy:F0} health={c.Needs.Health:F0}");
+                if (log.Count > 60) log.RemoveAt(0);
+            }
+
+            eventBus.ClearPendingEvents();
+
+            if (tracedDeaths >= maxTracedDeaths) break;
+        }
+
+        _output.WriteLine($"Traced {tracedDeaths} dehydration deaths.");
+    }
 }

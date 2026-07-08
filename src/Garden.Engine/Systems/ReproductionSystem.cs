@@ -49,6 +49,17 @@ public class ReproductionSystem : IScheduledSystem
         {
             if (!settlement.HasAvailableHousing) continue;
 
+            // Population growth must be earned by demonstrated food
+            // security, not just by having a free bed. Without this,
+            // reproduction and settlement consolidation together can grow a
+            // settlement's population much faster than a single Farm's
+            // output scales, producing a boom the food supply cannot
+            // possibly catch up with - a population explosion that resolves
+            // itself in a mass starvation collapse instead of a missing
+            // survival mechanic.
+            var foodPerCapita = settlement.Storage.GetQuantity("Food") / Math.Max(1, settlement.MemberIds.Count);
+            if (foodPerCapita < 3.0) continue;
+
             var members = settlement.MemberIds
                 .Select(id => _worldState.Citizens.FirstOrDefault(c => c.Id == id))
                 .Where(c => c != null && c.IsAlive && IsEligible(c))
@@ -59,7 +70,10 @@ public class ReproductionSystem : IScheduledSystem
             var females = members.Where(c => c.BiologicalSex == "Female").ToList();
             if (males.Count == 0 || females.Count == 0) continue;
 
-            foreach (var mother in females)
+            // At most one birth per settlement per day, even with many
+            // eligible pairs - growth should be gradual, not a sudden burst
+            // the moment food happens to be plentiful.
+            foreach (var mother in females.OrderBy(_ => System.Random.Shared.Next()))
             {
                 if (System.Random.Shared.NextDouble() >= DailyConceptionChance) continue;
 
@@ -89,7 +103,7 @@ public class ReproductionSystem : IScheduledSystem
                     $"{father.FirstName} {father.LastName}",
                     settlement.Name);
 
-                if (!settlement.HasAvailableHousing) break;
+                break;
             }
         }
 

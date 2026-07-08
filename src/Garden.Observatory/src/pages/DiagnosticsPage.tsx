@@ -101,7 +101,10 @@ export default function DiagnosticsPage() {
 
 function ResetWorldCard() {
   const queryClient = useQueryClient()
-  const [expanded, setExpanded] = useState(false)
+  // Two distinct confirmation steps, as requested: 'confirming' is a plain
+  // "are you sure?" dialog with no destructive action possible yet,
+  // 'password' is the second gate where the actual reset can fire.
+  const [step, setStep] = useState<'idle' | 'confirming' | 'password'>('idle')
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<
     | { kind: 'idle' }
@@ -109,6 +112,12 @@ function ResetWorldCard() {
     | { kind: 'error'; message: string }
     | { kind: 'success'; message: string }
   >({ kind: 'idle' })
+
+  const close = () => {
+    setStep('idle')
+    setPassword('')
+    setStatus({ kind: 'idle' })
+  }
 
   const handleReset = async () => {
     if (!password) {
@@ -143,17 +152,17 @@ function ResetWorldCard() {
   }
 
   return (
-    <Card className="border-destructive/30">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between text-destructive">
-          <span>Danger Zone</span>
-          <Badge variant="outline" className="border-destructive/40 text-destructive">
-            Dev Only
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {!expanded ? (
+    <>
+      <Card className="border-destructive/30">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between text-destructive">
+            <span>Danger Zone</span>
+            <Badge variant="outline" className="border-destructive/40 text-destructive">
+              Dev Only
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
               Permanently wipes all citizens, settlements, and history, then generates a fresh world
@@ -162,62 +171,76 @@ function ResetWorldCard() {
             <Button
               variant="outline"
               className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10"
-              onClick={() => {
-                setExpanded(true)
-                setStatus({ kind: 'idle' })
-              }}
+              onClick={() => setStep('confirming')}
             >
               Reset World
             </Button>
           </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              This will delete all citizens, settlements, and historical records, then start over with
-              a fresh map and 50 new citizens. Enter the reset password to confirm.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="password"
-                autoFocus
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleReset()
-                }}
-                placeholder="Reset password"
-                disabled={status.kind === 'pending'}
-                className="w-56 rounded-md border bg-background px-3 py-1.5 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-destructive disabled:opacity-50"
-              />
-              <Button
-                variant="destructive"
-                disabled={status.kind === 'pending'}
-                onClick={handleReset}
-              >
-                {status.kind === 'pending' ? 'Resetting...' : 'Confirm Reset'}
-              </Button>
-              <Button
-                variant="ghost"
-                disabled={status.kind === 'pending'}
-                onClick={() => {
-                  setExpanded(false)
-                  setPassword('')
-                  setStatus({ kind: 'idle' })
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-            {status.kind === 'error' && (
-              <p className="text-sm font-medium text-destructive">{status.message}</p>
-            )}
-            {status.kind === 'success' && (
-              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">{status.message}</p>
+        </CardContent>
+      </Card>
+
+      {step !== 'idle' && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && status.kind !== 'pending') close()
+          }}
+        >
+          <div className="w-full max-w-md rounded-lg border bg-background p-5 shadow-lg">
+            {step === 'confirming' ? (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-destructive">Reset the entire world?</h3>
+                <p className="text-sm text-muted-foreground">
+                  This will permanently delete every citizen, settlement, and historical record, then
+                  generate a brand new world and spawn 50 fresh citizens. There is no undo.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={close}>Cancel</Button>
+                  <Button variant="destructive" onClick={() => setStep('password')}>
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-destructive">Confirm with password</h3>
+                <p className="text-sm text-muted-foreground">
+                  Enter the reset password to finish wiping the world.
+                </p>
+                <input
+                  type="password"
+                  autoFocus
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleReset()
+                  }}
+                  placeholder="Reset password"
+                  disabled={status.kind === 'pending'}
+                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-destructive disabled:opacity-50"
+                />
+                {status.kind === 'error' && (
+                  <p className="text-sm font-medium text-destructive">{status.message}</p>
+                )}
+                {status.kind === 'success' && (
+                  <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">{status.message}</p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" disabled={status.kind === 'pending'} onClick={close}>
+                    {status.kind === 'success' ? 'Close' : 'Cancel'}
+                  </Button>
+                  {status.kind !== 'success' && (
+                    <Button variant="destructive" disabled={status.kind === 'pending'} onClick={handleReset}>
+                      {status.kind === 'pending' ? 'Resetting...' : 'Confirm Reset'}
+                    </Button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </>
   )
 }
 

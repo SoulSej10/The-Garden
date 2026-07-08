@@ -52,14 +52,46 @@ public class SettlementsController : ControllerBase
         var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id.Value == id);
         if (settlement == null) return NotFound();
 
-        var members = _worldState.Citizens
-            .Where(c => settlement.MemberIds.Contains(c.Id))
+        var allMembers = _worldState.Citizens.Where(c => settlement.MemberIds.Contains(c.Id)).ToList();
+        var aliveMembers = allMembers.Where(c => c.IsAlive).ToList();
+
+        var members = allMembers
             .Select(c => new
             {
                 c.Id, c.FirstName, c.LastName, c.Age,
                 c.CurrentActivity, c.CurrentGoal,
                 c.TileX, c.TileY, c.IsAlive
             }).ToList();
+
+        // Nearby resources: what raw materials are actually available within
+        // the settlement's territory, so residents (and the player) can see
+        // what the local land can support.
+        var territoryTiles = _worldState.Map.GetAllTiles()
+            .Where(t => settlement.IsWithinTerritory(t.X, t.Y))
+            .ToList();
+        var nearbyResources = territoryTiles
+            .SelectMany(t => t.Resources)
+            .GroupBy(r => r.Type)
+            .Select(g => new { Type = g.Key.ToString(), Total = Math.Round(g.Sum(r => r.Quantity), 0) })
+            .OrderByDescending(r => r.Total)
+            .ToList();
+
+        // Current problems: simple, honest signals derived from real state -
+        // not fabricated, per the assistant's "never fabricate" rule.
+        var problems = new List<string>();
+        if (settlement.Storage.GetQuantity("Food") < 5 && aliveMembers.Count > 0)
+            problems.Add("Low food reserves");
+        if (!settlement.Buildings.Any(b => b.BuildingType == "Well" && b.Status.ToString() == "Completed"))
+            problems.Add("No well - residents depend on natural water sources");
+        if (!settlement.HasAvailableHousing && aliveMembers.Count > 0)
+            problems.Add("Housing at capacity");
+        if (aliveMembers.Count > 0 && aliveMembers.Average(c => c.Needs.Health) < 50)
+            problems.Add("Average citizen health is poor");
+
+        var ongoingProjects = settlement.Buildings
+            .Where(b => b.Status.ToString() is "Planned" or "UnderConstruction")
+            .Select(b => new { b.BuildingType, Status = b.Status.ToString(), b.BuildProgress, b.BuildTimeRequired })
+            .ToList();
 
         return Ok(new
         {
@@ -70,6 +102,11 @@ public class SettlementsController : ControllerBase
             settlement.TileY,
             settlement.TerritoryRadius,
             settlement.FoundedTick,
+            settlement.LeaderName,
+            settlement.GovernmentType,
+            settlement.ReligionName,
+            settlement.TechnologyProgress,
+            CulturalTraits = settlement.CulturalTraits.Select(t => new { t.Name, t.Description }),
             Storage = settlement.Storage.Items.Select(i => new
             {
                 i.ItemType, i.Quantity, i.Weight
@@ -81,7 +118,28 @@ public class SettlementsController : ControllerBase
                 b.BuildTimeRequired,
                 AssignedWorkerId = b.AssignedWorkerId?.Value
             }),
-            Members = members
+            Members = members,
+            // Wellbeing is approximated from members' actual needs until a
+            // dedicated settlement-level morale system exists - it is a real
+            // aggregate of live citizen state, not a fabricated number.
+            Wellbeing = aliveMembers.Count > 0
+                ? new
+                {
+                    AverageHealth = Math.Round(aliveMembers.Average(c => c.Needs.Health), 1),
+                    AverageHunger = Math.Round(aliveMembers.Average(c => c.Needs.Hunger), 1),
+                    AverageThirst = Math.Round(aliveMembers.Average(c => c.Needs.Thirst), 1),
+                    AverageEnergy = Math.Round(aliveMembers.Average(c => c.Needs.Energy), 1)
+                }
+                : null,
+            NearbyResources = nearbyResources,
+            OngoingProjects = ongoingProjects,
+            CurrentProblems = problems,
+            // Not yet modeled in the simulation - surfaced as explicit
+            // placeholders rather than omitted, so the UI can show them once
+            // these systems exist instead of silently having no field.
+            Families = (object?)null,
+            Security = (object?)null,
+            TradeRelationships = (object?)null
         });
     }
 
