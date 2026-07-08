@@ -14,6 +14,15 @@ public record CitizenSpawnedEvent : CitizenEvent
     public int TileY { get; init; }
 }
 
+public record CitizenBornEvent : CitizenEvent
+{
+    public int TileX { get; init; }
+    public int TileY { get; init; }
+    public GameEntityId ParentAId { get; init; }
+    public GameEntityId ParentBId { get; init; }
+    public GameEntityId? SettlementId { get; init; }
+}
+
 public record CitizenMovedEvent : CitizenEvent
 {
     public int FromX { get; init; }

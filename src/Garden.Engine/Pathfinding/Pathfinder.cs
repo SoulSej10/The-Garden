@@ -41,6 +41,46 @@ public static class Pathfinder
         return [];
     }
 
+    /// <summary>
+    /// Finds the nearest tile matching <paramref name="predicate"/> via a single
+    /// breadth-first search from the start, stopping at the first match.
+    /// Avoids the O(tiles) full-A* re-search per candidate that a naive
+    /// "scan every tile, then FindPath to check reachability" approach incurs.
+    /// </summary>
+    public static List<(int X, int Y)> FindNearestPath(
+        WorldMap map, int startX, int startY, Func<World.Entities.WorldTile, bool> predicate, int maxRadius = 60)
+    {
+        var start = map.GetTile(startX, startY);
+        if (predicate(start)) return [(startX, startY)];
+
+        var visited = new HashSet<(int, int)> { (startX, startY) };
+        var cameFrom = new Dictionary<(int, int), (int, int)>();
+        var queue = new Queue<(int X, int Y, int Depth)>();
+        queue.Enqueue((startX, startY, 0));
+
+        while (queue.Count > 0)
+        {
+            var (cx, cy, depth) = queue.Dequeue();
+            if (depth >= maxRadius) continue;
+
+            foreach (var neighbor in map.GetNeighbors(cx, cy))
+            {
+                var key = (neighbor.X, neighbor.Y);
+                if (!visited.Add(key)) continue;
+                if (!IsWalkable(neighbor)) continue;
+
+                cameFrom[key] = (cx, cy);
+
+                if (predicate(neighbor))
+                    return ReconstructPath(cameFrom, neighbor.X, neighbor.Y);
+
+                queue.Enqueue((neighbor.X, neighbor.Y, depth + 1));
+            }
+        }
+
+        return [];
+    }
+
     private static bool IsWalkable(World.Entities.WorldTile tile)
     {
         return tile.Terrain is not TerrainType.Ocean

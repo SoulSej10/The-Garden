@@ -36,23 +36,118 @@ public class WorldGenerator
         return _map;
     }
 
+    private int[] _perm = [];
+
     private void GenerateElevation()
     {
-        var centerX = _width / 2.0;
-        var centerY = _height / 2.0;
-        var maxDist = Math.Sqrt(centerX * centerX + centerY * centerY);
+        _perm = BuildPermutationTable();
 
+        var raw = new double[_width, _height];
+        var min = double.MaxValue;
+        var max = double.MinValue;
+
+        // Continents/oceans come from low-frequency fractal noise (a handful of
+        // broad landmasses), refined by higher-frequency octaves for coastline
+        // and mountain-range detail - not a fixed geometric shape.
         for (var x = 0; x < _width; x++)
         for (var y = 0; y < _height; y++)
         {
-            var dist = Math.Sqrt(Math.Pow(x - centerX, 2) + Math.Pow(y - centerY, 2));
-            var baseElevation = dist / maxDist;
-            var noise = _random.NextDouble(-0.15, 0.15);
-            var elevation = Math.Clamp(baseElevation + noise, 0.0, 1.0);
+            var n = FractalNoise(x * 0.015, y * 0.015, octaves: 5, persistence: 0.5, lacunarity: 2.0);
 
+            // Gentle falloff only within the outer margin of the map, so
+            // landmasses are free to form anywhere in the interior instead of
+            // radiating from a single center point, while the world still has
+            // a coherent edge (mostly ocean at the border, like a real map).
+            var edgeFalloff = EdgeFalloff(x, y);
+            n -= edgeFalloff;
+
+            raw[x, y] = n;
+            min = Math.Min(min, n);
+            max = Math.Max(max, n);
+        }
+
+        var range = Math.Max(1e-6, max - min);
+        for (var x = 0; x < _width; x++)
+        for (var y = 0; y < _height; y++)
+        {
+            var elevation = Math.Clamp((raw[x, y] - min) / range, 0.0, 1.0);
             var tile = new WorldTile { X = x, Y = y, Elevation = elevation };
             _map.SetTile(x, y, tile);
         }
+    }
+
+    private double EdgeFalloff(int x, int y)
+    {
+        var marginX = _width * 0.12;
+        var marginY = _height * 0.12;
+        var distToEdge = Math.Min(
+            Math.Min(x, _width - 1 - x) / marginX,
+            Math.Min(y, _height - 1 - y) / marginY);
+        var t = Math.Clamp(1.0 - distToEdge, 0.0, 1.0);
+        var smooth = t * t * (3 - 2 * t);
+        return smooth * 0.6;
+    }
+
+    private double FractalNoise(double x, double y, int octaves, double persistence, double lacunarity)
+    {
+        var total = 0.0;
+        var amplitude = 1.0;
+        var frequency = 1.0;
+        var amplitudeSum = 0.0;
+
+        for (var o = 0; o < octaves; o++)
+        {
+            total += ValueNoise(x * frequency, y * frequency) * amplitude;
+            amplitudeSum += amplitude;
+            amplitude *= persistence;
+            frequency *= lacunarity;
+        }
+
+        return total / amplitudeSum;
+    }
+
+    private double ValueNoise(double x, double y)
+    {
+        var x0 = (int)Math.Floor(x);
+        var y0 = (int)Math.Floor(y);
+        var x1 = x0 + 1;
+        var y1 = y0 + 1;
+
+        var sx = x - x0;
+        var sy = y - y0;
+        var u = sx * sx * (3 - 2 * sx);
+        var v = sy * sy * (3 - 2 * sy);
+
+        var n00 = HashToUnit(x0, y0);
+        var n10 = HashToUnit(x1, y0);
+        var n01 = HashToUnit(x0, y1);
+        var n11 = HashToUnit(x1, y1);
+
+        var ix0 = n00 + u * (n10 - n00);
+        var ix1 = n01 + u * (n11 - n01);
+        return ix0 + v * (ix1 - ix0);
+    }
+
+    private double HashToUnit(int x, int y)
+    {
+        var xi = x & 255;
+        var yi = y & 255;
+        var h = _perm[(_perm[xi] + yi) & 255];
+        return h / 255.0 * 2.0 - 1.0;
+    }
+
+    private int[] BuildPermutationTable()
+    {
+        var table = new int[256];
+        for (var i = 0; i < 256; i++) table[i] = i;
+
+        for (var i = 255; i > 0; i--)
+        {
+            var j = _random.Next(i + 1);
+            (table[i], table[j]) = (table[j], table[i]);
+        }
+
+        return table;
     }
 
     private void GenerateTerrain()
