@@ -88,4 +88,66 @@ public class SurvivalSimulationTests
         Assert.True(worldState.Settlements.Count > 0,
             "Expected at least one settlement to form within 2 months");
     }
+
+    /// <summary>
+    /// Runs a full 3 in-game years (matching the reported "Year 3, population
+    /// 0" state) to check whether the population genuinely stabilizes long
+    /// term, rather than just surviving the early months before a slower
+    /// terminal decline.
+    /// </summary>
+    [Fact]
+    public void Population_RemainsViable_AcrossThreeYears()
+    {
+        var worldState = new WorldState();
+        var eventBus = new EventBus();
+
+        var generator = new WorldGenerator(seed: 42);
+        worldState.Map = generator.Generate(100, 100);
+        worldState.IsInitialized = true;
+
+        var populationManager = new PopulationManager();
+        var settlementManager = new SettlementManager(worldState, eventBus, NullLogger<SettlementManager>.Instance);
+        var constructionSystem = new ConstructionSystem(worldState, settlementManager, eventBus, NullLogger<ConstructionSystem>.Instance);
+        var citizenSystem = new CitizenSystem(worldState, eventBus, NullLogger<CitizenSystem>.Instance, populationManager, settlementManager, constructionSystem);
+        var agingSystem = new AgingSystem(worldState, eventBus, NullLogger<AgingSystem>.Instance);
+        var reproductionSystem = new ReproductionSystem(worldState, eventBus, NullLogger<ReproductionSystem>.Instance, populationManager);
+        var resourceSystem = new ResourceSystem(worldState, eventBus, NullLogger<ResourceSystem>.Instance);
+        var agricultureSystem = new AgricultureSystem(worldState, eventBus, NullLogger<AgricultureSystem>.Instance);
+        var economySystem = new EconomySystem(worldState, NullLogger<EconomySystem>.Instance);
+
+        var spawnSystem = new SpawnSystem(worldState, eventBus, NullLogger<SpawnSystem>.Instance);
+        spawnSystem.SpawnInitialPopulation(50);
+
+        const int threeYearsInTicks = 24 * 30 * 12 * 3;
+        for (long tick = 1; tick <= threeYearsInTicks; tick++)
+        {
+            worldState.CurrentTime = SimulationTime.FromTick(tick);
+
+            resourceSystem.Execute();
+            citizenSystem.Execute();
+            agingSystem.Execute();
+            reproductionSystem.Execute();
+            constructionSystem.Execute();
+            agricultureSystem.Execute();
+            economySystem.Execute();
+
+            eventBus.ClearPendingEvents();
+
+            if (tick % (24 * 30 * 3) == 0) // every ~3 months
+            {
+                var snapshot = worldState.Citizens.Where(c => c.IsAlive).ToList();
+                var time = SimulationTime.FromTick(tick);
+                _output.WriteLine($"Year {time.Year} Day {time.Day}: alive={snapshot.Count} settlements={worldState.Settlements.Count} " +
+                    (snapshot.Count > 0 ? $"avgHealth={snapshot.Average(c => c.Needs.Health):F1} avgAge={snapshot.Average(c => c.Age):F1}" : ""));
+            }
+        }
+
+        var alive = worldState.Citizens.Where(c => c.IsAlive).ToList();
+        _output.WriteLine($"Final: alive={alive.Count}/{worldState.Citizens.Count} total ever lived. " +
+            $"Death causes: {string.Join(", ", populationManager.DeathCauses.Select(kv => $"{kv.Key}={kv.Value}"))}");
+
+        Assert.True(alive.Count > 0,
+            $"Population went fully extinct within 3 years. Death causes: " +
+            $"{string.Join(", ", populationManager.DeathCauses.Select(kv => $"{kv.Key}={kv.Value}"))}");
+    }
 }

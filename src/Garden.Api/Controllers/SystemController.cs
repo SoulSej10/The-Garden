@@ -1,7 +1,12 @@
+using System.Security.Cryptography;
+using System.Text;
+using Garden.Engine.Generation;
 using Garden.Engine.Services;
+using Garden.Infrastructure.Persistence;
 using Garden.Infrastructure.Services;
 using Garden.World.Collections;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Garden.Api.Controllers;
 
@@ -13,23 +18,46 @@ public class SystemController : ControllerBase
     private readonly SimulationCoordinator _coordinator;
     private readonly SaveLoadService _saveLoadService;
     private readonly BackupService _backupService;
+    private readonly GardenDbContext _db;
+    private readonly IConfiguration _configuration;
+    private readonly SpawnSystem _spawnSystem;
+    private readonly WorldInitializer _worldInitializer;
+    private readonly HistoryManager _historyManager;
+    private readonly PopulationManager _populationManager;
+    private readonly ILogger<SystemController> _logger;
     private static readonly DateTime _startTime = DateTime.UtcNow;
 
     public SystemController(
         WorldState worldState,
         SimulationCoordinator coordinator,
         SaveLoadService saveLoadService,
-        BackupService backupService)
+        BackupService backupService,
+        GardenDbContext db,
+        IConfiguration configuration,
+        SpawnSystem spawnSystem,
+        WorldInitializer worldInitializer,
+        HistoryManager historyManager,
+        PopulationManager populationManager,
+        ILogger<SystemController> logger)
     {
         _worldState = worldState;
         _coordinator = coordinator;
         _saveLoadService = saveLoadService;
         _backupService = backupService;
+        _db = db;
+        _configuration = configuration;
+        _spawnSystem = spawnSystem;
+        _worldInitializer = worldInitializer;
+        _historyManager = historyManager;
+        _populationManager = populationManager;
+        _logger = logger;
     }
 
     [HttpGet("health")]
-    public IActionResult GetHealth()
+    public async Task<IActionResult> GetHealth()
     {
+        var databaseConnected = await _db.Database.CanConnectAsync();
+
         return Ok(new
         {
             Status = "Healthy",
@@ -37,7 +65,7 @@ public class SystemController : ControllerBase
             Timestamp = DateTime.UtcNow,
             Version = "1.0.0",
             SimulationRunning = _coordinator.IsRunning,
-            DatabaseConnected = false
+            DatabaseConnected = databaseConnected
         });
     }
 
@@ -72,7 +100,7 @@ public class SystemController : ControllerBase
                 ActiveTradeRoutes = _worldState.TradeRoutes.Count(r => r.IsActive),
                 TechnologiesDiscovered = _worldState.Technologies.Count(t => t.IsDiscovered),
                 Religions = _worldState.Religions.Count,
-                HistoryRecords = 0
+                HistoryRecords = _historyManager.Archive.Count
             },
             Performance = new
             {
@@ -132,7 +160,82 @@ public class SystemController : ControllerBase
         }).ToList();
         return Ok(new { Backups = backups, Count = backups.Count });
     }
+
+    /// <summary>
+    /// Dev-only: wipes the entire world (database + in-memory state +
+    /// history) and spawns a fresh population of 50 citizens on a newly
+    /// generated map. Gated by a password whose SHA-256 hash is configured
+    /// via Admin:ResetPasswordHash - never compares or logs the plaintext.
+    /// Not part of the normal Observatory (observe-only) surface; this
+    /// exists to recover from a fully-dead saved world without a redeploy.
+    /// </summary>
+    [HttpPost("reset")]
+    public async Task<IActionResult> ResetWorld([FromBody] ResetWorldRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Password))
+            return BadRequest(new { Error = "Password is required." });
+
+        var configuredHash = _configuration["Admin:ResetPasswordHash"];
+        if (string.IsNullOrWhiteSpace(configuredHash))
+            return StatusCode(500, new { Error = "World reset is not configured on this server." });
+
+        var submittedHash = Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(request.Password))).ToLowerInvariant();
+        var expectedBytes = Encoding.UTF8.GetBytes(configuredHash.Trim().ToLowerInvariant());
+        var actualBytes = Encoding.UTF8.GetBytes(submittedHash);
+
+        var isMatch = expectedBytes.Length == actualBytes.Length
+            && CryptographicOperations.FixedTimeEquals(expectedBytes, actualBytes);
+
+        if (!isMatch)
+        {
+            _logger.LogWarning("Rejected world reset attempt with an incorrect password");
+            return Unauthorized(new { Error = "Incorrect password." });
+        }
+
+        try
+        {
+            _coordinator.Pause();
+
+            await _db.Citizens.ExecuteDeleteAsync();
+            await _db.Settlements.ExecuteDeleteAsync();
+
+            _worldState.Citizens.Clear();
+            _worldState.Settlements.Clear();
+            _worldState.Kingdoms.Clear();
+            _worldState.DiplomaticRelations.Clear();
+            _worldState.TradeRoutes.Clear();
+            _worldState.Technologies.Clear();
+            _worldState.Religions.Clear();
+            _worldState.EnvironmentEvents.Clear();
+
+            _historyManager.Archive.Clear();
+            _populationManager.Reset();
+
+            var seed = Random.Shared.Next();
+            _worldInitializer.Reinitialize(width: 100, height: 100, seed: seed);
+            _spawnSystem.SpawnInitialPopulation(count: 50);
+
+            _coordinator.Clock.Reset();
+            _coordinator.Start();
+
+            _logger.LogWarning("World reset complete - fresh population spawned (seed {Seed})", seed);
+
+            return Ok(new
+            {
+                Message = "World reset complete. A fresh population of 50 citizens has been spawned.",
+                Seed = seed,
+                CitizenCount = _worldState.Citizens.Count
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "World reset failed");
+            return StatusCode(500, new { Error = "Reset failed. The world may be in a partially-reset state - check server logs." });
+        }
+    }
 }
 
 public record SaveRequest(string? Name);
 public record LoadRequest(string Name);
+public record ResetWorldRequest(string Password);

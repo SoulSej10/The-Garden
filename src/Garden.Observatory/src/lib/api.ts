@@ -657,6 +657,17 @@ export async function deleteSave(name: string) {
   return data
 }
 
+export interface ResetWorldResult {
+  message: string
+  seed: number
+  citizenCount: number
+}
+
+export async function resetWorld(password: string): Promise<ResetWorldResult> {
+  const { data } = await api.post('/system/reset', { password })
+  return data
+}
+
 export async function fetchAssistantSummary(): Promise<AssistantSummary> {
   const { data } = await api.get('/assistant/summary')
   return data

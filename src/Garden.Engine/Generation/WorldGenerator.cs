@@ -29,6 +29,7 @@ public class WorldGenerator
         GenerateRivers();
         GenerateLakes();
         AssignClimates();
+        GenerateSwamps();
         GenerateBiomes();
         GenerateResources();
         GenerateForests();
@@ -42,35 +43,27 @@ public class WorldGenerator
     {
         _perm = BuildPermutationTable();
 
-        var raw = new double[_width, _height];
-        var min = double.MaxValue;
-        var max = double.MinValue;
-
-        // Continents/oceans come from low-frequency fractal noise (a handful of
-        // broad landmasses), refined by higher-frequency octaves for coastline
-        // and mountain-range detail - not a fixed geometric shape.
+        // FractalNoise is a weighted average of octaves each bounded to
+        // [-1, 1], so the result is always in [-1, 1] regardless of seed or
+        // map size - map it to [0, 1] with a FIXED formula. Earlier this used
+        // a whole-grid min/max stretch instead, which was a bug: subtracting
+        // an edge falloff dragged the grid-wide minimum far down, and
+        // stretching every tile's elevation against that new min/max pushed
+        // almost the entire interior above the mountain threshold (~80%
+        // mountains, matching the reported bug) even though the raw noise
+        // itself was well distributed.
         for (var x = 0; x < _width; x++)
         for (var y = 0; y < _height; y++)
         {
             var n = FractalNoise(x * 0.015, y * 0.015, octaves: 5, persistence: 0.5, lacunarity: 2.0);
 
-            // Gentle falloff only within the outer margin of the map, so
-            // landmasses are free to form anywhere in the interior instead of
-            // radiating from a single center point, while the world still has
-            // a coherent edge (mostly ocean at the border, like a real map).
+            // Blend toward deep ocean near the map border only - a fixed
+            // blend, not a subtraction, so it cannot distort the mapping
+            // used for the rest of the grid.
             var edgeFalloff = EdgeFalloff(x, y);
-            n -= edgeFalloff;
+            n = n * (1 - edgeFalloff) + -1.0 * edgeFalloff;
 
-            raw[x, y] = n;
-            min = Math.Min(min, n);
-            max = Math.Max(max, n);
-        }
-
-        var range = Math.Max(1e-6, max - min);
-        for (var x = 0; x < _width; x++)
-        for (var y = 0; y < _height; y++)
-        {
-            var elevation = Math.Clamp((raw[x, y] - min) / range, 0.0, 1.0);
+            var elevation = Math.Clamp((n + 1.0) / 2.0, 0.0, 1.0);
             var tile = new WorldTile { X = x, Y = y, Elevation = elevation };
             _map.SetTile(x, y, tile);
         }
@@ -84,8 +77,7 @@ public class WorldGenerator
             Math.Min(x, _width - 1 - x) / marginX,
             Math.Min(y, _height - 1 - y) / marginY);
         var t = Math.Clamp(1.0 - distToEdge, 0.0, 1.0);
-        var smooth = t * t * (3 - 2 * t);
-        return smooth * 0.6;
+        return t * t * (3 - 2 * t);
     }
 
     private double FractalNoise(double x, double y, int octaves, double persistence, double lacunarity)
@@ -162,8 +154,7 @@ public class WorldGenerator
                 < 0.25 => TerrainType.Coast,
                 < 0.4 => TerrainType.Plains,
                 < 0.5 => TerrainType.Grassland,
-                < 0.6 => TerrainType.Hills,
-                < 0.8 => TerrainType.Mountains,
+                < 0.58 => TerrainType.Hills,
                 _ => TerrainType.Mountains
             };
         }
@@ -261,6 +252,27 @@ public class WorldGenerator
                     ClimateZone.Highland => _random.NextDouble(0.3, 0.6),
                     _ => 0.5
                 };
+            }
+        }
+    }
+
+    private void GenerateSwamps()
+    {
+        // TerrainType.Swamp was referenced by the biome mapping below but
+        // never actually assigned anywhere - low, waterlogged ground near
+        // rivers/lakes should become swamp instead of staying Plains/Grassland.
+        for (var x = 0; x < _width; x++)
+        for (var y = 0; y < _height; y++)
+        {
+            var tile = _map.GetTile(x, y);
+            if (tile.Terrain is not (TerrainType.Plains or TerrainType.Grassland)) continue;
+            if (tile.Elevation > 0.35 || tile.Moisture < 0.7) continue;
+
+            var nearWater = _map.GetNeighbors(x, y).Any(n => n.IsRiver || n.IsLake);
+            var chance = nearWater ? 0.4 : 0.05;
+            if (_random.NextDouble() < chance)
+            {
+                tile.Terrain = TerrainType.Swamp;
             }
         }
     }

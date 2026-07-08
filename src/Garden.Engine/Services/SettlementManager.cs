@@ -32,6 +32,22 @@ public class SettlementManager
             .FirstOrDefault();
     }
 
+    /// <summary>
+    /// Nearest settlement anywhere in the world, regardless of distance.
+    /// Unsettled citizens should always prefer travelling to an existing
+    /// settlement over founding a redundant new one - a small join radius
+    /// was letting most citizens on a large map never discover any existing
+    /// settlement before independently founding their own, fragmenting a
+    /// population of 50 into dozens of one- or two-person camps too small
+    /// to sustain themselves.
+    /// </summary>
+    public Settlement? FindNearestSettlement(int x, int y)
+    {
+        return _worldState.Settlements
+            .OrderBy(s => Math.Abs(s.TileX - x) + Math.Abs(s.TileY - y))
+            .FirstOrDefault();
+    }
+
     public Settlement FoundSettlement(Citizen founder, string name, int x, int y, long tick)
     {
         var settlement = new Settlement
