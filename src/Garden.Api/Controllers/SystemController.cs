@@ -197,8 +197,23 @@ public class SystemController : ControllerBase
         {
             _coordinator.Pause();
 
-            await _db.Citizens.ExecuteDeleteAsync();
-            await _db.Settlements.ExecuteDeleteAsync();
+            // Both ExecuteDeleteAsync and load+RemoveRange fail with a
+            // foreign key violation once a settlement has accumulated child
+            // rows (CulturalTrait, Building, Building_Items,
+            // Settlements_Items) or a citizen has memories (CitizenMemory) -
+            // any world that's been running for a while will have these.
+            // EF's owned-entity cascade tracking doesn't reliably reach
+            // every one of these tables, so delete children before parents
+            // explicitly, in dependency order.
+            await _db.Database.ExecuteSqlRawAsync(@"
+                DELETE FROM ""CitizenMemory"";
+                DELETE FROM ""Building_Items"";
+                DELETE FROM ""Building"";
+                DELETE FROM ""Settlements_Items"";
+                DELETE FROM ""CulturalTrait"";
+                DELETE FROM ""Citizens"";
+                DELETE FROM ""Settlements"";
+            ");
 
             _worldState.Citizens.Clear();
             _worldState.Settlements.Clear();
