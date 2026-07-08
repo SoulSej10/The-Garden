@@ -71,9 +71,19 @@ using (var scope = app.Services.CreateScope())
     initializer.Initialize(width: 100, height: 100, seed: 42);
 
     var worldState = scope.ServiceProvider.GetRequiredService<WorldState>();
-    var hasExistingData = await db.Citizens.AnyAsync();
+    var progLog = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-    if (hasExistingData)
+    // A world only counts as "resumable" if it still has someone alive in it.
+    // Previously this checked db.Citizens.AnyAsync(), which is true even when
+    // every saved citizen is dead - since CitizenSystem only ever acts on
+    // living citizens, reloading an all-dead snapshot produced a "zombie
+    // world": the clock kept ticking forever (matching reports of the
+    // simulation sitting at Year 3+ with population stuck at 0) while no AI,
+    // reproduction, or history ever ran again, because there was no one left
+    // to run it on. Every subsequent restart reloaded the same corpses.
+    var hasViablePopulation = await db.Citizens.AnyAsync(c => c.IsAlive);
+
+    if (hasViablePopulation)
     {
         var existingCitizens = await db.Citizens.ToListAsync();
         worldState.Citizens.Clear();
@@ -83,13 +93,22 @@ using (var scope = app.Services.CreateScope())
         worldState.Settlements.Clear();
         worldState.Settlements.AddRange(existingSettlements);
 
-        var progLog = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
         progLog.LogInformation(
             "Loaded {CitizenCount} citizens and {SettlementCount} settlements from database",
             existingCitizens.Count, existingSettlements.Count);
     }
     else
     {
+        var staleCitizens = await db.Citizens.CountAsync();
+        if (staleCitizens > 0)
+        {
+            progLog.LogWarning(
+                "Discarding a fully-dead saved world ({Count} citizens, all deceased) and starting fresh",
+                staleCitizens);
+            await db.Citizens.ExecuteDeleteAsync();
+            await db.Settlements.ExecuteDeleteAsync();
+        }
+
         var spawnSystem = scope.ServiceProvider.GetRequiredService<SpawnSystem>();
         spawnSystem.SpawnInitialPopulation(count: 50);
     }

@@ -57,6 +57,26 @@ public class SimulationClockTests
     }
 
     [Fact]
+    public void GetTickDelayMs_AtDefaultSpeed_IsOneRealSecondPerGameHour()
+    {
+        // Regression guard: this previously used a 60fps frame interval
+        // (~16.7ms) as the base delay, making "1x" advance ~2.5 in-game
+        // days per real second - a full year in a few real minutes instead
+        // of the ~2.4 real hours a believable "1x" pace should take.
+        var clock = new SimulationClock();
+        clock.SetSpeed(1.0);
+        Assert.Equal(1000, clock.GetTickDelayMs());
+    }
+
+    [Fact]
+    public void GetTickDelayMs_ScalesInverselyWithSpeed()
+    {
+        var clock = new SimulationClock();
+        clock.SetSpeed(1000.0);
+        Assert.Equal(1, clock.GetTickDelayMs());
+    }
+
+    [Fact]
     public void Reset_ClearsState()
     {
         var clock = new SimulationClock();

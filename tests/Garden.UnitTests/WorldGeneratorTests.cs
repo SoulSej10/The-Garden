@@ -1,11 +1,49 @@
 using Garden.Core.World;
 using Garden.Engine.Generation;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Garden.UnitTests;
 
 public class WorldGeneratorTests
 {
+    private readonly ITestOutputHelper _output;
+
+    public WorldGeneratorTests(ITestOutputHelper output)
+    {
+        _output = output;
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(42)]
+    [InlineData(9999)]
+    public void Generate_ProducesBalancedTerrainDistribution_NoSingleTypeDominates(int seed)
+    {
+        var generator = new WorldGenerator(seed);
+        var map = generator.Generate(100, 100);
+        var tiles = map.GetAllTiles().ToList();
+        var total = tiles.Count;
+
+        var byTerrain = tiles.GroupBy(t => t.Terrain)
+            .ToDictionary(g => g.Key, g => g.Count() * 100.0 / total);
+
+        _output.WriteLine($"Seed {seed}: {string.Join(", ", byTerrain.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}={kv.Value:F1}%"))}");
+
+        // Regression guard: elevation used to be re-normalized (min/max)
+        // across the whole grid after subtracting an edge falloff, which
+        // dragged the grid-wide minimum down and pushed almost the entire
+        // interior above the mountain threshold (~80% mountains, the
+        // reported bug). No single terrain type should dominate the map.
+        foreach (var (terrain, pct) in byTerrain)
+        {
+            Assert.True(pct < 45.0, $"{terrain} covers {pct:F1}% of the map - terrain generation is not balanced");
+        }
+
+        Assert.True(byTerrain.GetValueOrDefault(TerrainType.Mountains) < 35.0,
+            $"Mountains cover {byTerrain.GetValueOrDefault(TerrainType.Mountains):F1}% - should form ranges, not dominate the map");
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(42)]

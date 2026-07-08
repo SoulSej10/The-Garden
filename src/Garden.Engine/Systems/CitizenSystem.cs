@@ -130,6 +130,10 @@ public class CitizenSystem : IScheduledSystem
         }
     }
 
+    // How far a citizen will travel to join an existing settlement before
+    // giving up and considering founding their own.
+    private const int SettlementJoinTravelCap = 45;
+
     private void MakeDecision(Citizen citizen)
     {
         var tile = _worldState.Map.GetTile(citizen.TileX, citizen.TileY);
@@ -194,15 +198,34 @@ public class CitizenSystem : IScheduledSystem
 
         if (citizen.HomeSettlementId == null)
         {
-            var nearby = _settlementManager.FindNearbySettlement(citizen.TileX, citizen.TileY, 15);
-            if (nearby != null)
+            // Always prefer an existing settlement over founding a new one -
+            // a 15-tile join radius with no fallback meant most citizens on
+            // a large map never discovered any existing settlement before
+            // independently satisfying the founding condition themselves,
+            // fragmenting a population of 50 into dozens of one- or
+            // two-person camps too small to build, farm, or reproduce.
+            var nearest = _settlementManager.FindNearestSettlement(citizen.TileX, citizen.TileY);
+            if (nearest != null && nearest.IsWithinTerritory(citizen.TileX, citizen.TileY))
             {
-                _settlementManager.JoinSettlement(nearby, citizen);
+                _settlementManager.JoinSettlement(nearest, citizen);
                 citizen.CurrentGoal = "JoinSettlement";
                 citizen.CurrentActivity = "Joining Settlement";
                 return;
             }
 
+            var distanceToNearest = nearest != null
+                ? Math.Abs(nearest.TileX - citizen.TileX) + Math.Abs(nearest.TileY - citizen.TileY)
+                : int.MaxValue;
+
+            if (nearest != null && distanceToNearest <= SettlementJoinTravelCap)
+            {
+                citizen.CurrentGoal = "TravelToSettlement";
+                citizen.CurrentActivity = $"Traveling to {nearest.Name}";
+                return;
+            }
+
+            // No settlement is reachable within a practical travel distance -
+            // consider founding a new one here.
             // Personality traits are rolled on a 0-10 scale (see SpawnSystem).
             var communityUrge = citizen.Personality.Compassion + (10 - citizen.Personality.Introversion);
             // Require water within a short walk - a settlement founded far
@@ -250,6 +273,24 @@ public class CitizenSystem : IScheduledSystem
                         settlement.TileY + settlement.Buildings.Count / 5 - 2);
                     citizen.CurrentGoal = "Build";
                     citizen.CurrentActivity = $"Planning {neededBuilding}";
+                    return;
+                }
+
+                // A completed Farm building with no one ever planting seeds
+                // in it just sits idle forever - AgricultureSystem only
+                // turns Seeds into Food, it never creates Seeds. Without
+                // this, settlements have no real collective food source and
+                // every citizen depends entirely on individual chance-based
+                // foraging, which cannot support more than a couple of
+                // people sharing the same small patch of land.
+                var needsPlanting = settlement.Buildings
+                    .FirstOrDefault(b => b.BuildingType == BuildingTypes.Farm
+                        && b.Status == BuildingStatus.Completed
+                        && b.Storage.GetQuantity("Seeds") < 20);
+                if (needsPlanting != null)
+                {
+                    citizen.CurrentGoal = "FarmWork";
+                    citizen.CurrentActivity = "Planting Crops";
                     return;
                 }
 
@@ -322,6 +363,21 @@ public class CitizenSystem : IScheduledSystem
             }
         }
 
+        if (citizen.CurrentGoal == "FarmWork" && citizen.HomeSettlementId != null)
+        {
+            var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+            var farm = settlement?.Buildings.FirstOrDefault(b => b.BuildingType == BuildingTypes.Farm
+                && b.Status == BuildingStatus.Completed
+                && b.TileX == citizen.TileX && b.TileY == citizen.TileY);
+            if (farm != null)
+            {
+                farm.Storage.Add("Seeds", 15);
+                citizen.Needs.Energy = Math.Max(0, citizen.Needs.Energy - 1.5);
+                citizen.CurrentActivity = "Planting Crops";
+                return;
+            }
+        }
+
         var path = FindTargetPath(citizen);
         if (path.Count > 1)
         {
@@ -364,6 +420,17 @@ public class CitizenSystem : IScheduledSystem
         {
             var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY, HasFoodAt);
             if (path.Count > 0) return path;
+        }
+
+        if (citizen.CurrentGoal == "TravelToSettlement")
+        {
+            var nearest = _settlementManager.FindNearestSettlement(citizen.TileX, citizen.TileY);
+            if (nearest != null)
+            {
+                var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY,
+                    t => nearest.IsWithinTerritory(t.X, t.Y), maxRadius: 70);
+                if (path.Count > 0) return path;
+            }
         }
 
         if (citizen.CurrentGoal == "GatherResources" && citizen.HomeSettlementId != null)

@@ -185,20 +185,20 @@ export default function CitizensPage() {
                     </TableCell>
                     <TableCell className="w-24">
                       <div className="flex items-center gap-2">
-                        <Progress value={c.health} className={healthColor(c.health)} />
+                        <Progress value={c.health} indicatorClassName={healthColor(c.health)} />
                         <span className="text-xs w-6">{c.health.toFixed(0)}</span>
                       </div>
                     </TableCell>
                     <TableCell className="w-20">
                       <Progress
                         value={c.hunger}
-                        className={needColor(c.hunger, 60, 80)}
+                        indicatorClassName={needColor(c.hunger, 60, 80)}
                       />
                     </TableCell>
                     <TableCell className="w-20">
                       <Progress
                         value={c.energy}
-                        className={needColor(100 - c.energy, 70, 85)}
+                        indicatorClassName={needColor(100 - c.energy, 70, 85)}
                       />
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs text-muted-foreground">
@@ -295,7 +295,7 @@ function CitizenDetailPanel({ data }: { data: CitizenDetail }) {
           ].map((n) => (
             <div key={n.label} className="flex items-center gap-3">
               <span className="w-14 text-xs text-muted-foreground">{n.label}</span>
-              <Progress value={n.value} className={n.color} />
+              <Progress value={n.value} indicatorClassName={n.color} />
               <span className="w-8 text-xs text-right">{n.value.toFixed(0)}</span>
             </div>
           ))}

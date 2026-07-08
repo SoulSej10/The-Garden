@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "src/Garden.Observatory", "run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/Garden.Api", "--urls", "http://localhost:5088"],
+      "port": 5088
     }
   ]
 }

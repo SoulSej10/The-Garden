@@ -22,6 +22,14 @@ public class PopulationManager
 
     public void UpdatePopulation(int count) => TotalPopulation = count;
 
+    public void Reset()
+    {
+        _totalBirths = 0;
+        _totalDeaths = 0;
+        _deathCauses.Clear();
+        TotalPopulation = 0;
+    }
+
     public double GetAverageAge(IEnumerable<World.Entities.Citizen> citizens)
     {
         var list = citizens.Where(c => c.IsAlive).ToList();

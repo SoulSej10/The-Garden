@@ -28,6 +28,15 @@ public class WorldInitializer
             return;
         }
 
+        Reinitialize(width, height, seed);
+    }
+
+    /// <summary>
+    /// Regenerates the world map unconditionally, even if one already
+    /// exists - used by the dev-only world reset endpoint.
+    /// </summary>
+    public void Reinitialize(int width, int height, int seed)
+    {
         var sw = System.Diagnostics.Stopwatch.StartNew();
         _logger.LogInformation("Initializing world: {Width}x{Height}, seed={Seed}", width, height, seed);
 
