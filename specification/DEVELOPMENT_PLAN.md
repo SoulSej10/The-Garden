@@ -259,6 +259,23 @@ set. Noted in the Backlog table alongside Week 8's parent-child finding. Verifie
 `LawSystemTests.cs`'s synthetic disputes and confirming the Observatory UI handles empty
 data cleanly.
 
+## Week 10 (2026-07-10 → in progress) — Life Sciences: Flora History (Increment 1 of Volume IV)
+
+Scoped from `RFC/RFC-006-life-sciences-flora-history.md` - a smaller, differently-shaped
+increment than Weeks 5-9's (no new entity/system; wires two already-existing, already-firing
+`EnvironmentalEvent` types into `HistorySystem`). This is explicitly **increment 1 of a much
+larger Volume IV** - Fauna, Population Ecology, Disease, Evolution, and the
+`AgricultureSystem` hardcoding question are all still fully deferred; the original 2-week
+budget for "Life Sciences foundation" (Weeks 10-11) covered the whole volume, not this slice.
+
+| Day | Task | Status |
+|---|---|---|
+| 46 | Add `HistoryCategories.Nature`; wire `HistorySystem` to `ForestExpandedEvent`/`ForestDeclinedEvent` | Pending |
+| 47 | Unit tests for both new handlers | Pending |
+| 48 | Live verification against a running simulation (both events are rare/gated - may need an extended run) | Pending |
+| 49 | Re-scope remaining Volume IV backlog: confirm whether Week 11 continues with Fauna/Population Ecology or whether that needs its own RFC first | Pending |
+| 50 | Close-out: changelog, RFC-006 status update, full verification, commit/push | Pending |
+
 ---
 
 ## Project-Wide Timeline Estimate (as of 2026-07-10)
