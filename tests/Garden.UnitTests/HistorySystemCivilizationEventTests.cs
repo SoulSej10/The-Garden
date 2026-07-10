@@ -379,4 +379,69 @@ public class HistorySystemCivilizationEventTests
         Assert.Contains("Upperridge", record.Title);
         Assert.Contains("Newdale", record.Title);
     }
+
+    [Fact]
+    public void ArchivedRecord_StoresTheRealLocationY_NotLocationXPlusOne()
+    {
+        // Regression test found while live-verifying Week 10 (Day 48):
+        // Archive()'s LocationY used to be hardcoded to locationX + 1,
+        // completely ignoring the real Y coordinate - a bug affecting
+        // every one of HistorySystem's ~23 pre-existing Archive() call
+        // sites, not just the two Forest handlers added this week. No
+        // prior test asserted on LocationY, which is exactly why this
+        // went unnoticed for nine weeks.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new ForestExpandedEvent
+        {
+            Tick = 1000,
+            TileX = 9,
+            TileY = 34,
+            AreaExpanded = 1
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal(9, record.LocationX);
+        Assert.Equal(34, record.LocationY);
+    }
+
+    [Fact]
+    public void ForestExpanded_IsArchived()
+    {
+        // Regression test per RFC-006: ForestExpandedEvent already existed
+        // and was already published by EcologySystem, but had zero
+        // subscribers anywhere - the same TG-001 Law IV violation Day 1
+        // fixed, predating this development cycle rather than introduced by it.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new ForestExpandedEvent
+        {
+            Tick = 2000,
+            TileX = 15,
+            TileY = 22,
+            AreaExpanded = 1
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("ForestExpanded", record.EventType);
+        Assert.Equal(HistoryCategories.Nature, record.Category);
+    }
+
+    [Fact]
+    public void ForestDeclined_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new ForestDeclinedEvent
+        {
+            Tick = 3000,
+            TileX = 8,
+            TileY = 9,
+            AreaLost = 1
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("ForestDeclined", record.EventType);
+        Assert.Equal(HistoryCategories.Nature, record.Category);
+    }
 }

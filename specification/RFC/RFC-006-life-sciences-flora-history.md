@@ -1,6 +1,6 @@
 # RFC-006: Life Sciences — Flora History (First Increment)
 
-**Status:** Proposed
+**Status:** Implemented (Week 10, 2026-07-10 - see DEVELOPMENT_PLAN.md Days 46-50)
 **Date:** 2026-07-10
 **Author:** DEVELOPMENT_PLAN.md (Week 9 close-out backlog triage)
 **Governing spec:** `03_Sciences/02_Life/TG-200_Biology_Foundations.md`, `TG-210_Flora.md`
@@ -100,3 +100,24 @@ useful later.
    equal for this increment - both are equally rare/gated in the current code, and TG-STRY-050's
    own criteria weigh actual consequences, which this increment doesn't yet model either way;
    revisit once real gameplay consequences of forest cover exist.)
+
+## Implementation notes (Week 10, added at close-out)
+
+- Implemented as designed: `HistoryCategories.Nature` added, `HistorySystem` now subscribes
+  to `ForestExpandedEvent`/`ForestDeclinedEvent`. Both open questions resolved as recommended.
+- 2 new unit tests, plus a third covering a separate finding below. Verified live: 50
+  `Nature` records archived within Year 1 of a fresh simulation run, all with correct
+  titles/descriptions matching real terrain transitions.
+- **A second, more significant, unrelated finding surfaced during live verification**:
+  `HistorySystem.Archive()` - the shared method underlying all ~25 event handlers, not just
+  this RFC's two - hardcoded `LocationY = locationX + 1`, silently discarding the real Y
+  coordinate for every historical record ever archived across all nine weeks of this
+  project. No prior test asserted on `LocationY`, which is why it went unnoticed. Fixed by
+  giving `Archive()` separate `locationX`/`locationY` parameters and updating all 25 call
+  sites; verified live (`locationY` now independent of `locationX`, matching real tile
+  coordinates). This fix is unrelated to Flora specifically but was found and fixed here
+  since it was directly in the method this RFC's own new handlers call.
+- **Day 49 assessment**: Week 11 should not default to continuing Volume IV. The next
+  obvious slice (Population Ecology) immediately hits the `AgricultureSystem` hardcoding
+  question this RFC deliberately avoided; recommend either the `AgricultureSystem` ADR or
+  pivoting to Borders & Territorial Dynamics instead. See `DEVELOPMENT_PLAN.md` Week 10.

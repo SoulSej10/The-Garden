@@ -83,6 +83,17 @@ public class HistorySystem : IScheduledSystem
         // the 12 events above - the exact TG-001 Law IV violation Week 1
         // Day 1 was created to close, reintroduced on new code.
         _eventBus.Subscribe<DialectFormedEvent>(OnDialectFormed);
+
+        // RFC-006 (specification/RFC/RFC-006-life-sciences-flora-history.md):
+        // ForestExpandedEvent/ForestDeclinedEvent were already published by
+        // EcologySystem from real, rare, gated conditions, but had zero
+        // subscribers anywhere - the same TG-001 Law IV violation Week 1
+        // Day 1 fixed for civilization events, this time predating this
+        // whole development cycle. ResourceRegeneratedEvent is deliberately
+        // NOT subscribed here - it fires too frequently and would flood the
+        // archive the same way FarmHarvested did before Week 4 Day 18.
+        _eventBus.Subscribe<ForestExpandedEvent>(OnForestExpanded);
+        _eventBus.Subscribe<ForestDeclinedEvent>(OnForestDeclined);
     }
 
     private void OnCitizenBorn(CitizenBornEvent e)
@@ -92,7 +103,7 @@ public class HistorySystem : IScheduledSystem
         // even while population was genuinely growing.
         Archive(HistoryCategories.Birth, "CitizenBorn", $"{e.CitizenName} Is Born",
             $"{e.CitizenName} was born at ({e.TileX}, {e.TileY}).",
-            string.Empty, e.TileX, e.Tick,
+            string.Empty, e.TileX, e.TileY, e.Tick,
             [e.CitizenId.Value.ToString(), e.ParentAId.Value.ToString(), e.ParentBId.Value.ToString()],
             [e.CitizenName], 4.0,
             e.SettlementId?.Value.ToString() ?? "");
@@ -121,7 +132,7 @@ public class HistorySystem : IScheduledSystem
 
         Archive(HistoryCategories.Discovery, "CitizenAged", $"{e.CitizenName} {milestone}",
             $"{e.CitizenName} {milestone} at age {e.NewAge}.",
-            string.Empty, 0, e.Tick,
+            string.Empty, 0, 0, e.Tick,
             [e.CitizenId.Value.ToString()], [e.CitizenName], 1.5);
     }
 
@@ -129,7 +140,7 @@ public class HistorySystem : IScheduledSystem
     {
         Archive(HistoryCategories.Birth, "CitizenSpawned", $"New Citizen Appears",
             $"{e.CitizenName} arrived in the world at ({e.TileX}, {e.TileY}).",
-            string.Empty, e.TileX, e.Tick,
+            string.Empty, e.TileX, e.TileY, e.Tick,
             [e.CitizenId.Value.ToString()], [e.CitizenName], 0.3);
 
         _historyManager.Memory.AddCitizenMemory(
@@ -142,7 +153,7 @@ public class HistorySystem : IScheduledSystem
     {
         Archive(HistoryCategories.Death, "CitizenDied", $"{e.CitizenName} Has Passed",
             $"{e.CitizenName} died at age {e.AgeAtDeath} from {e.CauseOfDeath}.",
-            string.Empty, 0, e.Tick,
+            string.Empty, 0, 0, e.Tick,
             [e.CitizenId.Value.ToString()], [e.CitizenName], 5.0);
     }
 
@@ -151,7 +162,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Settlement, "SettlementFounded",
             $"Foundation of {e.SettlementName}",
             $"{e.FounderName} founded the settlement of {e.SettlementName}.",
-            e.SettlementName, e.TileX, e.Tick,
+            e.SettlementName, e.TileX, e.TileY, e.Tick,
             [e.FounderId.Value.ToString()], [e.FounderName],
             8.0, e.SettlementId.Value.ToString());
 
@@ -166,7 +177,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Building, "BuildingCompleted",
             $"{e.BuildingType} Completed",
             $"A {e.BuildingType} was completed in {e.SettlementName}.",
-            e.SettlementName, 0, e.Tick,
+            e.SettlementName, 0, 0, e.Tick,
             [], [], 4.0, e.SettlementId.Value.ToString());
     }
 
@@ -190,7 +201,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Harvest, "FarmHarvested",
             $"Harvest at {e.SettlementName}",
             $"{e.CropType} harvested: {e.Yield} units.",
-            e.SettlementName, 0, e.Tick,
+            e.SettlementName, 0, 0, e.Tick,
             [], [], severity, e.SettlementId.Value.ToString());
     }
 
@@ -198,7 +209,7 @@ public class HistorySystem : IScheduledSystem
     {
         Archive(HistoryCategories.Trade, "TradeCompleted", "Trade Completed",
             $"Trade of {e.Quantity} {e.ItemType} completed.",
-            string.Empty, 0, e.Tick,
+            string.Empty, 0, 0, e.Tick,
             [e.FromCitizenId.Value.ToString(), e.ToCitizenId.Value.ToString()],
             [], 3.0);
     }
@@ -208,7 +219,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Settlement, "SettlementExpanded",
             $"{e.SettlementName} Expands",
             $"{e.SettlementName} expanded to territory size {e.NewTerritorySize}.",
-            e.SettlementName, 0, e.Tick,
+            e.SettlementName, 0, 0, e.Tick,
             [], [], 6.0, e.SettlementId.Value.ToString());
     }
 
@@ -216,7 +227,7 @@ public class HistorySystem : IScheduledSystem
     {
         Archive(HistoryCategories.Trade, "GoodsCrafted", "Goods Produced",
             $"{e.Quantity} {e.Product} crafted.",
-            string.Empty, 0, e.Tick, [], [], 1.0);
+            string.Empty, 0, 0, e.Tick, [], [], 1.0);
     }
 
     private void OnLeaderElected(LeaderElectedEvent e)
@@ -239,7 +250,7 @@ public class HistorySystem : IScheduledSystem
             : $"{e.CitizenName} became the first leader of {e.SettlementName}.";
 
         Archive(HistoryCategories.Politics, "LeaderElected", title, description,
-            e.SettlementName, 0, e.Tick,
+            e.SettlementName, 0, 0, e.Tick,
             [e.CitizenId.Value.ToString()], [e.CitizenName],
             severity, e.SettlementId.Value.ToString());
     }
@@ -255,7 +266,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Politics, "GovernmentFormed",
             $"{e.SettlementName} Adopts {e.GovernmentType}",
             $"{e.SettlementName} transitioned from {e.PreviousGovernmentType} to {e.GovernmentType}.",
-            e.SettlementName, 0, e.Tick,
+            e.SettlementName, 0, 0, e.Tick,
             [], [], 6.5, e.SettlementId.Value.ToString());
     }
 
@@ -264,7 +275,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Politics, "KingdomFounded",
             $"The Kingdom of {e.KingdomName} Is Founded",
             $"{e.LeaderName} founded the Kingdom of {e.KingdomName}, with {e.CapitalName} as its capital ({e.MemberCount} settlements).",
-            e.CapitalName, 0, e.Tick,
+            e.CapitalName, 0, 0, e.Tick,
             [e.LeaderId.Value.ToString()], [e.LeaderName],
             9.5, e.CapitalSettlementId.Value.ToString());
 
@@ -280,7 +291,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Politics, "KingdomDissolved",
             $"The Kingdom of {e.KingdomName} Falls",
             $"The Kingdom of {e.KingdomName} was dissolved: {e.Reason}.",
-            string.Empty, 0, e.Tick,
+            string.Empty, 0, 0, e.Tick,
             [], [], 9.0);
     }
 
@@ -295,7 +306,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Diplomacy, "DiplomaticRelationChanged",
             $"{e.EntityAName} and {e.EntityBName} Become {e.NewRelation}",
             $"Relations between {e.EntityAName} and {e.EntityBName} shifted from {e.PreviousRelation} to {e.NewRelation}.",
-            string.Empty, 0, e.Tick, [], [], severity);
+            string.Empty, 0, 0, e.Tick, [], [], severity);
     }
 
     private void OnTradeRouteEstablished(TradeRouteEstablishedEvent e)
@@ -303,7 +314,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Trade, "TradeRouteEstablished",
             $"Trade Route Opens Between {e.FromSettlementName} and {e.ToSettlementName}",
             $"A trade route in {e.PrimaryGood} was established between {e.FromSettlementName} and {e.ToSettlementName}.",
-            e.FromSettlementName, 0, e.Tick,
+            e.FromSettlementName, 0, 0, e.Tick,
             [], [], 5.5, e.FromSettlementId.Value.ToString());
     }
 
@@ -314,7 +325,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Trade, "TradeRouteAbandoned",
             $"Trade Route Between {e.FromSettlementName} and {e.ToSettlementName} Ends",
             $"The trade route between {e.FromSettlementName} and {e.ToSettlementName} was abandoned: {e.Reason}.",
-            e.FromSettlementName, 0, e.Tick, [], [], 3.0);
+            e.FromSettlementName, 0, 0, e.Tick, [], [], 3.0);
     }
 
     private void OnMigrationStarted(MigrationStartedEvent e)
@@ -325,7 +336,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Migration, "MigrationStarted",
             $"{e.CitizenName} Leaves {e.FromSettlementName}",
             $"{e.CitizenName} departed {e.FromSettlementName}: {e.Reason}.",
-            e.FromSettlementName, e.FromX, e.Tick,
+            e.FromSettlementName, e.FromX, e.FromY, e.Tick,
             [e.CitizenId.Value.ToString()], [e.CitizenName], 1.5);
     }
 
@@ -334,7 +345,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Migration, "MigrationCompleted",
             $"{e.CitizenName} Arrives at {e.ToSettlementName}",
             $"{e.CitizenName} settled in {e.ToSettlementName}.",
-            e.ToSettlementName, e.ToX, e.Tick,
+            e.ToSettlementName, e.ToX, e.ToY, e.Tick,
             [e.CitizenId.Value.ToString()], [e.CitizenName], 1.5);
     }
 
@@ -343,7 +354,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Technology, "TechnologyDiscovered",
             $"{e.TechnologyName} Is Discovered",
             $"{e.SettlementName} discovered {e.TechnologyName} ({e.Category}).",
-            e.SettlementName, 0, e.Tick, [], [], 7.5,
+            e.SettlementName, 0, 0, e.Tick, [], [], 7.5,
             e.DiscoveredBySettlementId?.Value.ToString() ?? "");
     }
 
@@ -352,7 +363,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Religion, "ReligionEstablished",
             $"{e.ReligionName} Is Established",
             $"{e.ReligionName}, centered on {e.CoreValue}, was established in {e.OriginSettlementName} with {e.InitialFollowers} followers.",
-            e.OriginSettlementName, 0, e.Tick, [], [], 8.5);
+            e.OriginSettlementName, 0, 0, e.Tick, [], [], 8.5);
 
         _historyManager.Memory.AddCollectiveMemory(
             e.ReligionId, e.ReligionName, e.Tick,
@@ -366,7 +377,7 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Culture, "CulturalFestivalHeld",
             $"{e.FestivalName} Celebrated in {e.SettlementName}",
             $"{e.SettlementName} held {e.FestivalName} ({e.Occasion}) with {e.ParticipantCount} participants.",
-            e.SettlementName, 0, e.Tick, [], [], 4.5, e.SettlementId.Value.ToString());
+            e.SettlementName, 0, 0, e.Tick, [], [], 4.5, e.SettlementId.Value.ToString());
     }
 
     private void OnDialectFormed(DialectFormedEvent e)
@@ -377,13 +388,29 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Culture, "DialectFormed",
             $"A Dialect Forms Between {e.SettlementAName} and {e.SettlementBName}",
             $"{e.SettlementAName} and {e.SettlementBName} have drifted apart linguistically (divergence {e.Divergence:F0}/100) - a distinct dialect has formed.",
-            e.SettlementAName, 0, e.Tick,
+            e.SettlementAName, 0, 0, e.Tick,
             [e.SettlementAId.Value.ToString(), e.SettlementBId.Value.ToString()],
             [e.SettlementAName, e.SettlementBName], 5.0, e.SettlementAId.Value.ToString());
     }
 
+    private void OnForestExpanded(ForestExpandedEvent e)
+    {
+        Archive(HistoryCategories.Nature, "ForestExpanded",
+            $"A Forest Expands Near ({e.TileX}, {e.TileY})",
+            $"A forest expanded by {e.AreaExpanded} tile(s) near ({e.TileX}, {e.TileY}).",
+            string.Empty, e.TileX, e.TileY, e.Tick, [], [], 5.0);
+    }
+
+    private void OnForestDeclined(ForestDeclinedEvent e)
+    {
+        Archive(HistoryCategories.Nature, "ForestDeclined",
+            $"A Forest Recedes Near ({e.TileX}, {e.TileY})",
+            $"Drought caused a forest to decline by {e.AreaLost} tile(s) near ({e.TileX}, {e.TileY}).",
+            string.Empty, e.TileX, e.TileY, e.Tick, [], [], 5.0);
+    }
+
     private void Archive(string category, string eventType, string title, string description,
-        string locationName, int locationOffset, long tick,
+        string locationName, int locationX, int locationY, long tick,
         List<string> participantIds, List<string> participantNames,
         double severity, string settlementId = "")
     {
@@ -402,8 +429,8 @@ public class HistorySystem : IScheduledSystem
             Category = category,
             Title = title,
             Description = description,
-            LocationX = locationOffset != 0 ? locationOffset : _worldState.Settlements.FirstOrDefault()?.TileX ?? 0,
-            LocationY = locationOffset != 0 ? locationOffset + 1 : _worldState.Settlements.FirstOrDefault()?.TileY ?? 0,
+            LocationX = locationX != 0 ? locationX : _worldState.Settlements.FirstOrDefault()?.TileX ?? 0,
+            LocationY = locationY != 0 ? locationY : _worldState.Settlements.FirstOrDefault()?.TileY ?? 0,
             LocationName = locationName,
             ParticipantIds = participantIds,
             ParticipantNames = participantNames,

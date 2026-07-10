@@ -43,6 +43,7 @@ public static class HistoryCategories
     public const string Religion = "Religion";
     public const string Culture = "Culture";
     public const string Technology = "Technology";
+    public const string Nature = "Nature";
 }
 
 public class Story

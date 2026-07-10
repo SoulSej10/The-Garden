@@ -121,7 +121,8 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 
 | Backlog item | Spec reference(s) | Why it's not day-planned yet |
 |---|---|---|
-| Life Sciences foundation (Flora, Fauna, Decomposers, Population Ecology) | `TG-200`–`TG-240` | Entire Volume IV is greenfield; `AgricultureSystem`/`CitizenSystem` currently hardcode biology this volume is supposed to own — untangling that is itself a design question. |
+| Life Sciences foundation (Fauna, Decomposers, Population Ecology, Disease, Evolution) | `TG-220`–`TG-290` | Flora's first increment (`ForestExpanded`/`Declined` history) shipped Week 10 via `RFC/RFC-006` — see Week 10's Day 49 assessment. Everything else in Volume IV is still greenfield; `AgricultureSystem`/`CitizenSystem` still hardcode biology this volume is supposed to own — untangling that is itself a design question, and blocks Population Ecology specifically since it needs food/population dynamics `AgricultureSystem` currently owns outright. |
+| `HistorySystem.Archive()`'s `LocationY` was always `LocationX + 1` | Week 10 Day 48 finding, **fixed 2026-07-10** | Affected all ~25 `Archive()` call sites (every historical event type), not just this week's new ones — every historical record's Y coordinate was silently wrong since Week 1. No prior test asserted on `LocationY`, which is why it went undetected. Fixed by giving `Archive()` separate `locationX`/`locationY` parameters and updating all 25 call sites; a new regression test locks in the correct behavior. Verified live: `locationY` now genuinely independent of `locationX`. |
 | Borders & Territorial Dynamics | `TG-620_Borders_Territorial_Dynamics.md` | Spec explicitly calls for a regional-influence-field model; current code is a flat `TerritoryRadius` int. No decay function specified anywhere — needs to be invented. |
 | Warfare & Military Organization | `TG-640_Warfare_Military_Organization.md` | Largest single unimplemented system in the whole library; spec gives no combat-resolution, morale, or logistics-attrition formulas at all. |
 | Infrastructure-as-network | `TG-660_Infrastructure.md` | Spec explicitly rejects the building-centric model the current `ConstructionSystem`/`Building.cs` uses — this is a philosophy-vs-implementation conflict that needs a decision, not just new code. |
@@ -259,7 +260,7 @@ set. Noted in the Backlog table alongside Week 8's parent-child finding. Verifie
 `LawSystemTests.cs`'s synthetic disputes and confirming the Observatory UI handles empty
 data cleanly.
 
-## Week 10 (2026-07-10 → in progress) — Life Sciences: Flora History (Increment 1 of Volume IV)
+## Week 10 (2026-07-10, complete) — Life Sciences: Flora History (Increment 1 of Volume IV)
 
 Scoped from `RFC/RFC-006-life-sciences-flora-history.md` - a smaller, differently-shaped
 increment than Weeks 5-9's (no new entity/system; wires two already-existing, already-firing
@@ -270,11 +271,37 @@ budget for "Life Sciences foundation" (Weeks 10-11) covered the whole volume, no
 
 | Day | Task | Status |
 |---|---|---|
-| 46 | Add `HistoryCategories.Nature`; wire `HistorySystem` to `ForestExpandedEvent`/`ForestDeclinedEvent` | Pending |
-| 47 | Unit tests for both new handlers | Pending |
-| 48 | Live verification against a running simulation (both events are rare/gated - may need an extended run) | Pending |
-| 49 | Re-scope remaining Volume IV backlog: confirm whether Week 11 continues with Fauna/Population Ecology or whether that needs its own RFC first | Pending |
-| 50 | Close-out: changelog, RFC-006 status update, full verification, commit/push | Pending |
+| 46 | Add `HistoryCategories.Nature`; wire `HistorySystem` to `ForestExpandedEvent`/`ForestDeclinedEvent` | Done |
+| 47 | Unit tests for both new handlers | Done — 2 new tests, `HistorySystemCivilizationEventTests.cs` |
+| 48 | Live verification against a running simulation (both events are rare/gated - may need an extended run) | Done — 50 `Nature` records archived live within Year 1 |
+| 49 | Re-scope remaining Volume IV backlog: confirm whether Week 11 continues with Fauna/Population Ecology or whether that needs its own RFC first | Done — see assessment below |
+| 50 | Close-out: changelog, RFC-006 status update, full verification, commit/push | Done |
+
+**A second, separate, more significant finding surfaced during Day 48 live verification:**
+`HistorySystem.Archive()` - the shared method underlying all ~25 event handlers, not just
+this week's two new ones - hardcoded `LocationY = locationX + 1`, completely ignoring the
+real Y coordinate. This has silently mis-recorded location data for every historical record
+ever archived across all nine weeks of this project (Births, Settlements, Kingdoms,
+Technology, Religion, everything). No prior test ever asserted on `LocationY`, which is
+exactly why it went undetected for so long. Fixed by changing `Archive()`'s signature to
+accept `locationX`/`locationY` separately and updating all 25 call sites; a new regression
+test (`ArchivedRecord_StoresTheRealLocationY_NotLocationXPlusOne`) locks this in. Confirmed
+live: a `ForestExpanded` record's `locationY` (49) now matches its real tile Y, independent
+of `locationX` (15) - previously it would have shown 16.
+
+**Day 49 assessment — should Week 11 continue Life Sciences?** No, not without more
+groundwork. This week's increment deliberately avoided the actual "untangling" question the
+backlog names (`AgricultureSystem`'s hardcoded crop growth), by picking a slice
+(`ForestExpanded`/`Declined` history) that didn't need to touch it. The next most obvious
+Volume IV slice - Population Ecology (`TG-240`) - explicitly depends on food/population
+dynamics that `AgricultureSystem` currently owns outright, meaning it would hit that
+untangling question immediately, unlike Flora History. Recommendation: **Week 11 should not
+default to more Volume IV.** Two better-shaped options exist in the backlog instead: (a)
+write the ADR the backlog already calls for on `AgricultureSystem`'s crop-growth philosophy
+(needed regardless of which Volume IV slice comes next), or (b) pick Borders & Territorial
+Dynamics (`TG-620`) instead - a single invented decay function on top of the existing
+`TerritoryRadius` field, closer in shape to Weeks 5-9's clean additive RFCs than anything
+left in Volume IV. This plan defers the final call to whoever picks up Week 11.
 
 ---
 
@@ -291,23 +318,21 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 
 | Weeks | Scope | Basis for the estimate |
 |---|---|---|
-| 1-6 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language | Actuals |
-| 7 (in progress) | Anomaly cleanup (this week) | Actuals so far |
-| 8 | RFC-004 + Education (`TG-550`) | Same size as Communication/Language (1 week each) |
-| 9 | RFC-005 + Law & Justice (`TG-590`) | Same size as Communication/Language |
-| 10-11 | Life Sciences foundation (`TG-200`-`TG-240`) | Explicitly the largest single greenfield volume; existing hardcoded biology in `AgricultureSystem`/`CitizenSystem` needs untangling first — budgeted 2 weeks |
-| 12 | Borders & Territorial Dynamics | A single invented decay function + one entity, similar shape to Language |
-| 13-14 | Warfare & Military Organization | Explicitly "the largest single unimplemented system in the whole library" — budgeted 2 weeks |
-| 15-16 | Infrastructure-as-network | Needs an ADR first (philosophy conflict with current `ConstructionSystem`), then whatever that ADR decides — budgeted 2 weeks |
-| 17 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
-| 18 | Legends & Myths generation | Its own dependencies (Character/Civilization Stories, Historical Narrative) already exist, so this is closer to Communication/Language in size |
-| 19 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
-| 20 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
-| 21 | Real LLM-backed AI narrator | Needs a provider-integration ADR (cost/latency/determinism) before implementation — budgeted 1 week for a first real integration |
-| 22 | API rate limiting/versioning + `TradeCompletedEvent` cleanup + final pass | Both explicitly called "small, well-understood scope" in the original backlog |
+| 1-10 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1) | Actuals |
+| 11 | Undecided — either the `AgricultureSystem` crop-growth ADR (blocks further Volume IV progress) or Borders & Territorial Dynamics (a cleaner, unblocked slice); see Week 10 Day 49's assessment | Open, deferred to whoever picks up Week 11 |
+| 12-13 | Remaining Life Sciences (Fauna, Population Ecology, Disease, Evolution) | Only reachable after Week 11's ADR resolves the `AgricultureSystem` question — budget unchanged at ~2 weeks, timing shifted later |
+| 14 | Borders & Territorial Dynamics (if not pulled into Week 11) | A single invented decay function + one entity, similar shape to Language |
+| 15-16 | Warfare & Military Organization | Explicitly "the largest single unimplemented system in the whole library" — budgeted 2 weeks |
+| 17-18 | Infrastructure-as-network | Needs an ADR first (philosophy conflict with current `ConstructionSystem`), then whatever that ADR decides — budgeted 2 weeks |
+| 19 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
+| 20 | Legends & Myths generation | Its own dependencies (Character/Civilization Stories, Historical Narrative) already exist, so this is closer to Communication/Language in size |
+| 21 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
+| 22 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
+| 23 | Real LLM-backed AI narrator | Needs a provider-integration ADR (cost/latency/determinism) before implementation — budgeted 1 week for a first real integration |
+| 24 | API rate limiting/versioning + `TradeCompletedEvent` cleanup + final pass | Both explicitly called "small, well-understood scope" in the original backlog |
 
-**Total projection: ~22 weeks end-to-end (about 5 months), of which 7 are done or in
-progress — roughly 15 more weeks from here.** Treat this as a planning band, not a
+**Total projection: ~24 weeks end-to-end (about 5.5 months), of which 10 are done —
+roughly 14 more weeks from here.** Treat this as a planning band, not a
 commitment: past estimate accuracy on the *already-completed* weeks has been good (every
 week landed in its planned 5 days), but every week has also found something the plan didn't
 predict, so the true number is more likely 15-20 remaining weeks than exactly 15. This
