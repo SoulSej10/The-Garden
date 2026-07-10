@@ -28,6 +28,7 @@ public class SurvivalSimulationTests
     /// early collapse.
     /// </summary>
     [Fact]
+    [Trait("Category", "Fast")]
     public void Population_SurvivesEarlyMonths_InsteadOfCollapsing()
     {
         var worldState = new WorldState();
@@ -95,7 +96,18 @@ public class SurvivalSimulationTests
     /// term, rather than just surviving the early months before a slower
     /// terminal decline.
     /// </summary>
+    /// <remarks>
+    /// DEVELOPMENT_PLAN.md Week 2 Day 6 profiling (2026-07-09, TRX-measured):
+    /// this single test takes ~6m12s - roughly 85% of the whole
+    /// Garden.IntegrationTests suite's ~7m20s runtime - because it simulates
+    /// 25,920 ticks (3 years) on a 100x100 map, versus 1,440 ticks (2 months)
+    /// for the other survival tests. Shortening it would weaken exactly the
+    /// regression guard it exists for (a slow-building collapse that only
+    /// shows up after month 2), so it stays full-length but is tagged Slow so
+    /// CI can keep it off the fast/blocking path (see Day 7).
+    /// </remarks>
     [Fact]
+    [Trait("Category", "Slow")]
     public void Population_RemainsViable_AcrossThreeYears()
     {
         var worldState = new WorldState();
@@ -158,6 +170,7 @@ public class SurvivalSimulationTests
     /// statistics.
     /// </summary>
     [Fact]
+    [Trait("Category", "Fast")]
     public void Diagnostic_TraceDehydrationDeaths()
     {
         var worldState = new WorldState();

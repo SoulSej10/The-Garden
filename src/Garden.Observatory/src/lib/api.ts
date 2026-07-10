@@ -258,6 +258,7 @@ export interface SettlementSummary {
   id: string
   name: string
   population: number
+  tier: string
   tileX: number
   tileY: number
   territoryRadius: number
@@ -275,12 +276,15 @@ export interface SettlementDetail {
   id: string
   name: string
   population: number
+  tier: string
   tileX: number
   tileY: number
   territoryRadius: number
   foundedTick: number
   leaderName: string
   governmentType: string
+  authoritySource: string
+  legitimacy: number
   religionName: string
   technologyProgress: number
   culturalTraits: Array<{ name: string; description: string }>

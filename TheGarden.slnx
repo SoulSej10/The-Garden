@@ -6,9 +6,6 @@
     <Project Path="src/Garden.Engine/Garden.Engine.csproj" />
     <Project Path="src/Garden.Infrastructure/Garden.Infrastructure.csproj" />
     <Project Path="src/Garden.Shared/Garden.Shared.csproj" />
-    <Project Path="src/Garden.Simulation/Garden.Simulation.csproj" />
-    <Project Path="src/Garden.Story/Garden.Story.csproj" />
-    <Project Path="src/Garden.Tools/Garden.Tools.csproj" />
     <Project Path="src/Garden.World/Garden.World.csproj" />
   </Folder>
   <Folder Name="/tests/">

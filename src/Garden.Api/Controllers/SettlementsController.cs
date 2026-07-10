@@ -28,9 +28,10 @@ public class SettlementsController : ControllerBase
     {
         var result = _worldState.Settlements.Select(s => new
         {
-            s.Id,
+            Id = s.Id.ToString(),
             s.Name,
             s.Population,
+            Tier = s.Tier.ToString(),
             s.TileX,
             s.TileY,
             s.TerritoryRadius,
@@ -58,7 +59,7 @@ public class SettlementsController : ControllerBase
         var members = allMembers
             .Select(c => new
             {
-                c.Id, c.FirstName, c.LastName, c.Age,
+                Id = c.Id.ToString(), c.FirstName, c.LastName, c.Age,
                 c.CurrentActivity, c.CurrentGoal,
                 c.TileX, c.TileY, c.IsAlive
             }).ToList();
@@ -95,15 +96,18 @@ public class SettlementsController : ControllerBase
 
         return Ok(new
         {
-            settlement.Id,
+            Id = settlement.Id.ToString(),
             settlement.Name,
             settlement.Population,
+            Tier = settlement.Tier.ToString(),
             settlement.TileX,
             settlement.TileY,
             settlement.TerritoryRadius,
             settlement.FoundedTick,
             settlement.LeaderName,
             settlement.GovernmentType,
+            settlement.AuthoritySource,
+            Legitimacy = Math.Round(settlement.Legitimacy, 1),
             settlement.ReligionName,
             settlement.TechnologyProgress,
             CulturalTraits = settlement.CulturalTraits.Select(t => new { t.Name, t.Description }),
@@ -113,7 +117,7 @@ public class SettlementsController : ControllerBase
             }),
             Buildings = settlement.Buildings.Select(b => new
             {
-                b.Id, b.BuildingType, Status = b.Status.ToString(),
+                Id = b.Id.ToString(), b.BuildingType, Status = b.Status.ToString(),
                 b.BuildProgress, b.TileX, b.TileY,
                 b.BuildTimeRequired,
                 AssignedWorkerId = b.AssignedWorkerId?.Value
@@ -151,7 +155,7 @@ public class SettlementsController : ControllerBase
 
         var result = settlement.Buildings.Select(b => new
         {
-            b.Id, b.BuildingType, Status = b.Status.ToString(),
+            Id = b.Id.ToString(), b.BuildingType, Status = b.Status.ToString(),
             b.BuildProgress, b.TileX, b.TileY,
             b.BuildTimeRequired
         }).ToList();

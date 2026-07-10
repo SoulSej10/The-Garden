@@ -1,13 +1,26 @@
 name: CI
 
+# DEVELOPMENT_PLAN.md Week 2 Day 6/7: `dotnet test` (no project filter) used to
+# run Garden.UnitTests and Garden.IntegrationTests together in one blocking
+# job. Profiling (2026-07-09, TRX-measured) found one integration test -
+# Population_RemainsViable_AcrossThreeYears - accounts for ~6m12s of the
+# suite's ~7m20s total, because it simulates 3 in-game years instead of 2
+# months like its siblings. It's tagged [Trait("Category","Slow")] and kept
+# off the PR-blocking path below; the other three integration tests still run
+# on every PR/push in ~1m10s alongside the ~1s unit suite. The full suite
+# (including the Slow test) still runs automatically on every push to main
+# and nightly, so regression coverage isn't lost - it just doesn't gate PRs.
+
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 3 * * *' # nightly full-suite run, including Slow-tagged tests
 
 jobs:
-  backend:
+  unit-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,7 +29,32 @@ jobs:
           dotnet-version: '10.0'
       - run: dotnet restore
       - run: dotnet build --no-restore
-      - run: dotnet test --no-build
+      - run: dotnet test tests/Garden.UnitTests/Garden.UnitTests.csproj --no-build
+
+  integration-tests-fast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0'
+      - run: dotnet restore
+      - run: dotnet build --no-restore
+      - run: dotnet test tests/Garden.IntegrationTests/Garden.IntegrationTests.csproj --no-build --filter "Category!=Slow"
+
+  integration-tests-full:
+    # Full suite (including the ~6m Slow test) on push to main/develop and
+    # nightly - never on a pull_request, so it can't block a PR merge.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0'
+      - run: dotnet restore
+      - run: dotnet build --no-restore
+      - run: dotnet test tests/Garden.IntegrationTests/Garden.IntegrationTests.csproj --no-build
 
   frontend:
     runs-on: ubuntu-latest

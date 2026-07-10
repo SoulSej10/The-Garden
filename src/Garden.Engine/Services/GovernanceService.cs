@@ -15,6 +15,12 @@ public class GovernanceService
     private static readonly string[] GovernmentProgression =
         ["Informal Community", "Council", "Village Chief", "Elder Assembly"];
 
+    // Index-aligned with GovernmentProgression. TG-580 lists 6 authority
+    // sources; only these 3 are reachable through population-driven
+    // government evolution today (see Settlement.AuthoritySource).
+    private static readonly string[] AuthorityProgression =
+        ["Competence", "Election", "Tradition", "Tradition"];
+
     public GovernanceService(WorldState worldState, IEventBus eventBus, ILogger<GovernanceService> logger)
     {
         _worldState = worldState;
@@ -33,6 +39,7 @@ public class GovernanceService
         {
             var previous = settlement.GovernmentType;
             settlement.GovernmentType = GovernmentProgression[targetIdx];
+            settlement.LastGovernmentChangeTick = tick;
 
             _eventBus.Publish(new GovernmentFormedEvent
             {
@@ -46,6 +53,15 @@ public class GovernanceService
             _logger.LogInformation("{Settlement} evolved from {Prev} to {New} government",
                 settlement.Name, previous, settlement.GovernmentType);
         }
+
+        // Kept unconditional (not just inside the transition branch above) so
+        // it self-heals for settlements that reached their current government
+        // tier before AuthoritySource existed (e.g. resumed saves whose
+        // AuthoritySource column defaulted to "" via the EF migration) -
+        // AuthoritySource should always reflect the settlement's CURRENT
+        // government type, the same way Legitimacy is recomputed every call.
+        settlement.AuthoritySource = AuthorityProgression[targetIdx];
+        settlement.Legitimacy = CalculateLegitimacy(settlement, tick);
     }
 
     private static int DetermineTargetGovernment(int population)
@@ -54,5 +70,29 @@ public class GovernanceService
         if (population >= 10) return 2;
         if (population >= 5) return 1;
         return 0;
+    }
+
+    /// <summary>
+    /// TG-580 names public trust, competence, justice, and stability as
+    /// Legitimacy inputs but gives no formula. "Justice" is omitted (TG-590
+    /// Law &amp; Justice is unimplemented). Competence and public trust come
+    /// from the actual leader's real ContributionScore/Reputation rather
+    /// than invented numbers; stability ramps from 0 to 100 over the ~500
+    /// ticks (~20 in-game days) following the settlement's last government
+    /// transition, so a settlement is least legitimate right after upheaval
+    /// and gains legitimacy the longer its government holds.
+    /// </summary>
+    private double CalculateLegitimacy(Settlement settlement, long tick)
+    {
+        var leader = settlement.LeaderId != null
+            ? _worldState.Citizens.FirstOrDefault(c => c.Id == settlement.LeaderId)
+            : null;
+
+        var competence = leader != null ? Math.Min(100, leader.ContributionScore) : 30.0;
+        var publicTrust = leader?.Reputation ?? 50.0;
+        var ticksSinceChange = tick - settlement.LastGovernmentChangeTick;
+        var stability = Math.Clamp(ticksSinceChange / 500.0 * 100.0, 0.0, 100.0);
+
+        return Math.Clamp(competence * 0.4 + publicTrust * 0.3 + stability * 0.3, 0.0, 100.0);
     }
 }

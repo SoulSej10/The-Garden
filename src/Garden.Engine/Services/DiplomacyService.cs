@@ -109,6 +109,16 @@ public class DiplomacyService
         if (IsInSameKingdom(a, b))
             change += 0.2;
 
+        // TG-630_Diplomacy.md frames diplomacy as accumulated trust; a
+        // settlement whose own government is not yet legitimate (recent
+        // upheaval, an unproven or untrusted leader) is a shakier diplomatic
+        // partner. Only a penalty is applied (never a bonus) so this can't
+        // be the dominant driver of warming relations - it just makes
+        // instability a real, visible drag, consistent with GovernanceService.
+        const double legitimacyThreshold = 40.0;
+        if (a.Legitimacy < legitimacyThreshold || b.Legitimacy < legitimacyThreshold)
+            change -= 0.03;
+
         return change;
     }
 

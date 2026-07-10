@@ -38,6 +38,11 @@ public static class HistoryCategories
     public const string Trade = "Trade";
     public const string War = "War";
     public const string Event = "Event";
+    public const string Politics = "Politics";
+    public const string Diplomacy = "Diplomacy";
+    public const string Religion = "Religion";
+    public const string Culture = "Culture";
+    public const string Technology = "Technology";
 }
 
 public class Story

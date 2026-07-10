@@ -10,7 +10,11 @@ public class SignificanceEvaluator
         "BuildingCompleted", "FarmHarvested", "TradeCompleted",
         "SettlementAbandoned", "CitizenMurdered", "WarDeclared",
         "MajorFlood", "LongDrought", "Earthquake", "VolcanicEruption",
-        "Plague", "Wildfire"
+        "Plague", "Wildfire",
+        // Civilization milestones (TG-008 significance criteria: founding events,
+        // political transitions, technological breakthroughs) - always archived
+        // regardless of the severity value a caller passes in.
+        "KingdomFounded", "KingdomDissolved", "TechnologyDiscovered", "ReligionEstablished"
     ];
 
     private static readonly HashSet<string> MediumImportanceEvents =

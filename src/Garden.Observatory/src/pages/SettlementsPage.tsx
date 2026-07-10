@@ -20,6 +20,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { fetchSettlements, fetchSettlementDetail, type SettlementSummary, type SettlementDetail } from '@/lib/api'
 
+function formatTier(tier: string): string {
+  // API sends PascalCase enum names (e.g. "RegionalCapital") - split on
+  // capital letters for a readable label.
+  return tier.replace(/([a-z])([A-Z])/g, '$1 $2')
+}
+
 export default function SettlementsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -86,6 +92,7 @@ export default function SettlementsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Tier</TableHead>
                 <TableHead>Population</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Territory</TableHead>
@@ -98,13 +105,13 @@ export default function SettlementsPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : settlements?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">
                     No settlements yet. Citizens will found settlements as they explore.
                   </TableCell>
                 </TableRow>
@@ -116,6 +123,9 @@ export default function SettlementsPage() {
                     onClick={() => setSelectedId(s.id)}
                   >
                     <TableCell className="font-medium">{s.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{formatTier(s.tier)}</Badge>
+                    </TableCell>
                     <TableCell>{s.population}</TableCell>
                     <TableCell>({s.tileX}, {s.tileY})</TableCell>
                     <TableCell>{s.territoryRadius} tiles</TableCell>
@@ -157,12 +167,20 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
         <h3 className="mb-2 text-sm font-medium">Overview</h3>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="flex items-center justify-between rounded border px-3 py-1.5">
+            <span className="text-muted-foreground">Tier</span>
+            <span className="font-medium">{formatTier(detail.tier)}</span>
+          </div>
+          <div className="flex items-center justify-between rounded border px-3 py-1.5">
             <span className="text-muted-foreground">Leader</span>
             <span className="font-medium">{detail.leaderName || 'None'}</span>
           </div>
           <div className="flex items-center justify-between rounded border px-3 py-1.5">
             <span className="text-muted-foreground">Government</span>
             <span className="font-medium">{detail.governmentType}</span>
+          </div>
+          <div className="flex items-center justify-between rounded border px-3 py-1.5">
+            <span className="text-muted-foreground">Authority</span>
+            <span className="font-medium">{detail.authoritySource}</span>
           </div>
           <div className="flex items-center justify-between rounded border px-3 py-1.5">
             <span className="text-muted-foreground">Religion</span>
@@ -172,6 +190,9 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
             <span className="text-muted-foreground">Technology</span>
             <span className="font-medium">{detail.technologyProgress.toFixed(0)}%</span>
           </div>
+        </div>
+        <div className="mt-2">
+          <WellbeingBar label="Legitimacy" value={detail.legitimacy} goodHigh />
         </div>
       </div>
 
