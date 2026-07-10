@@ -130,9 +130,9 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 | ~~`TechnologyService` progress-scaling bug~~ | Week 5 Day 22 finding, **fixed 2026-07-10** | `EvaluateTechnology()` accumulated each individual `Technology.CurrentProgress` at `settlementProgress * 0.1`, but nothing else in the codebase treated `settlement.TechnologyProgress` as 10x the per-tech scale — confirmed live, zero technologies discovered after 55+ simulated years. Fixed by removing the scale-down (category multipliers for Agriculture/Construction retained). Verified: 3 new unit tests, and live — a fresh run discovered 10 technologies across 2 settlements within Year 1 alone. |
 | ~~`TradeRouteService` never creates routes~~ | Week 6 Day 29 finding, **fixed 2026-07-10** | Root cause: once a route existed for a settlement pair (active or not), `EvaluateTradeRoutes()`'s `existing != null` check unconditionally skipped re-evaluating that pair forever — so a route that went quiet once (an ordinary occurrence) permanently locked that pair out of trading again, even when a fresh surplus/scarcity later appeared. A secondary bug was found alongside it: goods always flowed a fixed direction regardless of which settlement actually held the surplus. Fixed by letting an inactive route reactivate against a newly-found trade good, and by determining flow direction from the actual surplus holder. Verified: 3 new unit tests (124 total) including an exact reproduction of the live numbers reported (Food 74 vs 0, 23 tiles apart) and a reactivation-after-abandonment test. **Live re-verification was inconclusive** — a fresh run's settlements repeatedly sat exactly at the FindTradeGood boundary (Food = 10, needs strictly <10) rather than crossing it, a separate equilibrium detail worth noting but not chased further here. |
 | `CivilizationSystem`'s "yearly" cadence isn't a year | Week 6 Day 27 finding | `_lastYearlyTick >= 336` (used by `TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`) is ~14 days at `SimulationTime`'s actual scale (1 year = 24 × 30 × 12 = 8640 ticks), not a year. Affects five systems' cadence naming at once — needs its own look (rename to reflect reality, or fix the threshold to 8640) rather than a fix folded into whichever RFC happens to notice it next. |
-| `DialectFormedEvent` never archived by `HistorySystem` | 2026-07-10 audit finding | `HistorySystem` subscribes to all 12 of Week 1's original `CivilizationEvent` types, but `DialectFormedEvent` (added Week 6) was never added alongside them — reproducing the exact TG-001 Law IV ("History Is Permanent") violation Week 1 Day 1 was created to close, this time on new code rather than old. Small, contained fix (mirrors 12 existing examples); not yet done. |
-| `EmotionalState` never surfaced in the Observatory | 2026-07-10 audit finding | `Citizen.Emotions` (6 emotions, Week 3 Days 11-12) is returned by `CitizensController.GetCitizen` but `CitizenDetail`/`CitizensPage.tsx` never expose or render it — confirmed via grep, zero references anywhere in `Garden.Observatory`. Week 4 Day 16 surfaced Settlement tier/Governance but nothing ever covered surfacing Emotion on the Citizen page itself. |
-| `Relationship` data never surfaced in the Observatory | 2026-07-10 audit finding | `CitizensController` has a dedicated `GET /citizens/{id}/relationships` endpoint (Trust/Affection/SocialDistance per pair, Week 3 Day 13) that the frontend never calls — confirmed via grep, no "relationship" reference in `CitizensPage.tsx` or anywhere else in the Observatory beyond an unrelated `tradeRelationships: unknown` placeholder field. |
+| ~~`DialectFormedEvent` never archived by `HistorySystem`~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 31** | `HistorySystem` subscribes to all 12 of Week 1's original `CivilizationEvent` types, but `DialectFormedEvent` (added Week 6) was never added alongside them — reproducing the exact TG-001 Law IV ("History Is Permanent") violation Week 1 Day 1 was created to close, this time on new code rather than old. |
+| ~~`EmotionalState` never surfaced in the Observatory~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 32** | `Citizen.Emotions` (6 emotions, Week 3 Days 11-12) is returned by `CitizensController.GetCitizen` but `CitizenDetail`/`CitizensPage.tsx` never expose or render it — confirmed via grep, zero references anywhere in `Garden.Observatory`. Week 4 Day 16 surfaced Settlement tier/Governance but nothing ever covered surfacing Emotion on the Citizen page itself. |
+| ~~`Relationship` data never surfaced in the Observatory~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 33** | `CitizensController` has a dedicated `GET /citizens/{id}/relationships` endpoint (Trust/Affection/SocialDistance per pair, Week 3 Day 13) that the frontend never calls — confirmed via grep, no "relationship" reference in `CitizensPage.tsx` or anywhere else in the Observatory beyond an unrelated `tradeRelationships: unknown` placeholder field. |
 | Legends & Myths generation | `TG-STRY-040_Legends_Myths.md` | Needs Character Stories + Civilization Stories + Historical Narrative all functioning first; currently the deepest dependency chain in `04_Story`. |
 | Replay & Timeline Branching | `TG-OBS-007_Save_Load_Replay.md` | TG-DEV-009 shipped save/load/backup, but not branching timelines or playback controls — a real architecture addition, not a UI feature. |
 | Modding & Extensibility | `TG-OBS-009_Modding_Extensibility.md` | Explicitly deferred by its own spec until core Observatory work is done. |
@@ -185,6 +185,59 @@ trade routes turned out to never form at all despite their own conditions being 
 `task_b82147bd`, not fixed here). Verified instead via `LanguageSystemTests.cs` publishing
 synthetic settlement pairs directly, the same fallback Weeks 5 and this week both used when
 the organic trigger is rare or broken.
+
+## Week 7 (2026-07-10 → in progress) — Anomaly Cleanup
+
+Consolidates the three findings from the 2026-07-10 anomaly audit (see `SPEC_INDEX.md`
+Change Log) into a single cleanup week, rather than leaving them as loose backlog rows.
+Each is small and contained — no RFC needed, all three follow existing patterns already
+established elsewhere in the codebase.
+
+| Day | Task | Status |
+|---|---|---|
+| 31 | Wire `HistorySystem` to `DialectFormedEvent` (mirrors the other 12 `CivilizationEvent` handlers) so `TG-001` Law IV isn't violated by Week 6's own new event | Pending |
+| 32 | Surface `Citizen.Emotions` in the Observatory's citizen detail panel (mirrors the existing Needs/Attributes/Personality sections) | Pending |
+| 33 | Surface `GET /citizens/{id}/relationships` in the Observatory's citizen detail panel (mirrors `SettlementsPage`'s Language section added Week 6 Day 29) | Pending |
+| 34 | Unit tests for the new `HistorySystem` handler; live verification of both new UI sections | Pending |
+| 35 | Close-out: changelog, full verification, commit/push | Pending |
+
+---
+
+## Project-Wide Timeline Estimate (as of 2026-07-10)
+
+Asked directly: *how many weeks to finish everything?* Answered honestly, with the same
+caveat this plan opened with — large greenfield items are estimates, not commitments, and
+each has historically grown once it actually got an RFC (Communication and Language were
+both originally sketched as "roughly a week" and landed exactly there, but every week so far
+has also surfaced 1-3 real bugs that weren't part of the original estimate). "Complete" here
+means the same thing it has meant since Week 5: one real, tested first increment per system,
+matching TG-### spec at the level of RFC-001/002/003 — not full lifetime-of-the-project
+parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for example).
+
+| Weeks | Scope | Basis for the estimate |
+|---|---|---|
+| 1-6 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language | Actuals |
+| 7 (in progress) | Anomaly cleanup (this week) | Actuals so far |
+| 8 | RFC-004 + Education (`TG-550`) | Same size as Communication/Language (1 week each) |
+| 9 | RFC-005 + Law & Justice (`TG-590`) | Same size as Communication/Language |
+| 10-11 | Life Sciences foundation (`TG-200`-`TG-240`) | Explicitly the largest single greenfield volume; existing hardcoded biology in `AgricultureSystem`/`CitizenSystem` needs untangling first — budgeted 2 weeks |
+| 12 | Borders & Territorial Dynamics | A single invented decay function + one entity, similar shape to Language |
+| 13-14 | Warfare & Military Organization | Explicitly "the largest single unimplemented system in the whole library" — budgeted 2 weeks |
+| 15-16 | Infrastructure-as-network | Needs an ADR first (philosophy conflict with current `ConstructionSystem`), then whatever that ADR decides — budgeted 2 weeks |
+| 17 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
+| 18 | Legends & Myths generation | Its own dependencies (Character/Civilization Stories, Historical Narrative) already exist, so this is closer to Communication/Language in size |
+| 19 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
+| 20 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
+| 21 | Real LLM-backed AI narrator | Needs a provider-integration ADR (cost/latency/determinism) before implementation — budgeted 1 week for a first real integration |
+| 22 | API rate limiting/versioning + `TradeCompletedEvent` cleanup + final pass | Both explicitly called "small, well-understood scope" in the original backlog |
+
+**Total projection: ~22 weeks end-to-end (about 5 months), of which 7 are done or in
+progress — roughly 15 more weeks from here.** Treat this as a planning band, not a
+commitment: past estimate accuracy on the *already-completed* weeks has been good (every
+week landed in its planned 5 days), but every week has also found something the plan didn't
+predict, so the true number is more likely 15-20 remaining weeks than exactly 15. This
+section should be re-forecast at the end of each week, the same way `SPEC_INDEX.md`'s Change
+Log gets updated after every day.
 
 ---
 
