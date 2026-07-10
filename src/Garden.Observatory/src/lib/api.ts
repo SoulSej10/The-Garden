@@ -221,6 +221,14 @@ export interface CitizenDetail {
     warmth: number
     health: number
   }
+  emotions: {
+    fear: number
+    joy: number
+    sadness: number
+    trust: number
+    curiosity: number
+    loneliness: number
+  }
   knownEvents: Array<{
     key: string
     title: string
@@ -255,6 +263,22 @@ export async function fetchPopulation(): Promise<PopulationData> {
 
 export async function fetchCitizenDetail(id: string): Promise<CitizenDetailData> {
   const { data } = await api.get(`/citizens/${id}`)
+  return data
+}
+
+export interface CitizenRelationship {
+  otherCitizenId: string
+  otherCitizenName: string
+  trust: number
+  affection: number
+  socialDistance: number
+  interactionCount: number
+  establishedTick: number
+  lastInteractionTick: number
+}
+
+export async function fetchCitizenRelationships(id: string): Promise<CitizenRelationship[]> {
+  const { data } = await api.get(`/citizens/${id}/relationships`)
   return data
 }
 

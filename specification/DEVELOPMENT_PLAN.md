@@ -186,7 +186,7 @@ trade routes turned out to never form at all despite their own conditions being 
 synthetic settlement pairs directly, the same fallback Weeks 5 and this week both used when
 the organic trigger is rare or broken.
 
-## Week 7 (2026-07-10 → in progress) — Anomaly Cleanup
+## Week 7 (2026-07-10, complete) — Anomaly Cleanup
 
 Consolidates the three findings from the 2026-07-10 anomaly audit (see `SPEC_INDEX.md`
 Change Log) into a single cleanup week, rather than leaving them as loose backlog rows.
@@ -195,11 +195,21 @@ established elsewhere in the codebase.
 
 | Day | Task | Status |
 |---|---|---|
-| 31 | Wire `HistorySystem` to `DialectFormedEvent` (mirrors the other 12 `CivilizationEvent` handlers) so `TG-001` Law IV isn't violated by Week 6's own new event | Pending |
-| 32 | Surface `Citizen.Emotions` in the Observatory's citizen detail panel (mirrors the existing Needs/Attributes/Personality sections) | Pending |
-| 33 | Surface `GET /citizens/{id}/relationships` in the Observatory's citizen detail panel (mirrors `SettlementsPage`'s Language section added Week 6 Day 29) | Pending |
-| 34 | Unit tests for the new `HistorySystem` handler; live verification of both new UI sections | Pending |
-| 35 | Close-out: changelog, full verification, commit/push | Pending |
+| 31 | Wire `HistorySystem` to `DialectFormedEvent` (mirrors the other 12 `CivilizationEvent` handlers) so `TG-001` Law IV isn't violated by Week 6's own new event | Done — reuses `HistoryCategories.Culture` (no dedicated Language category exists) |
+| 32 | Surface `Citizen.Emotions` in the Observatory's citizen detail panel (mirrors the existing Needs/Attributes/Personality sections) | Done — verified live with real data (Curiosity 35.2, others at baseline) |
+| 33 | Surface `GET /citizens/{id}/relationships` in the Observatory's citizen detail panel (mirrors `SettlementsPage`'s Language section added Week 6 Day 29) | Done |
+| 34 | Unit tests for the new `HistorySystem` handler; live verification of both new UI sections | Done — 1 new test (125 total); Relationships section correctly renders absent when empty, no console errors |
+| 35 | Close-out: changelog, full verification, commit/push | Done |
+
+**Live-verification note:** the Relationships section itself could not be verified against
+real (non-empty) data — `Relationship` is pure in-memory (never EF-persisted, same as
+`Kingdom`/`DiplomaticRelation`/`TradeRoute`), so every API restart resets it to empty, and
+this session's resumed world had every settlement well below the 3.0 food-per-capita
+reproduction threshold needed for a new `CitizenBornEvent` to create one — the identical
+game-state condition Week 3 Day 13 already documented as a real (not buggy) blocker.
+Verified instead via the existing `RelationshipSystemTests.cs` coverage plus confirming the
+UI renders cleanly (no crash, no console errors, correct conditional absence) with genuinely
+empty data.
 
 ---
 

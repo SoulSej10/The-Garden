@@ -4,6 +4,7 @@ using Garden.Engine.Events;
 using Garden.Engine.Services;
 using Garden.Engine.Systems;
 using Garden.World.Collections;
+using Garden.World.Entities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -351,5 +352,31 @@ public class HistorySystemCivilizationEventTests
         var record = Assert.Single(archive.Records);
         Assert.Equal("CulturalFestivalHeld", record.EventType);
         Assert.Equal("Medium", record.Importance);
+    }
+
+    [Fact]
+    public void DialectFormed_IsArchived()
+    {
+        // Regression test for the 2026-07-10 anomaly audit: DialectFormedEvent
+        // (Week 6, RFC-003) was added to CivilizationEvents.cs but never
+        // subscribed by HistorySystem, unlike every other CivilizationEvent -
+        // a reintroduction of the exact TG-001 Law IV violation Day 1 fixed.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new DialectFormedEvent
+        {
+            Tick = 5000,
+            SettlementAId = GameEntityId.New(),
+            SettlementAName = "Upperridge",
+            SettlementBId = GameEntityId.New(),
+            SettlementBName = "Newdale",
+            Divergence = 71.5
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("DialectFormed", record.EventType);
+        Assert.Equal(HistoryCategories.Culture, record.Category);
+        Assert.Contains("Upperridge", record.Title);
+        Assert.Contains("Newdale", record.Title);
     }
 }

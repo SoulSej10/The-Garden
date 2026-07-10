@@ -12,8 +12,10 @@ import {
   fetchCitizens,
   fetchPopulation,
   fetchCitizenDetail,
+  fetchCitizenRelationships,
   type CitizenSummary,
   type CitizenDetail,
+  type CitizenRelationship,
 } from '@/lib/api'
 
 function getInitials(name: string) {
@@ -56,6 +58,12 @@ export default function CitizensPage() {
   const { data: citizenDetail, isLoading: detailLoading } = useQuery({
     queryKey: ['citizen', selectedId],
     queryFn: () => fetchCitizenDetail(selectedId!),
+    enabled: selectedId !== null,
+  })
+
+  const { data: relationships } = useQuery({
+    queryKey: ['citizen-relationships', selectedId],
+    queryFn: () => fetchCitizenRelationships(selectedId!),
     enabled: selectedId !== null,
   })
 
@@ -266,7 +274,7 @@ export default function CitizensPage() {
             <Skeleton className="h-48 w-full" />
           </div>
         ) : citizenDetail?.citizen ? (
-          <CitizenDetailPanel data={citizenDetail.citizen} />
+          <CitizenDetailPanel data={citizenDetail.citizen} relationships={relationships ?? []} />
         ) : (
           <p className="text-sm text-muted-foreground">Citizen not found.</p>
         )}
@@ -275,7 +283,7 @@ export default function CitizensPage() {
   )
 }
 
-function CitizenDetailPanel({ data }: { data: CitizenDetail }) {
+function CitizenDetailPanel({ data, relationships }: { data: CitizenDetail; relationships: CitizenRelationship[] }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -357,6 +365,46 @@ function CitizenDetailPanel({ data }: { data: CitizenDetail }) {
           ))}
         </div>
       </div>
+
+      <div>
+        <p className="text-xs font-medium text-muted-foreground mb-2">Emotions</p>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          {[
+            { label: 'Fear', value: data.emotions.fear },
+            { label: 'Joy', value: data.emotions.joy },
+            { label: 'Sadness', value: data.emotions.sadness },
+            { label: 'Trust', value: data.emotions.trust },
+            { label: 'Curiosity', value: data.emotions.curiosity },
+            { label: 'Loneliness', value: data.emotions.loneliness },
+          ].map((e) => (
+            <div key={e.label} className="rounded border px-2 py-1">
+              <p className="text-xs text-muted-foreground">{e.label}</p>
+              <p className="font-medium">{e.value.toFixed(1)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {relationships.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Relationships</p>
+          <div className="space-y-1">
+            {relationships.map((r) => (
+              <div key={r.otherCitizenId} className="rounded border px-2 py-1.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{r.otherCitizenName}</span>
+                  <span className="text-xs text-muted-foreground">{r.interactionCount} interactions</span>
+                </div>
+                <div className="mt-1 flex gap-3 text-xs text-muted-foreground">
+                  <span>Trust {r.trust.toFixed(0)}</span>
+                  <span>Affection {r.affection.toFixed(0)}</span>
+                  <span>Distance {r.socialDistance.toFixed(0)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div>
         <p className="text-xs font-medium text-muted-foreground mb-2">

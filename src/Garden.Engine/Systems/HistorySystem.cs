@@ -77,6 +77,12 @@ public class HistorySystem : IScheduledSystem
         _eventBus.Subscribe<TechnologyDiscoveredEvent>(OnTechnologyDiscovered);
         _eventBus.Subscribe<ReligionEstablishedEvent>(OnReligionEstablished);
         _eventBus.Subscribe<CulturalFestivalHeldEvent>(OnCulturalFestivalHeld);
+
+        // 2026-07-10 anomaly audit: DialectFormedEvent (Week 6, RFC-003) was
+        // added to CivilizationEvents.cs but never subscribed here, unlike
+        // the 12 events above - the exact TG-001 Law IV violation Week 1
+        // Day 1 was created to close, reintroduced on new code.
+        _eventBus.Subscribe<DialectFormedEvent>(OnDialectFormed);
     }
 
     private void OnCitizenBorn(CitizenBornEvent e)
@@ -361,6 +367,19 @@ public class HistorySystem : IScheduledSystem
             $"{e.FestivalName} Celebrated in {e.SettlementName}",
             $"{e.SettlementName} held {e.FestivalName} ({e.Occasion}) with {e.ParticipantCount} participants.",
             e.SettlementName, 0, e.Tick, [], [], 4.5, e.SettlementId.Value.ToString());
+    }
+
+    private void OnDialectFormed(DialectFormedEvent e)
+    {
+        // Reuses HistoryCategories.Culture - no dedicated Language category
+        // exists, and CulturalFestivalHeld (also a Volume VI Social event)
+        // already sets that precedent.
+        Archive(HistoryCategories.Culture, "DialectFormed",
+            $"A Dialect Forms Between {e.SettlementAName} and {e.SettlementBName}",
+            $"{e.SettlementAName} and {e.SettlementBName} have drifted apart linguistically (divergence {e.Divergence:F0}/100) - a distinct dialect has formed.",
+            e.SettlementAName, 0, e.Tick,
+            [e.SettlementAId.Value.ToString(), e.SettlementBId.Value.ToString()],
+            [e.SettlementAName, e.SettlementBName], 5.0, e.SettlementAId.Value.ToString());
     }
 
     private void Archive(string category, string eventType, string title, string description,
