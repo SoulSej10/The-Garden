@@ -26,6 +26,13 @@ public class Citizen
     public EmotionalState Emotions { get; set; } = new();
     public List<CitizenMemory> Memories { get; init; } = [];
 
+    // RFC-002 (specification/RFC/RFC-002-communication-knowledge-diffusion.md):
+    // flat list of HistoricalRecord.Id string values this citizen has heard
+    // about, via CommunicationSystem. Deliberately just IDs, not a richer
+    // "belief" object - this increment tracks whether knowledge spread, not
+    // what shape it took once it arrived (Information Fidelity is deferred).
+    public List<string> KnownEventIds { get; init; } = [];
+
     public double ContributionScore { get; set; }
     public double Reputation { get; set; } = 50.0;
     public GameEntityId? ReligionId { get; set; }

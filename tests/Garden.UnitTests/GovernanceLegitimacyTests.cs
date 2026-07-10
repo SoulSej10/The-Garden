@@ -73,6 +73,29 @@ public class GovernanceLegitimacyTests
     }
 
     [Fact]
+    public void GetLegitimacyBreakdown_ExposesTheThreeComponents_MatchingTheCombinedTotal()
+    {
+        // DEVELOPMENT_PLAN.md Week 4 Day 16: Legitimacy's components are
+        // exposed publicly (not just the combined total) so the Observatory
+        // can explain *why* a settlement's legitimacy is what it is
+        // (TG-OBS-002 Principle 9, Explainability).
+        var (world, governance) = CreateHarness();
+        var leader = new Citizen { FirstName = "Sela", LastName = "Vane", ContributionScore = 80, Reputation = 90 };
+        world.Citizens.Add(leader);
+
+        var settlement = new Settlement { Name = "Rivermoot", LeaderId = leader.Id };
+        for (var i = 0; i < 5; i++) settlement.MemberIds.Add(GameEntityId.New());
+
+        governance.EvaluateGovernance(settlement, tick: 1000);
+        var breakdown = governance.GetLegitimacyBreakdown(settlement, tick: 1000);
+
+        Assert.Equal(80.0, breakdown.Competence, precision: 1);
+        Assert.Equal(90.0, breakdown.PublicTrust, precision: 1);
+        Assert.Equal(0.0, breakdown.Stability, precision: 1);
+        Assert.Equal(settlement.Legitimacy, breakdown.Total, precision: 5);
+    }
+
+    [Fact]
     public void Legitimacy_Increases_AsStabilityAccumulates_WithoutAnotherTransition()
     {
         var (world, governance) = CreateHarness();

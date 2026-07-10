@@ -2,14 +2,21 @@ import { useState, useEffect } from 'react'
 
 export default function TopBar({ onToggleSearch }: { onToggleSearch: () => void }) {
   const [dark, setDark] = useState(false)
+  const [reduceMotion, setReduceMotion] = useState(false)
 
   useEffect(() => {
     setDark(document.documentElement.classList.contains('dark'))
+    setReduceMotion(localStorage.getItem('reduce-motion') === 'true')
   }, [])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
   }, [dark])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('reduce-motion', reduceMotion)
+    localStorage.setItem('reduce-motion', String(reduceMotion))
+  }, [reduceMotion])
 
   return (
     <header className="flex h-14 items-center border-b px-4 md:px-6">
@@ -25,6 +32,14 @@ export default function TopBar({ onToggleSearch }: { onToggleSearch: () => void 
           <span>🔍</span>
           <span className="hidden sm:inline">Search</span>
           <kbd className="ml-1 text-[10px] text-muted-foreground/60 border rounded px-1">Ctrl+K</kbd>
+        </button>
+        <button
+          onClick={() => setReduceMotion((r) => !r)}
+          className="rounded-md border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent"
+          title={reduceMotion ? 'Reduced motion: on' : 'Reduced motion: off'}
+          aria-pressed={reduceMotion}
+        >
+          {reduceMotion ? '🚫' : '🎞️'}
         </button>
         <button
           onClick={() => setDark((d) => !d)}

@@ -12,15 +12,18 @@ public class SettlementsController : ControllerBase
     private readonly WorldState _worldState;
     private readonly SettlementManager _settlementManager;
     private readonly ConstructionSystem _constructionSystem;
+    private readonly GovernanceService _governanceService;
 
     public SettlementsController(
         WorldState worldState,
         SettlementManager settlementManager,
-        ConstructionSystem constructionSystem)
+        ConstructionSystem constructionSystem,
+        GovernanceService governanceService)
     {
         _worldState = worldState;
         _settlementManager = settlementManager;
         _constructionSystem = constructionSystem;
+        _governanceService = governanceService;
     }
 
     [HttpGet]
@@ -108,6 +111,7 @@ public class SettlementsController : ControllerBase
             settlement.GovernmentType,
             settlement.AuthoritySource,
             Legitimacy = Math.Round(settlement.Legitimacy, 1),
+            LegitimacyBreakdown = BuildLegitimacyBreakdown(settlement),
             settlement.ReligionName,
             settlement.TechnologyProgress,
             CulturalTraits = settlement.CulturalTraits.Select(t => new { t.Name, t.Description }),
@@ -182,6 +186,17 @@ public class SettlementsController : ControllerBase
 
         _constructionSystem.PlanBuilding(settlement, request.BuildingType, request.TileX, request.TileY);
         return Ok(building);
+    }
+
+    private object BuildLegitimacyBreakdown(Garden.World.Entities.Settlement settlement)
+    {
+        var breakdown = _governanceService.GetLegitimacyBreakdown(settlement, _worldState.CurrentTime.Tick);
+        return new
+        {
+            Competence = Math.Round(breakdown.Competence, 1),
+            PublicTrust = Math.Round(breakdown.PublicTrust, 1),
+            Stability = Math.Round(breakdown.Stability, 1)
+        };
     }
 }
 

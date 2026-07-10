@@ -1,4 +1,5 @@
 using Garden.Engine.Services;
+using Garden.Engine.Systems;
 using Garden.World.Collections;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,11 +11,14 @@ public class CitizensController : ControllerBase
 {
     private readonly WorldState _worldState;
     private readonly PopulationManager _populationManager;
+    private readonly CommunicationSystem _communicationSystem;
 
-    public CitizensController(WorldState worldState, PopulationManager populationManager)
+    public CitizensController(WorldState worldState, PopulationManager populationManager,
+        CommunicationSystem communicationSystem)
     {
         _worldState = worldState;
         _populationManager = populationManager;
+        _communicationSystem = communicationSystem;
     }
 
     [HttpGet]
@@ -64,7 +68,7 @@ public class CitizensController : ControllerBase
 
         return Ok(new
         {
-            Citizen = MapCitizenDetail(citizen),
+            Citizen = MapCitizenDetail(citizen, _communicationSystem),
             RecentEvents = citizen.Memories
                 .OrderByDescending(m => m.Tick)
                 .Take(20)
@@ -168,7 +172,11 @@ public class CitizensController : ControllerBase
         };
     }
 
-    private static object MapCitizenDetail(World.Entities.Citizen c)
+    // RFC-002 Day 24: minimal read-only "what this citizen knows" surfacing -
+    // resolves each KnownEventIds key against CommunicationSystem.EventTitles
+    // (the same in-memory dictionary the system populates when it marks a
+    // discoverer/founder, or diffuses knowledge to a listener).
+    private static object MapCitizenDetail(World.Entities.Citizen c, CommunicationSystem communicationSystem)
     {
         return new
         {
@@ -216,7 +224,14 @@ public class CitizensController : ControllerBase
                 Trust = Math.Round(c.Emotions.Trust, 1),
                 Curiosity = Math.Round(c.Emotions.Curiosity, 1),
                 Loneliness = Math.Round(c.Emotions.Loneliness, 1)
-            }
+            },
+            KnownEvents = c.KnownEventIds
+                .Select(key => new
+                {
+                    Key = key,
+                    Title = communicationSystem.EventTitles.TryGetValue(key, out var title) ? title : key
+                })
+                .ToList()
         };
     }
 }

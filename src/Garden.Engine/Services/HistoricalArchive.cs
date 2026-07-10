@@ -49,6 +49,20 @@ public class HistoricalArchive
         }
     }
 
+    /// <summary>
+    /// TG-OBS-005's "Historical Search" section names 10 facets: Person,
+    /// Family, Settlement, Civilization, Location, Historical event,
+    /// Scientific discovery, Environmental event, Date, Theme. This covers
+    /// the subset DEVELOPMENT_PLAN.md Week 4 Day 17 scoped to real, already-
+    /// recorded fields: Person/Theme (keyword, now also matching participant
+    /// names, not just title/description), Settlement (settlementId,
+    /// matching HistoricalRecord.RelatedSettlementId), Event (category/
+    /// eventType), and Date (fromTick/toTick). Family has no data model
+    /// anywhere in this codebase (HistoricalRecord has no family concept) -
+    /// deliberately not fabricated; Civilization/Location/Scientific
+    /// discovery/Environmental event are reachable today via category/
+    /// keyword rather than dedicated params.
+    /// </summary>
     public List<HistoricalRecord> Search(
         string? eventType = null,
         string? category = null,
@@ -56,6 +70,7 @@ public class HistoricalArchive
         int? toTick = null,
         string? keyword = null,
         string? participantId = null,
+        string? settlementId = null,
         int skip = 0,
         int take = 50)
     {
@@ -74,9 +89,12 @@ public class HistoricalArchive
             if (!string.IsNullOrEmpty(keyword))
                 query = query.Where(r =>
                     r.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
-                    r.Description.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+                    r.Description.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
+                    r.ParticipantNames.Any(n => n.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
             if (!string.IsNullOrEmpty(participantId))
                 query = query.Where(r => r.ParticipantIds.Contains(participantId));
+            if (!string.IsNullOrEmpty(settlementId))
+                query = query.Where(r => r.RelatedSettlementId == settlementId);
 
             return query
                 .OrderByDescending(r => r.Tick)

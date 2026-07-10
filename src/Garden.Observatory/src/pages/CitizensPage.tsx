@@ -154,9 +154,9 @@ export default function CitizensPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10" />
-                  <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>Name</TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort('age')}>Age</TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort('activity')}>Activity</TableHead>
+                  <SortableTableHead label="Name" onSort={() => handleSort('name')} />
+                  <SortableTableHead label="Age" onSort={() => handleSort('age')} />
+                  <SortableTableHead label="Activity" onSort={() => handleSort('activity')} />
                   <TableHead>Health</TableHead>
                   <TableHead>Hunger</TableHead>
                   <TableHead>Energy</TableHead>
@@ -167,9 +167,18 @@ export default function CitizensPage() {
                 {citizensData.citizens.map((c: CitizenSummary) => (
                   <TableRow
                     key={c.id}
-                    className="cursor-pointer"
+                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                     data-state={selectedId === c.id ? 'selected' : undefined}
                     onClick={() => setSelectedId(c.id)}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`View details for ${c.name}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedId(c.id)
+                      }
+                    }}
                   >
                     <TableCell>
                       <Avatar className="h-8 w-8">
@@ -186,21 +195,29 @@ export default function CitizensPage() {
                     </TableCell>
                     <TableCell className="w-24">
                       <div className="flex items-center gap-2">
-                        <Progress value={c.health} indicatorClassName={healthColor(c.health)} />
+                        <Progress value={c.health} indicatorClassName={healthColor(c.health)} aria-label={`Health: ${c.health.toFixed(0)}`} />
                         <span className="text-xs w-6">{c.health.toFixed(0)}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="w-20">
-                      <Progress
-                        value={c.hunger}
-                        indicatorClassName={needColor(c.hunger, 60, 80)}
-                      />
+                    <TableCell className="w-24">
+                      <div className="flex items-center gap-2">
+                        <Progress
+                          value={c.hunger}
+                          indicatorClassName={needColor(c.hunger, 60, 80)}
+                          aria-label={`Hunger: ${c.hunger.toFixed(0)}`}
+                        />
+                        <span className="text-xs w-6">{c.hunger.toFixed(0)}</span>
+                      </div>
                     </TableCell>
-                    <TableCell className="w-20">
-                      <Progress
-                        value={c.energy}
-                        indicatorClassName={needColor(100 - c.energy, 70, 85)}
-                      />
+                    <TableCell className="w-24">
+                      <div className="flex items-center gap-2">
+                        <Progress
+                          value={c.energy}
+                          indicatorClassName={needColor(100 - c.energy, 70, 85)}
+                          aria-label={`Energy: ${c.energy.toFixed(0)}`}
+                        />
+                        <span className="text-xs w-6">{c.energy.toFixed(0)}</span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs text-muted-foreground">
                       ({c.tileX},{c.tileY})
@@ -340,6 +357,41 @@ function CitizenDetailPanel({ data }: { data: CitizenDetail }) {
           ))}
         </div>
       </div>
+
+      <div>
+        <p className="text-xs font-medium text-muted-foreground mb-2">
+          What This Citizen Knows
+        </p>
+        {data.knownEvents.length > 0 ? (
+          <ul className="space-y-1">
+            {data.knownEvents.map((e) => (
+              <li key={e.key} className="rounded border px-2 py-1.5 text-sm">
+                {e.title}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Hasn't heard about any civilization events yet.
+          </p>
+        )}
+      </div>
     </div>
+  )
+}
+
+// TG-OBS-008 (Performance & Accessibility): a sortable column header needs
+// to be a real focusable, keyboard-activatable control, not a <th onClick>
+// that only mouse users can reach.
+function SortableTableHead({ label, onSort }: { label: string; onSort: () => void }) {
+  return (
+    <TableHead className="p-0">
+      <button
+        onClick={onSort}
+        className="flex w-full items-center px-2 py-2.5 text-left font-medium hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+      >
+        {label}
+      </button>
+    </TableHead>
   )
 }

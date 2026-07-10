@@ -76,3 +76,26 @@
     font-family: system-ui, -apple-system, sans-serif;
   }
 }
+
+/* TG-OBS-008 (Performance & Accessibility): "Reduced motion options" -
+   respects the OS-level prefers-reduced-motion setting automatically, and
+   the .reduce-motion class (toggled from TopBar) lets a player override it
+   manually regardless of their OS setting. Collapses transitions/animations
+   to nearly-instant rather than removing them outright, since a few
+   elements (e.g. Radix primitives) key their own show/hide logic off
+   animationend/transitionend firing at all. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.reduce-motion *, .reduce-motion *::before, .reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

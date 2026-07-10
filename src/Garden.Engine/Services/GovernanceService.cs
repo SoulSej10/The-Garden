@@ -81,8 +81,13 @@ public class GovernanceService
     /// ticks (~20 in-game days) following the settlement's last government
     /// transition, so a settlement is least legitimate right after upheaval
     /// and gains legitimacy the longer its government holds.
+    ///
+    /// Exposed as a public breakdown (not just the combined total) so the
+    /// Observatory can explain *why* a settlement's legitimacy is what it is
+    /// (TG-OBS-002 Principle 9, Explainability) rather than showing an
+    /// opaque number - see SettlementsController.GetById.
     /// </summary>
-    private double CalculateLegitimacy(Settlement settlement, long tick)
+    public LegitimacyBreakdown GetLegitimacyBreakdown(Settlement settlement, long tick)
     {
         var leader = settlement.LeaderId != null
             ? _worldState.Citizens.FirstOrDefault(c => c.Id == settlement.LeaderId)
@@ -92,7 +97,14 @@ public class GovernanceService
         var publicTrust = leader?.Reputation ?? 50.0;
         var ticksSinceChange = tick - settlement.LastGovernmentChangeTick;
         var stability = Math.Clamp(ticksSinceChange / 500.0 * 100.0, 0.0, 100.0);
+        var total = Math.Clamp(competence * 0.4 + publicTrust * 0.3 + stability * 0.3, 0.0, 100.0);
 
-        return Math.Clamp(competence * 0.4 + publicTrust * 0.3 + stability * 0.3, 0.0, 100.0);
+        return new LegitimacyBreakdown(competence, publicTrust, stability, total);
     }
+
+    private double CalculateLegitimacy(Settlement settlement, long tick) =>
+        GetLegitimacyBreakdown(settlement, tick).Total;
 }
+
+public readonly record struct LegitimacyBreakdown(
+    double Competence, double PublicTrust, double Stability, double Total);

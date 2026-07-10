@@ -84,7 +84,8 @@ public class TechnologyService
                         TechnologyName = tech.Name,
                         Category = tech.Category,
                         DiscoveredBySettlementId = settlement.Id,
-                        SettlementName = settlement.Name
+                        SettlementName = settlement.Name,
+                        DiscoveredByCitizenId = tech.DiscoveredByCitizenId
                     });
 
                     _logger.LogInformation("Technology '{Tech}' discovered by {Settlement}",

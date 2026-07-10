@@ -81,7 +81,8 @@ public class ReligionService
             ReligionName = religion.Name,
             CoreValue = religion.CoreValue,
             OriginSettlementName = settlement.Name,
-            InitialFollowers = religion.FollowerCount
+            InitialFollowers = religion.FollowerCount,
+            FounderCitizenId = founder?.Id
         });
 
         _logger.LogInformation("Religion '{Religion}' established in {Settlement}",

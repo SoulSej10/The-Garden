@@ -42,6 +42,12 @@ public class GardenDbContext : DbContext
             entity.OwnsOne(e => e.Needs);
             entity.OwnsOne(e => e.Emotions);
             entity.OwnsMany(e => e.Memories);
+
+            entity.Property(e => e.KnownEventIds)
+                .Metadata.SetValueComparer(new ValueComparer<List<string>>(
+                    (a, b) => a!.SequenceEqual(b!),
+                    v => v.Aggregate(0, (hash, id) => HashCode.Combine(hash, id.GetHashCode())),
+                    v => v.ToList()));
         });
 
         modelBuilder.Entity<Settlement>(entity =>

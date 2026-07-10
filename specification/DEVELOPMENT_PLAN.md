@@ -97,6 +97,22 @@ Goal: make Week 2–3's backend work visible to the player, and close the gap be
 
 ---
 
+## Weeks 1–4 Retrospective (2026-07-09)
+
+All 20 days shipped, tested (build + full unit/integration suite green throughout), and
+live-verified against a running/resumed simulation at every step — see `SPEC_INDEX.md`
+Change Log for the day-by-day record. Two things worth naming explicitly:
+
+- **Real bugs were only found because live verification was pushed past "the tests pass."**
+  The Day-9 EF migration crash, the Day-14 Loneliness-hook placement bug, and the Day-18
+  `FarmHarvested` archive-flooding were all invisible to unit tests and only surfaced by
+  actually running the app against real data. Keep doing that.
+- **Two dormant/latent issues are now tracked but deliberately not fixed**, since neither is
+  causing live harm today: `TradeCompletedEvent` is defined and even whitelisted as
+  always-High significance, but is never actually published anywhere in this codebase (found
+  Week 3 Day 13, re-confirmed Week 4 Day 18). Pick this up whenever a real citizen-to-citizen
+  or settlement-to-settlement trade mechanic gets built.
+
 ## Backlog — Requires an RFC Before Scheduling
 
 These are real, spec-documented systems with **zero code footprint**, but the specification
@@ -110,12 +126,37 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 | Warfare & Military Organization | `TG-640_Warfare_Military_Organization.md` | Largest single unimplemented system in the whole library; spec gives no combat-resolution, morale, or logistics-attrition formulas at all. |
 | Infrastructure-as-network | `TG-660_Infrastructure.md` | Spec explicitly rejects the building-centric model the current `ConstructionSystem`/`Building.cs` uses — this is a philosophy-vs-implementation conflict that needs a decision, not just new code. |
 | Science & Technology redesign | `TG-670_Science_Technology.md` | Spec explicitly disclaims "a predefined technology tree"; current `Technology.cs` is exactly that. Needs an ADR: change the doc to match reality, or redesign the system to match the doc. |
-| Communication / Language / Education / Law & Justice | `TG-500`, `TG-510`, `TG-550`, `TG-590` | Zero code footprint, each depends on Emotion/Relationships (Week 3) being real first. |
+| ~~Communication~~ / Language / Education / Law & Justice | `TG-500` (scoped, shipped), `TG-510`, `TG-550`, `TG-590` | **Communication's first increment shipped in Week 5 (2026-07-10) — see `RFC/RFC-002-communication-knowledge-diffusion.md`.** Language/Education/Law & Justice still need their own RFCs and now depend on Communication (landed) rather than Emotion/Relationships directly. |
+| `TechnologyService` progress-scaling bug | Week 5 Day 22 finding | `EvaluateTechnology()` accumulates each individual `Technology.CurrentProgress` at `settlementProgress * 0.1`, but nothing else in the codebase treats `settlement.TechnologyProgress` as 10x the per-tech scale. Confirmed live: after 55+ simulated years with a 26-member settlement, zero technologies had discovered (needed ~385 years at the current rate). Flagged via `spawn_task` (`task_7f002f15`) — makes the entire technology tree practically unreachable until fixed. |
 | Legends & Myths generation | `TG-STRY-040_Legends_Myths.md` | Needs Character Stories + Civilization Stories + Historical Narrative all functioning first; currently the deepest dependency chain in `04_Story`. |
 | Replay & Timeline Branching | `TG-OBS-007_Save_Load_Replay.md` | TG-DEV-009 shipped save/load/backup, but not branching timelines or playback controls — a real architecture addition, not a UI feature. |
 | Modding & Extensibility | `TG-OBS-009_Modding_Extensibility.md` | Explicitly deferred by its own spec until core Observatory work is done. |
 | Real LLM-backed AI narrator | `TG-DEV-009` Known Limitations | Current AI is template/pattern-matched. Needs a provider-integration ADR (cost, latency, determinism-safety — the AI must never be allowed to invent facts per `TG-001`). |
 | API rate limiting & versioning | `TG-DEV-009` Known Limitations | Small, well-understood scope — could be pulled forward into a future week without an RFC if prioritized. |
+| `TradeCompletedEvent` is dead code | Week 3 Day 13, Week 4 Day 18 findings | Defined and even whitelisted as always-High significance, but never published anywhere. Not urgent (nothing currently depends on it firing), but worth either wiring a real trade trigger or removing the unused event type so it stops looking implemented. |
+
+## Week 5 (2026-07-10, complete) — Communication: Knowledge Diffusion
+
+Committed day-to-day plan, scoped from `RFC/RFC-002-communication-knowledge-diffusion.md`,
+mirroring Week 3's Emotion/Relationship cadence (a new entity + a new `IScheduledSystem` +
+tests + minimal UI + close-out) since RFC-002 explicitly reuses that shape as its template.
+
+| Day | Task | Status |
+|---|---|---|
+| 21 | `Citizen.KnownEventIds` data model + EF Core migration | Done — caught and fixed a real bug live: the initial migration failed against the populated database (`NOT NULL` array column with no default), fixed with `defaultValueSql: "ARRAY[]::text[]"` |
+| 22 | `CommunicationSystem`: subscribe to civilization milestone events, daily propagation loop over the `Relationship` graph (SocialDistance < 40, Trust > 30 gate per RFC-002) | Done — also fixed a real gap: `TechnologyDiscoveredEvent`/`ReligionEstablishedEvent` never exposed the discoverer/founder citizen ID that the underlying services already computed; added `DiscoveredByCitizenId`/`FounderCitizenId` |
+| 23 | Unit tests for initial knowledge marking and propagation gating (distance/trust/dead-citizen negative cases) | Done — 9 new tests, `CommunicationSystemTests.cs` |
+| 24 | Minimal Observatory surfacing: read-only "what this citizen knows" in citizen detail panel | Done — `CitizensController` + `CitizenDetailPanel`, verified live in browser |
+| 25 | Close-out: changelog, RFC-002 status update, full verification, commit/push | Done |
+
+**Live-verification note:** organic milestone events (Kingdom/Religion/Technology) could not
+be reliably triggered within the session's time budget — Kingdom/Religion formation are
+chance-gated per year, and Technology discovery is currently unreachable in practice due to
+an unrelated pre-existing bug (see Backlog table below). Verified instead via
+`CommunicationSystemTests.cs` publishing the domain events directly, the same approach
+`EmotionSystemTests.cs` used for RFC-001's rare emotion triggers — consistent with this
+project's standing rule that emergent-only verification isn't a substitute for direct tests
+when the emergent path is rare or broken.
 
 ---
 

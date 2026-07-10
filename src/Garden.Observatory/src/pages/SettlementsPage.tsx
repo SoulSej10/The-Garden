@@ -26,6 +26,25 @@ function formatTier(tier: string): string {
   return tier.replace(/([a-z])([A-Z])/g, '$1 $2')
 }
 
+// TG-OBS-002 Principle 9 (Explainability): a Tier or Authority label alone
+// is a conclusion with no visible reasoning - these one-line descriptions
+// give the population range/meaning behind it, matching the thresholds
+// actually implemented in Settlement.Tier / GovernanceService.
+const TIER_DESCRIPTIONS: Record<string, string> = {
+  Hamlet: 'A small cluster of under 10 residents, just getting started.',
+  Village: 'A growing community of 10-29 residents.',
+  Town: 'An established settlement of 30-74 residents with real infrastructure.',
+  City: 'A major settlement of 75-149 residents.',
+  RegionalCapital: 'A regional power of 150-299 residents.',
+  Metropolis: 'A dominant metropolis of 300 or more residents.',
+}
+
+const AUTHORITY_DESCRIPTIONS: Record<string, string> = {
+  Competence: 'Whoever contributes most to the settlement naturally leads - no formal structure yet.',
+  Election: 'A small council shares authority collectively.',
+  Tradition: 'Authority rests with customary, elder-based leadership.',
+}
+
 export default function SettlementsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -119,12 +138,21 @@ export default function SettlementsPage() {
                 settlements?.map((s: SettlementSummary) => (
                   <TableRow
                     key={s.id}
-                    className="cursor-pointer"
+                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                     onClick={() => setSelectedId(s.id)}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`View details for ${s.name}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedId(s.id)
+                      }
+                    }}
                   >
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{formatTier(s.tier)}</Badge>
+                      <Badge variant="outline" title={TIER_DESCRIPTIONS[s.tier]}>{formatTier(s.tier)}</Badge>
                     </TableCell>
                     <TableCell>{s.population}</TableCell>
                     <TableCell>({s.tileX}, {s.tileY})</TableCell>
@@ -191,9 +219,40 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
             <span className="font-medium">{detail.technologyProgress.toFixed(0)}%</span>
           </div>
         </div>
-        <div className="mt-2">
-          <WellbeingBar label="Legitimacy" value={detail.legitimacy} goodHigh />
+        {/* Progressive disclosure (TG-OBS-002 Principle 2): the Tier/Authority
+            labels above are the overview; what they actually mean follows
+            underneath rather than requiring a separate lookup. */}
+        <p className="mt-2 text-xs text-muted-foreground">
+          {TIER_DESCRIPTIONS[detail.tier] ?? ''}
+          {detail.authoritySource && AUTHORITY_DESCRIPTIONS[detail.authoritySource]
+            ? ` ${AUTHORITY_DESCRIPTIONS[detail.authoritySource]}`
+            : ''}
+        </p>
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-sm font-medium">Legitimacy</h3>
+        <p className="mb-2 text-xs text-muted-foreground">
+          How secure this settlement's government is - low legitimacy makes it a shakier diplomatic partner.
+        </p>
+        <div className="space-y-2">
+          <WellbeingBar label="Overall" value={detail.legitimacy} goodHigh />
+          {detail.legitimacyBreakdown && (
+            <>
+              <WellbeingBar label="Competence" value={detail.legitimacyBreakdown.competence} goodHigh />
+              <WellbeingBar label="Trust" value={detail.legitimacyBreakdown.publicTrust} goodHigh />
+              <WellbeingBar label="Stability" value={detail.legitimacyBreakdown.stability} goodHigh />
+            </>
+          )}
         </div>
+        {/* Explainability (TG-OBS-002 Principle 9): the three inputs below
+            are real, traceable factors - the leader's own ContributionScore
+            and Reputation, and ticks elapsed since the last government
+            change - not just a single opaque number. */}
+        <p className="mt-2 text-xs text-muted-foreground">
+          Competence and Trust come from the leader's own standing; Stability grows the longer this
+          government holds without a change.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -339,11 +398,17 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
 function WellbeingBar({ label, value, goodHigh }: { label: string; value: number; goodHigh: boolean }) {
   const effective = goodHigh ? value : 100 - value
   const color = effective >= 60 ? 'bg-green-500' : effective >= 35 ? 'bg-yellow-500' : 'bg-red-500'
+  // TG-OBS-008 (Performance & Accessibility): "color-independent visual
+  // indicators" - the icon carries the same good/warning/poor signal as the
+  // bar color, so the status reads correctly without relying on color alone.
+  const icon = effective >= 60 ? '✓' : effective >= 35 ? '!' : '✗'
+  const statusLabel = effective >= 60 ? 'good' : effective >= 35 ? 'warning' : 'poor'
 
   return (
     <div className="flex items-center gap-3">
       <span className="w-14 text-xs text-muted-foreground">{label}</span>
-      <Progress value={value} indicatorClassName={color} />
+      <span className="w-4 text-xs" aria-hidden="true">{icon}</span>
+      <Progress value={value} indicatorClassName={color} aria-label={`${label}: ${value.toFixed(0)} (${statusLabel})`} />
       <span className="w-8 text-right text-xs">{value.toFixed(0)}</span>
     </div>
   )

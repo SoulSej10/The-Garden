@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.AddSingleton<CitizenSystem>();
         services.AddSingleton<EmotionSystem>();
         services.AddSingleton<RelationshipSystem>();
+        services.AddSingleton<CommunicationSystem>();
         services.AddSingleton<AgingSystem>();
         services.AddSingleton<ReproductionSystem>();
         services.AddSingleton<SpawnSystem>();

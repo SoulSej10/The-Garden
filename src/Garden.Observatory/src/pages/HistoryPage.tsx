@@ -11,6 +11,7 @@ import {
   fetchHistoryTimeline,
   searchHistory,
   fetchHistoryStats,
+  fetchHistoryFacets,
   fetchStories,
   type HistoryRecord,
   type StorySummary,
@@ -19,6 +20,10 @@ import {
 export default function HistoryPage() {
   const [page, setPage] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchCategory, setSearchCategory] = useState('')
+  const [searchSettlementId, setSearchSettlementId] = useState('')
+  const [searchFromTick, setSearchFromTick] = useState('')
+  const [searchToTick, setSearchToTick] = useState('')
   const [activeTab, setActiveTab] = useState('timeline')
 
   const { data: stats } = useQuery({
@@ -39,10 +44,25 @@ export default function HistoryPage() {
     refetchInterval: 10000,
   })
 
+  const { data: facets } = useQuery({
+    queryKey: ['history-facets'],
+    queryFn: fetchHistoryFacets,
+    staleTime: 60000,
+  })
+
+  const hasActiveFilter = searchQuery.length > 0 || searchCategory.length > 0
+    || searchSettlementId.length > 0 || searchFromTick.length > 0 || searchToTick.length > 0
+
   const { data: searchResults } = useQuery({
-    queryKey: ['history-search', searchQuery],
-    queryFn: () => searchHistory(searchQuery, 1, 50),
-    enabled: searchQuery.length > 0,
+    queryKey: ['history-search', searchQuery, searchCategory, searchSettlementId, searchFromTick, searchToTick],
+    queryFn: () => searchHistory({
+      q: searchQuery || undefined,
+      category: searchCategory || undefined,
+      settlementId: searchSettlementId || undefined,
+      fromTick: searchFromTick ? Number(searchFromTick) : undefined,
+      toTick: searchToTick ? Number(searchToTick) : undefined,
+    }, 1, 50),
+    enabled: hasActiveFilter,
   })
 
   return (
@@ -233,19 +253,64 @@ export default function HistoryPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Historical Search</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Search by person, settlement, event theme, or date - per TG-OBS-005, search
+                  prioritizes relationships rather than isolated records. (Family search isn't
+                  available yet - families aren't modeled in the simulation.)
+                </p>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <input
                   type="text"
-                  placeholder="Search historical records..."
+                  placeholder="Search by person or theme (e.g. a citizen's name, &quot;founding&quot;, &quot;drought&quot;)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-md border px-3 py-2 text-sm"
                 />
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <select
+                    value={searchCategory}
+                    onChange={(e) => setSearchCategory(e.target.value)}
+                    className="rounded-md border px-2 py-1.5 text-sm"
+                    aria-label="Filter by event theme"
+                  >
+                    <option value="">Any theme</option>
+                    {facets?.categories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={searchSettlementId}
+                    onChange={(e) => setSearchSettlementId(e.target.value)}
+                    className="rounded-md border px-2 py-1.5 text-sm"
+                    aria-label="Filter by settlement"
+                  >
+                    <option value="">Any settlement</option>
+                    {facets?.settlements.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    placeholder="From tick"
+                    value={searchFromTick}
+                    onChange={(e) => setSearchFromTick(e.target.value)}
+                    className="rounded-md border px-2 py-1.5 text-sm"
+                    aria-label="From tick"
+                  />
+                  <input
+                    type="number"
+                    placeholder="To tick"
+                    value={searchToTick}
+                    onChange={(e) => setSearchToTick(e.target.value)}
+                    className="rounded-md border px-2 py-1.5 text-sm"
+                    aria-label="To tick"
+                  />
+                </div>
               </CardContent>
             </Card>
 
-            {searchQuery && searchResults && (
+            {hasActiveFilter && searchResults && (
               <Card>
                 <CardHeader>
                   <CardTitle>

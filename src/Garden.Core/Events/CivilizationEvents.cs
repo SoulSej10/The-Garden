@@ -101,6 +101,10 @@ public record TechnologyDiscoveredEvent : CivilizationEvent
     public string Category { get; init; } = string.Empty;
     public GameEntityId? DiscoveredBySettlementId { get; init; }
     public string SettlementName { get; init; } = string.Empty;
+    // RFC-002: the citizen TechnologyService already picks as the discoverer
+    // (settlement's highest-Intelligence member) - wasn't previously exposed
+    // on the event, only stored on Technology.DiscoveredByCitizenId.
+    public GameEntityId? DiscoveredByCitizenId { get; init; }
 }
 
 public record ReligionEstablishedEvent : CivilizationEvent
@@ -110,6 +114,10 @@ public record ReligionEstablishedEvent : CivilizationEvent
     public string CoreValue { get; init; } = string.Empty;
     public string OriginSettlementName { get; init; } = string.Empty;
     public int InitialFollowers { get; init; }
+    // RFC-002: the citizen ReligionService already picks as the founder
+    // (settlement's highest Compassion+Intelligence member) - wasn't
+    // previously exposed on the event.
+    public GameEntityId? FounderCitizenId { get; init; }
 }
 
 public record CulturalFestivalHeldEvent : CivilizationEvent

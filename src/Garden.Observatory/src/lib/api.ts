@@ -221,6 +221,10 @@ export interface CitizenDetail {
     warmth: number
     health: number
   }
+  knownEvents: Array<{
+    key: string
+    title: string
+  }>
 }
 
 export interface CitizenDetailData {
@@ -285,6 +289,7 @@ export interface SettlementDetail {
   governmentType: string
   authoritySource: string
   legitimacy: number
+  legitimacyBreakdown: { competence: number; publicTrust: number; stability: number }
   religionName: string
   technologyProgress: number
   culturalTraits: Array<{ name: string; description: string }>
@@ -462,14 +467,32 @@ export async function fetchHistoryTimeline(
   return data
 }
 
+export interface HistorySearchFilters {
+  q?: string
+  category?: string
+  settlementId?: string
+  fromTick?: number
+  toTick?: number
+}
+
 export async function searchHistory(
-  q: string,
+  filters: HistorySearchFilters,
   page = 1,
   pageSize = 50
 ): Promise<{ page: number; pageSize: number; totalRecords: number; totalPages: number; records: HistoryRecord[] }> {
   const { data } = await api.get('/history/search', {
-    params: { q, page, pageSize },
+    params: { ...filters, page, pageSize },
   })
+  return data
+}
+
+export interface HistoryFacets {
+  categories: string[]
+  settlements: Array<{ id: string; name: string }>
+}
+
+export async function fetchHistoryFacets(): Promise<HistoryFacets> {
+  const { data } = await api.get('/history/facets')
   return data
 }
 

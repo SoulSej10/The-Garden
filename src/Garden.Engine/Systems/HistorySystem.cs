@@ -166,11 +166,26 @@ public class HistorySystem : IScheduledSystem
 
     private void OnFarmHarvested(FarmHarvestedEvent e)
     {
+        // DEVELOPMENT_PLAN.md Week 4 Day 18: severity used to be a flat 2.0
+        // for every harvest regardless of size, while "FarmHarvested" was
+        // separately whitelisted as always-High in SignificanceEvaluator -
+        // together those meant every single harvest was archived as "High"
+        // importance, contradicting TG-STRY-050's Core Principle that
+        // importance comes from actual consequence, not event type. Yield is
+        // the one real signal available for "Depth of consequence" here (a
+        // much bigger harvest feeds the settlement far longer) - 20 units
+        // was chosen as the divisor because typical observed harvests in
+        // this codebase's simulations run roughly 30-100 units (see
+        // AgricultureSystem), putting most routine harvests below the
+        // Medium threshold (severity > 4.0, i.e. Yield > 80) and only
+        // genuinely large ones above it.
+        var severity = Math.Min(10.0, e.Yield / 20.0);
+
         Archive(HistoryCategories.Harvest, "FarmHarvested",
             $"Harvest at {e.SettlementName}",
             $"{e.CropType} harvested: {e.Yield} units.",
             e.SettlementName, 0, e.Tick,
-            [], [], 2.0, e.SettlementId.Value.ToString());
+            [], [], severity, e.SettlementId.Value.ToString());
     }
 
     private void OnTradeCompleted(TradeCompletedEvent e)
