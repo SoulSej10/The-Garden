@@ -126,8 +126,10 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 | Warfare & Military Organization | `TG-640_Warfare_Military_Organization.md` | Largest single unimplemented system in the whole library; spec gives no combat-resolution, morale, or logistics-attrition formulas at all. |
 | Infrastructure-as-network | `TG-660_Infrastructure.md` | Spec explicitly rejects the building-centric model the current `ConstructionSystem`/`Building.cs` uses — this is a philosophy-vs-implementation conflict that needs a decision, not just new code. |
 | Science & Technology redesign | `TG-670_Science_Technology.md` | Spec explicitly disclaims "a predefined technology tree"; current `Technology.cs` is exactly that. Needs an ADR: change the doc to match reality, or redesign the system to match the doc. |
-| ~~Communication~~ / Language / Education / Law & Justice | `TG-500` (scoped, shipped), `TG-510`, `TG-550`, `TG-590` | **Communication's first increment shipped in Week 5 (2026-07-10) — see `RFC/RFC-002-communication-knowledge-diffusion.md`.** Language/Education/Law & Justice still need their own RFCs and now depend on Communication (landed) rather than Emotion/Relationships directly. |
+| ~~Communication~~ / ~~Language~~ / Education / Law & Justice | `TG-500` (scoped, shipped), `TG-510` (scoped, shipped), `TG-550`, `TG-590` | **Communication shipped Week 5, Language shipped Week 6 — see `RFC/RFC-002` and `RFC/RFC-003`.** Education/Law & Justice still need their own RFCs and now depend on Language (landed) rather than Communication directly. |
 | ~~`TechnologyService` progress-scaling bug~~ | Week 5 Day 22 finding, **fixed 2026-07-10** | `EvaluateTechnology()` accumulated each individual `Technology.CurrentProgress` at `settlementProgress * 0.1`, but nothing else in the codebase treated `settlement.TechnologyProgress` as 10x the per-tech scale — confirmed live, zero technologies discovered after 55+ simulated years. Fixed by removing the scale-down (category multipliers for Agriculture/Construction retained). Verified: 3 new unit tests, and live — a fresh run discovered 10 technologies across 2 settlements within Year 1 alone. |
+| `TradeRouteService` never creates routes | Week 6 Day 29 finding | `EvaluateTradeRoutes()`'s own stated conditions (distance ≤ 25, one settlement ≥20 of a good while the other has <10) were confirmed live to be clearly met (Food 74 vs 0 between two settlements 23 tiles apart), yet zero trade routes existed after ~2000 weekly evaluations across an 8-settlement world, with no exceptions logged. Blocks `LanguageSystem`'s contact mechanic and any economy-driven organic verification generally. Flagged via `spawn_task` (`task_b82147bd`), not fixed here — out of Week 6's scope. |
+| `CivilizationSystem`'s "yearly" cadence isn't a year | Week 6 Day 27 finding | `_lastYearlyTick >= 336` (used by `TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`) is ~14 days at `SimulationTime`'s actual scale (1 year = 24 × 30 × 12 = 8640 ticks), not a year. Affects five systems' cadence naming at once — needs its own look (rename to reflect reality, or fix the threshold to 8640) rather than a fix folded into whichever RFC happens to notice it next. |
 | Legends & Myths generation | `TG-STRY-040_Legends_Myths.md` | Needs Character Stories + Civilization Stories + Historical Narrative all functioning first; currently the deepest dependency chain in `04_Story`. |
 | Replay & Timeline Branching | `TG-OBS-007_Save_Load_Replay.md` | TG-DEV-009 shipped save/load/backup, but not branching timelines or playback controls — a real architecture addition, not a UI feature. |
 | Modding & Extensibility | `TG-OBS-009_Modding_Extensibility.md` | Explicitly deferred by its own spec until core Observatory work is done. |
@@ -157,6 +159,29 @@ an unrelated pre-existing bug (see Backlog table below). Verified instead via
 `EmotionSystemTests.cs` used for RFC-001's rare emotion triggers — consistent with this
 project's standing rule that emergent-only verification isn't a substitute for direct tests
 when the emergent path is rare or broken.
+
+## Week 6 (2026-07-10, complete) — Language: Settlement Divergence
+
+Committed day-to-day plan, scoped from `RFC/RFC-003-language-divergence.md`, mirroring
+Week 5's shape (a new pairwise entity + a new yearly `IScheduledSystem` + tests + minimal
+UI + close-out) since RFC-003 explicitly follows that same template.
+
+| Day | Task | Status |
+|---|---|---|
+| 26 | `LanguageDivergence` entity + `LanguageSystem` skeleton, wired into DI/scheduler | Done |
+| 27 | Divergence mechanic: decay toward convergence with active `TradeRoute`/`DiplomaticRelation` contact, growth toward divergence under isolation, `DialectFormedEvent` at threshold | Done — implemented alongside Day 26 |
+| 28 | Unit tests for convergence/divergence gating and the one-time `DialectFormed` firing | Done — 6 new tests, `LanguageSystemTests.cs` |
+| 29 | Minimal Observatory surfacing: each settlement's most-diverged/most-converged neighbor | Done — `SettlementsController` + settlement detail panel, verified live (no crash, correct absence when no data) |
+| 30 | Close-out: changelog, RFC-003 status update, full verification, commit/push | Done |
+
+**Live-verification note:** organic contact (the precondition for any `LanguageDivergence`
+row to exist at all) could not be triggered within the session's time budget — diplomatic
+relations require settlements within 15 tiles (none qualify in this world's geography), and
+trade routes turned out to never form at all despite their own conditions being clearly met
+(a real, separate, pre-existing `TradeRouteService` bug, flagged via `spawn_task`
+`task_b82147bd`, not fixed here). Verified instead via `LanguageSystemTests.cs` publishing
+synthetic settlement pairs directly, the same fallback Weeks 5 and this week both used when
+the organic trigger is rare or broken.
 
 ---
 

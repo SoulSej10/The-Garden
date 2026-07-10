@@ -333,6 +333,26 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
         </div>
       )}
 
+      {detail.languageDivergence.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-medium">Language</h3>
+          <p className="mb-2 text-xs text-muted-foreground">
+            How far this settlement's speech has drifted from settlements it has contact with — lower means more mutually intelligible.
+          </p>
+          <div className="space-y-1">
+            {detail.languageDivergence.map((d) => (
+              <div key={d.otherSettlementId} className="flex items-center justify-between rounded border px-3 py-1.5 text-sm">
+                <span>{d.otherSettlementName}</span>
+                <span className="flex items-center gap-2">
+                  {d.dialectFormed && <Badge variant="secondary">Dialect Formed</Badge>}
+                  <span className="font-medium">{d.divergence.toFixed(0)}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <h3 className="mb-2 text-sm font-medium">Not Yet Tracked</h3>
         <p className="text-xs text-muted-foreground">

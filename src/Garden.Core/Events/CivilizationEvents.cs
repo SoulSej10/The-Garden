@@ -128,3 +128,15 @@ public record CulturalFestivalHeldEvent : CivilizationEvent
     public string Occasion { get; init; } = string.Empty;
     public int ParticipantCount { get; init; }
 }
+
+// RFC-003: first of TG-510_Language.md's 10 named events to get a real
+// trigger - fired exactly once per settlement pair, when LanguageSystem's
+// Divergence score crosses its threshold.
+public record DialectFormedEvent : CivilizationEvent
+{
+    public GameEntityId SettlementAId { get; init; }
+    public string SettlementAName { get; init; } = string.Empty;
+    public GameEntityId SettlementBId { get; init; }
+    public string SettlementBName { get; init; } = string.Empty;
+    public double Divergence { get; init; }
+}

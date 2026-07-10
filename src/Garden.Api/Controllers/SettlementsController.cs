@@ -142,6 +142,7 @@ public class SettlementsController : ControllerBase
             NearbyResources = nearbyResources,
             OngoingProjects = ongoingProjects,
             CurrentProblems = problems,
+            LanguageDivergence = BuildLanguageDivergence(settlement),
             // Not yet modeled in the simulation - surfaced as explicit
             // placeholders rather than omitted, so the UI can show them once
             // these systems exist instead of silently having no field.
@@ -197,6 +198,31 @@ public class SettlementsController : ControllerBase
             PublicTrust = Math.Round(breakdown.PublicTrust, 1),
             Stability = Math.Round(breakdown.Stability, 1)
         };
+    }
+
+    // RFC-003 Day 29: minimal read-only surfacing - every neighbor this
+    // settlement has a tracked LanguageDivergence with, sorted by
+    // Divergence ascending so the Observatory can show the most-converged
+    // (start of list) and most-diverged (end of list) neighbor without
+    // needing its own sort logic.
+    private object BuildLanguageDivergence(Garden.World.Entities.Settlement settlement)
+    {
+        return _worldState.LanguageDivergences
+            .Where(d => d.SettlementAId == settlement.Id || d.SettlementBId == settlement.Id)
+            .Select(d =>
+            {
+                var otherId = d.SettlementAId == settlement.Id ? d.SettlementBId : d.SettlementAId;
+                var other = _worldState.Settlements.FirstOrDefault(s => s.Id == otherId);
+                return new
+                {
+                    OtherSettlementId = otherId.ToString(),
+                    OtherSettlementName = other?.Name ?? "Unknown",
+                    Divergence = Math.Round(d.Divergence, 1),
+                    d.DialectFormed
+                };
+            })
+            .OrderBy(d => d.Divergence)
+            .ToList();
     }
 }
 

@@ -324,6 +324,12 @@ export interface SettlementDetail {
   nearbyResources: Array<{ type: string; total: number }>
   ongoingProjects: Array<{ buildingType: string; status: string; buildProgress: number; buildTimeRequired: number }>
   currentProblems: string[]
+  languageDivergence: Array<{
+    otherSettlementId: string
+    otherSettlementName: string
+    divergence: number
+    dialectFormed: boolean
+  }>
   families: unknown
   security: unknown
   tradeRelationships: unknown
