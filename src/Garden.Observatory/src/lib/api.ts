@@ -359,6 +359,11 @@ export interface SettlementDetail {
     divergence: number
     dialectFormed: boolean
   }>
+  legalCases: {
+    open: number
+    resolved: number
+    failed: number
+  }
   families: unknown
   security: unknown
   tradeRelationships: unknown

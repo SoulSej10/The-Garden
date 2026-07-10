@@ -353,6 +353,29 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
         </div>
       )}
 
+      {(detail.legalCases.open + detail.legalCases.resolved + detail.legalCases.failed) > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-medium">Justice</h3>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Disputes between residents, resolved informally by the settlement's leader.
+          </p>
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <div className="rounded border px-2 py-1">
+              <p className="text-xs text-muted-foreground">Open</p>
+              <p className="font-medium">{detail.legalCases.open}</p>
+            </div>
+            <div className="rounded border px-2 py-1">
+              <p className="text-xs text-muted-foreground">Resolved</p>
+              <p className="font-medium">{detail.legalCases.resolved}</p>
+            </div>
+            <div className="rounded border px-2 py-1">
+              <p className="text-xs text-muted-foreground">Failed</p>
+              <p className="font-medium">{detail.legalCases.failed}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <h3 className="mb-2 text-sm font-medium">Not Yet Tracked</h3>
         <p className="text-xs text-muted-foreground">

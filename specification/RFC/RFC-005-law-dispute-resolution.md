@@ -1,6 +1,6 @@
 # RFC-005: Law & Justice — Dispute Resolution (First Increment)
 
-**Status:** Proposed
+**Status:** Implemented (Week 9, 2026-07-10 - see DEVELOPMENT_PLAN.md Days 41-45)
 **Date:** 2026-07-10
 **Author:** DEVELOPMENT_PLAN.md (Week 8 close-out backlog triage)
 **Governing spec:** `03_Sciences/04_Social/TG-590_Law_Justice.md`
@@ -126,3 +126,28 @@ Week 6 Day 27 cadence-naming finding applies here too and isn't re-litigated).
    (Recommendation: flat constant for this increment - per-system invented thresholds are
    expected given TG-### specs never provide numbers, and a flat window is simpler to
    verify than a settlement-scaled one.)
+
+## Implementation notes (Week 9, added at close-out)
+
+- Implemented as designed: `LegalCase` entity, `LawSystem` (yearly cadence matching
+  `TechnologyService`/`ReligionService`/`KingdomService`/`LanguageSystem`/
+  `EducationSystem`), `CaseResolvedEvent`/`JusticeFailureEvent`, and a minimal per-settlement
+  open/resolved/failed case-count surfacing in the Observatory. Both open questions resolved
+  as recommended.
+- A persisting dispute (Trust never actually recovers because the underlying cause isn't
+  addressed) correctly re-opens a *new* case after a prior one fails - not a bug, and not
+  explicitly ruled out by TG-590 or this RFC; a real dispute resurfacing is a defensible
+  emergent behavior. A unit test initially assumed otherwise and was corrected, not the code.
+- 7 new unit tests (140 total) cover dispute detection (same-settlement gate, no-home-
+  settlement exclusion), resolution at maximal Legitimacy (deterministic, and confirms Trust
+  restoration), and failure at zero Legitimacy after the unresolved window.
+- **A second real structural limitation was found during live verification, not fixed
+  here, of the same shape as Week 8's finding**: `RelationshipSystem` only ever applies
+  *positive* Trust deltas (`+3.0` for trade, `+15.0` for co-parenting a child) - nothing in
+  this codebase ever lowers Trust. This means a genuine dispute (`Trust < 20`) is currently
+  just as structurally unreachable as Week 8's mentor/student pairing gate was, for the
+  same underlying reason: `RelationshipSystem`'s trigger set is narrow. Noted in the
+  Backlog table as a `RelationshipSystem` follow-up (alongside Week 8's parent-child
+  finding) rather than fixed here. Verified via `LawSystemTests.cs`'s synthetic disputes
+  and confirming the Observatory UI handles empty data cleanly (no crash, no console
+  errors, correct conditional absence).

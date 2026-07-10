@@ -143,6 +143,7 @@ public class SettlementsController : ControllerBase
             OngoingProjects = ongoingProjects,
             CurrentProblems = problems,
             LanguageDivergence = BuildLanguageDivergence(settlement),
+            LegalCases = BuildLegalCaseSummary(settlement),
             // Not yet modeled in the simulation - surfaced as explicit
             // placeholders rather than omitted, so the UI can show them once
             // these systems exist instead of silently having no field.
@@ -223,6 +224,21 @@ public class SettlementsController : ControllerBase
             })
             .OrderBy(d => d.Divergence)
             .ToList();
+    }
+
+    // RFC-005 Day 44: minimal read-only surfacing - a settlement's open vs.
+    // resolved-vs-failed dispute counts, per TG-590's own "routine legal
+    // administration should be abstracted into institutional statistics"
+    // guidance rather than listing every individual case.
+    private object BuildLegalCaseSummary(Garden.World.Entities.Settlement settlement)
+    {
+        var cases = _worldState.LegalCases.Where(c => c.SettlementId == settlement.Id).ToList();
+        return new
+        {
+            Open = cases.Count(c => c.IsOpen),
+            Resolved = cases.Count(c => !c.IsOpen && c.WasResolvedFairly),
+            Failed = cases.Count(c => !c.IsOpen && !c.WasResolvedFairly)
+        };
     }
 }
 

@@ -54,6 +54,7 @@ public static class DependencyInjection
         services.AddSingleton<CommunicationSystem>();
         services.AddSingleton<LanguageSystem>();
         services.AddSingleton<EducationSystem>();
+        services.AddSingleton<LawSystem>();
         services.AddSingleton<AgingSystem>();
         services.AddSingleton<ReproductionSystem>();
         services.AddSingleton<SpawnSystem>();

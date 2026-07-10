@@ -126,8 +126,8 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 | Warfare & Military Organization | `TG-640_Warfare_Military_Organization.md` | Largest single unimplemented system in the whole library; spec gives no combat-resolution, morale, or logistics-attrition formulas at all. |
 | Infrastructure-as-network | `TG-660_Infrastructure.md` | Spec explicitly rejects the building-centric model the current `ConstructionSystem`/`Building.cs` uses — this is a philosophy-vs-implementation conflict that needs a decision, not just new code. |
 | Science & Technology redesign | `TG-670_Science_Technology.md` | Spec explicitly disclaims "a predefined technology tree"; current `Technology.cs` is exactly that. Needs an ADR: change the doc to match reality, or redesign the system to match the doc. |
-| ~~Communication~~ / ~~Language~~ / ~~Education~~ / ~~Law & Justice~~ | `TG-500` (scoped, shipped), `TG-510` (scoped, shipped), `TG-550` (scoped, shipped), `TG-590` (scoped via `RFC-005`) | **Communication shipped Week 5, Language shipped Week 6, Education shipped Week 8, Law & Justice scoped for Week 9 via `RFC/RFC-005-law-dispute-resolution.md` (2026-07-10) — deliberately not waiting on Social Norms (zero-code-footprint), same precedent as before.** All four Volume VI items originally listed together are now shipped or scheduled. |
-| `RelationshipSystem` never bonds parent and child | Week 8 Day 39 finding | `RelationshipSystem`'s only live trigger (`CitizenBornEvent`) bonds a newborn's two *parents*, never the parent and the child. This makes `EducationSystem`'s mentor/student pairing (Adult/Elder ↔ Child/Teen, gated on an *existing* `Relationship`) structurally unreachable — not rare, impossible — until a cross-generation `Relationship` trigger exists. Natural follow-up to `RelationshipSystem` itself, not an `EducationSystem` bug. |
+| ~~Communication~~ / ~~Language~~ / ~~Education~~ / ~~Law & Justice~~ | `TG-500` (scoped, shipped), `TG-510` (scoped, shipped), `TG-550` (scoped, shipped), `TG-590` (scoped, shipped) | **Communication shipped Week 5, Language shipped Week 6, Education shipped Week 8, Law & Justice shipped Week 9 — see `RFC/RFC-002` through `RFC/RFC-005`.** All four Volume VI items originally grouped together are now shipped. |
+| `RelationshipSystem` has too narrow a trigger set | Week 8 Day 39 + Week 9 Day 44 findings | Two related gaps found back-to-back: (1) `RelationshipSystem`'s only live trigger (`CitizenBornEvent`) bonds a newborn's two *parents*, never the parent and the child — making `EducationSystem`'s mentor/student pairing structurally unreachable; (2) both of `RelationshipSystem`'s triggers apply only *positive* Trust deltas (`+3.0`/`+15.0`) — nothing ever lowers Trust, making `LawSystem`'s dispute detection (`Trust < 20`) equally unreachable. Both are natural follow-ups to `RelationshipSystem` itself, not bugs in `EducationSystem`/`LawSystem`. Worth addressing together, since both increments' organic verification depends on it. |
 | ~~`TechnologyService` progress-scaling bug~~ | Week 5 Day 22 finding, **fixed 2026-07-10** | `EvaluateTechnology()` accumulated each individual `Technology.CurrentProgress` at `settlementProgress * 0.1`, but nothing else in the codebase treated `settlement.TechnologyProgress` as 10x the per-tech scale — confirmed live, zero technologies discovered after 55+ simulated years. Fixed by removing the scale-down (category multipliers for Agriculture/Construction retained). Verified: 3 new unit tests, and live — a fresh run discovered 10 technologies across 2 settlements within Year 1 alone. |
 | ~~`TradeRouteService` never creates routes~~ | Week 6 Day 29 finding, **fixed 2026-07-10** | Root cause: once a route existed for a settlement pair (active or not), `EvaluateTradeRoutes()`'s `existing != null` check unconditionally skipped re-evaluating that pair forever — so a route that went quiet once (an ordinary occurrence) permanently locked that pair out of trading again, even when a fresh surplus/scarcity later appeared. A secondary bug was found alongside it: goods always flowed a fixed direction regardless of which settlement actually held the surplus. Fixed by letting an inactive route reactivate against a newly-found trade good, and by determining flow direction from the actual surplus holder. Verified: 3 new unit tests (124 total) including an exact reproduction of the live numbers reported (Food 74 vs 0, 23 tiles apart) and a reactivation-after-abandonment test. **Live re-verification was inconclusive** — a fresh run's settlements repeatedly sat exactly at the FindTradeGood boundary (Food = 10, needs strictly <10) rather than crossing it, a separate equilibrium detail worth noting but not chased further here. |
 | `CivilizationSystem`'s "yearly" cadence isn't a year | Week 6 Day 27 finding | `_lastYearlyTick >= 336` (used by `TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`) is ~14 days at `SimulationTime`'s actual scale (1 year = 24 × 30 × 12 = 8640 ticks), not a year. Affects five systems' cadence naming at once — needs its own look (rename to reflect reality, or fix the threshold to 8640) rather than a fix folded into whichever RFC happens to notice it next. |
@@ -236,7 +236,7 @@ exist yet. This is a natural follow-up to `RelationshipSystem` itself, not an
 via `EducationSystemTests.cs`'s synthetic pairs and confirming the Observatory UI handles
 empty data cleanly.
 
-## Week 9 (2026-07-10 → in progress) — Law & Justice: Dispute Resolution
+## Week 9 (2026-07-10, complete) — Law & Justice: Dispute Resolution
 
 Committed day-to-day plan, scoped from `RFC/RFC-005-law-dispute-resolution.md`, mirroring
 Weeks 5-8's shape (a new entity + a new yearly `IScheduledSystem` + tests + minimal UI +
@@ -244,11 +244,20 @@ close-out) since RFC-005 explicitly follows that same template.
 
 | Day | Task | Status |
 |---|---|---|
-| 41 | `LegalCase` entity + `LawSystem` skeleton, wired into DI/scheduler | Pending |
-| 42 | Dispute detection (`Trust < 20` within a settlement), Legitimacy-gated resolution, `CaseResolved`/`JusticeFailure` events | Pending |
-| 43 | Unit tests for dispute detection, resolution/failure gating, and Trust restoration on success | Pending |
-| 44 | Minimal Observatory surfacing: a settlement's open/resolved case count | Pending |
-| 45 | Close-out: changelog, RFC-005 status update, full verification, commit/push | Pending |
+| 41 | `LegalCase` entity + `LawSystem` skeleton, wired into DI/scheduler | Done |
+| 42 | Dispute detection (`Trust < 20` within a settlement), Legitimacy-gated resolution, `CaseResolved`/`JusticeFailure` events | Done — implemented alongside Day 41 |
+| 43 | Unit tests for dispute detection, resolution/failure gating, and Trust restoration on success | Done — 7 new tests, `LawSystemTests.cs` |
+| 44 | Minimal Observatory surfacing: a settlement's open/resolved case count | Done — `SettlementsController` + settlement detail panel, verified live (no crash, correct absence when no data) |
+| 45 | Close-out: changelog, RFC-005 status update, full verification, commit/push | Done |
+
+**Live-verification note, and a second instance of Week 8's finding:** disputes could not
+be verified against organic data. `RelationshipSystem` only ever applies *positive* Trust
+deltas (`+3.0` trade, `+15.0` co-parenting) - nothing in this codebase ever lowers Trust, so
+a genuine dispute (`Trust < 20`) is currently just as structurally unreachable as Week 8's
+mentor/student pairing gate, for the same root cause: `RelationshipSystem`'s narrow trigger
+set. Noted in the Backlog table alongside Week 8's parent-child finding. Verified via
+`LawSystemTests.cs`'s synthetic disputes and confirming the Observatory UI handles empty
+data cleanly.
 
 ---
 

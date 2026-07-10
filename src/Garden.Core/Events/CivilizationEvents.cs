@@ -158,3 +158,25 @@ public record ApprenticeshipCompletedEvent : CivilizationEvent
     public GameEntityId StudentId { get; init; }
     public string StudentName { get; init; } = string.Empty;
 }
+
+// RFC-005: two of TG-590_Law_Justice.md's 10 named events - fired when
+// LawSystem resolves or fails to resolve an open dispute.
+public record CaseResolvedEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+    public GameEntityId CitizenAId { get; init; }
+    public string CitizenAName { get; init; } = string.Empty;
+    public GameEntityId CitizenBId { get; init; }
+    public string CitizenBName { get; init; } = string.Empty;
+}
+
+public record JusticeFailureEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+    public GameEntityId CitizenAId { get; init; }
+    public string CitizenAName { get; init; } = string.Empty;
+    public GameEntityId CitizenBId { get; init; }
+    public string CitizenBName { get; init; } = string.Empty;
+}
