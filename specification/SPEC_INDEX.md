@@ -1,0 +1,302 @@
+# The Garden — Specification Index
+
+**Project:** The Garden
+**Version:** Living Specification (Index rebuilt 2026-07-09)
+**Status:** Active
+
+---
+
+## Project Overview
+
+The Garden is a deterministic, fully-autonomous living-world simulation. The player is an
+observer ("gardener"), never an author — citizens are born, form relationships, build
+settlements, found kingdoms, and generate history entirely through interacting rule systems.
+Ten immutable "Constitutional Laws" (TG-001) govern every design decision (e.g. *Nothing
+Happens Without Cause*, *History Is Permanent*, *The Simulation Owns Reality*).
+
+This `specification/` library is the **authoritative** design reference for implementation.
+It replaces the older, informal `blueprint/` folder (deleted 2026-07-09). One artifact of that
+migration survives at `00_Master/The_Garden_Project_Blueprint.md` — an un-migrated,
+un-versioned legacy overview kept for historical/orientation value only. **Where it conflicts
+with any TG-### document, the TG-### document wins.**
+
+Across all 84 documents in this library, one pattern holds without exception: these are
+**design-philosophy and vocabulary specs, not algorithmic specs**. They define *what* a
+system is, *why* it exists, its state-variable names, and its event catalog — but essentially
+never a formula, numeric threshold, or data type. Any implementation task derived from this
+library should budget explicit design work ("invent the missing numbers") before engineering
+work ("write the code").
+
+---
+
+## Reading Order
+
+```
+01_Foundations         (TG-000 → TG-001)
+        ↓
+02_Engine              (TG-002 → TG-008)
+        ↓
+03_Sciences/01_Natural      (TG-100 → TG-180)
+        ↓
+03_Sciences/02_Life         (TG-200 → TG-290)
+        ↓
+03_Sciences/03_Cognitive    (TG-300 → TG-390)
+        ↓
+03_Sciences/04_Social       (TG-500 → TG-590)
+        ↓
+03_Sciences/05_Civilization (TG-600 → TG-690)
+        ↓
+04_Story               (TG-STRY-000 → TG-STRY-090)
+        ↓
+05_Observatory         (TG-OBS-000 → TG-OBS-009)
+        ↓
+06_Development         (TG-DEV-000 → TG-DEV-009)
+```
+
+Reality is defined before life. Life before intelligence. Intelligence before society.
+Society before civilization. Civilization before story. Story before observation.
+Observation before implementation. Whenever two documents conflict, **the earlier layer in
+this order takes precedence.**
+
+> The previous version of this index described a `01_World / 02_Sciences / 03_Cognitive /
+> 04_Life / 05_Story / 06_Observatory / 07_Development` structure that does not match any
+> folder that exists on disk. That version has been fully superseded by the structure below.
+
+---
+
+## Folder Structure
+
+```
+specification/
+│
+├── 00_Master/
+│   └── The_Garden_Project_Blueprint.md      — legacy overview, no TG-ID, superseded by TG-### docs
+│
+├── 01_Foundations/                          — Volume I
+│   ├── TG-000_Vision.md
+│   └── TG-001_Constitution.md
+│
+├── 02_Engine/                                — Volume II
+│   ├── TG-002_Software_Architecture.md
+│   ├── TG-003_Project_Structure.md
+│   ├── TG-004_Chronology.md
+│   ├── TG-005_World_State.md
+│   ├── TG-006_Rule_Engine.md
+│   ├── TG-007_Causality_Engine.md
+│   └── TG-008_Memory_History.md
+│
+├── 03_Sciences/
+│   ├── 01_Natural/                          — Volume III (TG-100 – TG-180)
+│   ├── 02_Life/                             — Volume IV  (TG-200 – TG-290)
+│   ├── 03_Cognitive/                        — Volume V   (TG-300 – TG-390)
+│   ├── 04_Social/                           — Volume VI  (TG-500 – TG-590)
+│   └── 05_Civilization/                     — Volume VII (TG-600 – TG-690)
+│
+├── 04_Story/                                 — TG-STRY-000 – TG-STRY-090
+├── 05_Observatory/                           — TG-OBS-000 – TG-OBS-009
+├── 06_Development/                           — TG-DEV-000 – TG-DEV-009
+│
+├── ADR/                                       — Architecture Decision Records (currently empty)
+├── RFC/                                       — Proposed features/discussions pre-adoption (currently empty)
+├── Archive/                                   — Deprecated/superseded specs (currently empty)
+│
+├── SPEC_INDEX.md                              — this file
+└── DEVELOPMENT_PLAN.md                        — day-to-day execution plan derived from this library
+```
+
+**Note on the `03_Sciences` taxonomy:** the Natural/Life/Cognitive/Social/Civilization
+five-way split is a *folder-level* organizing scheme. No document in `01_Foundations` or
+`02_Engine` defines or names this taxonomy explicitly — it is only visible from the disk
+layout and from each science document's own "Volume" self-label.
+
+---
+
+## Dependency Graph
+
+```
+TG-000 Vision
+   └── TG-001 Constitution
+          └── TG-002 Software Architecture
+                 └── TG-003 Project Structure
+                        └── TG-004 Chronology
+                               └── TG-005 World State
+                                      └── TG-006 Rule Engine
+                                             └── TG-007 Causality Engine
+                                                    └── TG-008 Memory & History
+                                                           │
+        ┌──────────────────────────────────────────────────┘
+        ▼
+03_Sciences/01_Natural  (TG-100→180, linear chain, each depends on all prior in-folder docs)
+        ▼
+03_Sciences/02_Life     (TG-200→290, depends on 01_Natural + in-folder prior docs)
+        ▼
+03_Sciences/03_Cognitive (TG-300→390, depends on 02_Life + in-folder prior docs)
+        ▼
+03_Sciences/04_Social    (TG-500→590, depends on 03_Cognitive + in-folder prior docs)
+        ▼
+03_Sciences/05_Civilization (TG-600→690, depends on 04_Social + in-folder prior docs)
+        ▼
+04_Story    (TG-STRY-000→090, depends on Civilization + Foundations)
+        ▼
+05_Observatory (TG-OBS-000→009, depends on Story + Foundations)
+        ▼
+06_Development (TG-DEV-000→009, translates ALL of the above into engineering tasks)
+```
+
+**Cross-references repaired 2026-07-09** (`DEVELOPMENT_PLAN.md` Week 1 Day 4 — all five fixed
+and verified by re-grep; no remaining `TG-4xx` hits or off-by-one Volume numerals anywhere in
+`specification/`):
+
+| Doc | Was | Fixed to | Problem |
+|---|---|---|---|
+| `TG-STRY-020_Character_Stories.md` | "TG-440 — Identity & Purpose" | "TG-390 — Identity & Self" | No TG-440 exists; the Story docs were written against an older numbering pass never updated after Cognitive/Social were renumbered. |
+| `TG-STRY-040_Legends_Myths.md` | "TG-410 — Culture", "TG-420 — Language" | "TG-530 — Culture", "TG-510 — Language" | Same stale-renumbering issue as above. |
+| `TG-570_Economics.md` | "TG-005 — Settlements & Economy" | "TG-DEV-005 — Settlement & Economy Implementation" | The real TG-005 is *World State & Entity Model* (`02_Engine`), not Settlements & Economy — that title only exists in `06_Development`. Re-pointed there with an explanatory note, since no Science-volume doc covers settlements+economy jointly. |
+| `TG-690_Historical_Ages_Civilizational_Cycles.md` | Entire "Depends On" Volume list off by one (II→VI instead of III→VII) | Renumbered III→VII | Not just the single "Volume VI" mislabel originally spotted — the whole list was shifted down by one Roman numeral relative to every doc's own self-label. |
+| `TG-600_Civilization_Emergence.md` | Same off-by-one Volume list (II→V instead of III→VI) | Renumbered III→VI | **Found during the Day 4 repair pass, not in the original read-through** — the identical bug as TG-690, in the volume's other "depends on everything below" summary doc. |
+
+**This also explains the "missing TG-400 series"**: it was never a reserved gap — it's the
+former ID range of what is now `03_Sciences/04_Social`, and the Story documents (now repaired)
+carried the old numbers.
+
+**Minor remaining naming variance (not urgent):** `03_Sciences/02_Life`'s own documents
+consistently self-label as "Volume IV — Biological Sciences," while cross-references from
+other folders (and this index) call it "Life Sciences" (matching the folder name `02_Life`).
+Not a broken reference — just a cosmetic synonym drift. Leave as-is unless a future doc-cleanup
+pass wants to standardize on one term.
+
+---
+
+## Document Naming Convention
+
+| Prefix | Range | Folder | Subject |
+|---|---|---|---|
+| `TG-000`–`TG-001` | — | `01_Foundations` | Vision, Constitution |
+| `TG-002`–`TG-008` | — | `02_Engine` | Architecture, structure, time, world state, rules, causality, memory |
+| `TG-1xx` | 100–180 | `03_Sciences/01_Natural` | Physical world (Volume III) |
+| `TG-2xx` | 200–290 | `03_Sciences/02_Life` | Biology (Volume IV) |
+| `TG-3xx` | 300–390 | `03_Sciences/03_Cognitive` | Mind (Volume V) |
+| `TG-5xx` | 500–590 | `03_Sciences/04_Social` | Society (Volume VI) — *see broken-ref note above for why there's no TG-4xx folder* |
+| `TG-6xx` | 600–690 | `03_Sciences/05_Civilization` | Civilization (Volume VII) |
+| `TG-STRY-0xx` | 000–090 | `04_Story` | Narrative systems |
+| `TG-OBS-00x` | 000–009 | `05_Observatory` | Player-facing UI/UX principles |
+| `TG-DEV-00x` | 000–009 | `06_Development` | Engineering implementation plan |
+
+Each numbered document (except `00_Master`) carries a header with **Document ID, Version,
+Status, Priority, and Depends On** — treat any document missing these fields as non-canonical
+(currently only `00_Master/The_Garden_Project_Blueprint.md` lacks them).
+
+---
+
+## Document Status Legend
+
+| Field | Values seen | Meaning |
+|---|---|---|
+| **Status** | `Living Document` (all of `01_Foundations`–`05_Observatory`); `Active` (`TG-DEV-001`–`007`); `Completed` (`TG-DEV-008`, `TG-DEV-009`) | "Living Document" = design reference, expected to evolve. "Active"/"Completed" = an implementation-phase tracker, specific to `06_Development`. |
+| **Priority** | `CRITICAL` (TG-001, TG-002, TG-003, TG-350) · `FOUNDATIONAL` (most docs) · `ADVANCED` (TG-250, TG-260, TG-270, TG-280 — explicitly deferrable) | CRITICAL = load-bearing for everything downstream. ADVANCED = the document itself states it isn't required for early releases. |
+| **Version** | `v0.1` (all Foundations/Engine/Sciences/Story/Observatory docs) · `v1.0` (TG-DEV-000–007) · `v2.0` (TG-DEV-008–009) | Version bumps to v2.0 only occur on a "Completed" implementation doc with a final report attached. |
+
+**Caveat:** "Completed" on `TG-DEV-008`/`009` describes *documentation status*, not full
+feature parity with the corresponding design specs — both docs candidly list unresolved
+"Known Limitations" (see Change Log and `DEVELOPMENT_PLAN.md`).
+
+---
+
+## Change Log
+
+| Date | Change |
+|---|---|
+| 2026-07-09 | `blueprint/` folder deleted; `specification/` established as the sole authoritative design reference. |
+| 2026-07-09 | `SPEC_INDEX.md.txt` (folder structure did not match reality — described `01_World…07_Development`, actual disk layout is `00_Master…06_Development`) replaced by this file, `SPEC_INDEX.md`. |
+| 2026-07-09 | Full read-through of all 84 specification documents completed; findings below folded into this index and into `DEVELOPMENT_PLAN.md`. |
+| 2026-07-09 | Confirmed via grep: `TG-STRY-020`/`TG-STRY-040` still cite dead `TG-410/420/440` IDs — root cause of the apparent "missing TG-400 series" identified (old Social-sciences numbering, never updated after renumber to TG-5xx). Not yet repaired — tracked as a doc-fix task. |
+| 2026-07-09 | Confirmed two "Known Limitations" from the old (deleted) `blueprint/development/TG-DEV-008/009` carried forward **unchanged** into the new `specification/06_Development/TG-DEV-008/009`: (1) civilization events published to the event bus but never subscribed by `HistorySystem` for archival — contradicts TG-001 Law IV ("History Is Permanent"); (2) the AI narrator/assistant is template-based, not an actual LLM. Both tracked as backlog items in `DEVELOPMENT_PLAN.md`. |
+| 2026-07-09 | Confirmed the old blueprint's `TG-DEV-000` self-mislabeling as "TG-DEV-010" is **fixed** in the new specification copy. |
+| 2026-07-09 | New finding: `TG-DEV-009`'s "Repository Summary" section still depicts a `blueprint/` folder in its tree diagram — stale relative to the current `specification/`-based layout. Tracked as a doc-fix task. |
+| 2026-07-09 | **Week 1 Day 1 (DEVELOPMENT_PLAN.md) shipped and tested:** `HistorySystem` now subscribes to all 12 civilization events (`KingdomFounded`, `KingdomDissolved`, `LeaderElected`, `GovernmentFormed`, `DiplomaticRelationChanged`, `TradeRouteEstablished`/`Abandoned`, `MigrationStarted`/`Completed`, `TechnologyDiscovered`, `ReligionEstablished`, `CulturalFestivalHeld`) — closing the TG-001 Law IV violation. 5 new `HistoryCategories` added (Politics/Diplomacy/Religion/Culture/Technology). `SignificanceEvaluator`'s High-importance set extended for founding/breakthrough events. 14 new unit tests added (`HistorySystemCivilizationEventTests.cs`); full suite verified: 50/50 unit tests pass, 4/4 integration tests pass (7m26s — unchanged from baseline, confirming no regression). |
+| 2026-07-09 | **Week 1 Day 2 shipped and tested:** moved `docker/nginx/nginx.conf` into `src/Garden.Observatory/nginx.conf` (was outside the Observatory service's Docker build context) and fixed the Dockerfile's `COPY` path. Verified with an actual `docker compose build` — both `api` and `observatory` images now build successfully (previously `observatory` failed outright). |
+| 2026-07-09 | **Week 1 Day 3 shipped and tested:** `ADR/ADR-001-empty-project-disposition.md` written. `Garden.Simulation`, `Garden.Story`, and `Garden.Tools` (fully orphaned, zero references anywhere) removed from `TheGarden.slnx` and deleted; `Garden.Contracts`/`Garden.Shared` retained as reserved namespaces (still live `ProjectReference` targets). Solution now has 7 `src/` projects instead of 10. Verified: full solution builds clean, all tests still pass. |
+| 2026-07-09 | **Week 1 Day 4 shipped and tested:** repaired the four broken cross-references above, plus one additional instance of the same off-by-one Volume-numbering bug found in `TG-600_Civilization_Emergence.md` during the repair pass (not caught in the original read-through). Verified by re-grep: zero remaining `TG-4xx` dead references, zero remaining off-by-one Volume numerals in `specification/`. |
+| 2026-07-09 | **Week 2 Day 6 shipped and tested:** TRX-profiled `Garden.IntegrationTests` and found `Population_RemainsViable_AcrossThreeYears` alone accounts for ~6m12s of the suite's ~7m20s (3 simulated years vs. 2 months for its siblings). Tagged it `[Trait("Category","Slow")]`; the other three tests tagged `Fast`. Verified: `--filter "Category!=Slow"` cuts the run from 7m20s to 1m10s with the same pass count. |
+| 2026-07-09 | **Week 2 Day 7 shipped and tested:** split `.github/workflows/ci.yml` into `unit-tests` (blocking), `integration-tests-fast` (blocking, `Category!=Slow`, ~1m), and `integration-tests-full` (push to main/develop + nightly only, never on `pull_request`). Verified: YAML parses correctly (via `js-yaml`) and both new job commands run correctly locally with the expected test counts/timings. |
+| 2026-07-09 | **Week 2 Day 8 shipped and tested:** added `Settlement.Tier` (Hamlet→Village→Town→City→RegionalCapital→Metropolis, population-threshold-derived per `TG-650`) and surfaced it in `/settlements` + `/settlements/{id}` and the Observatory UI. Verified against a live running simulation (not just unit tests) — confirmed real settlements correctly tiered as Village/Hamlet in both the API JSON and a live screenshot of the Settlements page. 12 new unit tests. Found and flagged (not fixed, out of scope) a pre-existing bug: `SettlementsController.GetAll()` sends the raw `GameEntityId` object instead of `.ToString()`, breaking the detail-panel click-through — spawned as a separate task. |
+| 2026-07-09 | **Week 2 Day 9 shipped and tested:** added `Settlement.AuthoritySource`/`Legitimacy`/`LastGovernmentChangeTick` per `TG-580`; `GovernanceService` now derives authority source (Competence/Election/Tradition) from government tier and computes Legitimacy from the real leader's ContributionScore/Reputation plus time-since-last-transition; `DiplomacyService` now applies a small penalty when either settlement's legitimacy is low. **Two real bugs found and fixed during verification, not just at review time:** (1) `HistorySystem.OnLeaderElected` (Day 1) only checked `IsNullOrEmpty(PreviousLeaderName)`, but `LeadershipService` actually publishes the literal string `"None"` for a settlement's first leader — every real first-leader election was being mislabeled as "succeeding None" and wrongly archived; fixed and regression-tested. (2) Adding the new `Settlement` fields without an EF Core migration crashed the API on startup the moment it queried `Settlements` from Postgres (`column s.AuthoritySource does not exist`) — this is what was silently breaking every `garden-api` preview restart, not a tool flakiness as first suspected; fixed by generating and applying migration `AddSettlementGovernanceFields`. Also fixed a self-healing gap: `AuthoritySource` was only set on a government *transition*, so settlements that had already reached their tier before this shipped would never get it backfilled — moved to unconditional recomputation, verified live against a resumed save. 9 new unit tests; 72/72 unit tests passing; confirmed live via a real running/resumed simulation end-to-end. |
+| 2026-07-09 | **Week 2 Day 10 shipped:** `RFC/RFC-001-emotion-system.md` written, scoping Week 3's Emotion system — 6 of TG-330's 15 named emotions (Fear/Joy/Sadness/Trust/Curiosity/Loneliness), an invented decay-half-life table, a concrete data model matching the existing `PersonalityTraits`/`CitizenNeeds` convention, and narrow additive integration points into `CitizenSystem`'s existing decision chain rather than a full decision-loop rewrite. |
+| 2026-07-09 | **Fixed the Day-8-flagged `SettlementsController` ID bug:** `GetAll()`, `GetById()` (including its nested `members`/`Buildings` projections), and `GetBuildings()` now all send `Id = x.Id.ToString()` instead of the raw `GameEntityId` struct. Verified live end-to-end — restarted the API, reloaded the Observatory, clicked a settlement row, and confirmed the detail sheet now loads real data (Tier, Leader, Government, Authority, Legitimacy, Religion) instead of 400ing. **Found the same bug is far more widespread while doing the requested grep**: `CivilizationController`, `HistoryController`, `MemoriesController`, and `StoriesController` all have raw `GameEntityId` projections too (every domain entity's `Id` is `GameEntityId`). Fixing those was out of scope for this specific request, so it's spawned as a separate follow-up task rather than silently expanding scope. |
+| 2026-07-09 | **Fixed the widespread version of the GameEntityId serialization bug** across all four flagged controllers: `CivilizationController.cs` (18 fixes across `GetKingdoms`/`GetKingdomDetail`/`GetGovernments`/`GetLeaders`/`GetDiplomacy`/`GetTradeRoutes`/`GetTechnology`/`GetCulture`/`GetReligion`/`GetMigration`), `HistoryController.cs` (3 fixes — plus one found beyond the original report: `GetById` returned the raw `HistoricalRecord` entity directly rather than a projection, so it had the identical symptom even though it doesn't match the `x.Id,` pattern originally grepped for; rewritten as an explicit projection), `MemoriesController.cs` (3 fixes across citizen/family/collective memories), `StoriesController.cs` (2 fixes). Confirmed `SearchController.cs` was already correct via a different but equally valid pattern (`Id = x.Id.Value`, a `Guid` — also serializes as a plain string). Verified: full solution builds clean, 72/72 unit tests pass, and live-checked against the running simulation — `governments`, `leaders`, `culture` (including nested `traits`), `history`, and `stories` endpoints all confirmed returning plain string IDs. `kingdoms`/`diplomacy`/`trade-routes`/`religion` had no data yet in the live world to check against (game-state conditions not met, not a bug) but are structurally identical fixes, already confirmed by the code sweep. Also confirmed via `grep` that no other controller has this bug. As a side effect, this also fixes React "duplicate key" console warnings on the History page (`key={story.id}`/`key={record.id}` were literally `[object Object]` for every list item before this fix). |
+| 2026-07-09 | **Week 3 Days 11-12 shipped and tested:** `Citizen.Emotions` (`EmotionalState`: Fear/Joy/Sadness/Trust/Curiosity/Loneliness) implemented per RFC-001, owned by a new `EmotionSystem`. Each emotion has a real trigger (Needs-criticality for Fear, `SettlementFounded`/`CitizenBorn` events for Joy, `CitizenDied` for Sadness among settlement-mates, `Reputation` for Trust, `Personality.Curiosity` for Curiosity, `HomeSettlementId` for Loneliness) and decays via a shared half-life formula so nothing gets pinned at an extreme. Required an EF Core migration (`AddCitizenEmotions`) since `Emotions` is a new owned type on the persisted `Citizen` entity — generated and applied *before* first live test this time, learning directly from the Day 9 crash-on-restart lesson. 10 new unit tests; verified live against the running/resumed simulation (Trust/Curiosity visibly converging toward their real targets per citizen). |
+| 2026-07-09 | **Week 3 Day 13 shipped and tested:** pairwise `Relationship` entity (Trust/Affection/SocialDistance) per TG-380, owned by a new `RelationshipSystem`, created lazily on real interaction events (`CitizenBorn` for parent-bonding; `TradeCompletedEvent` also wired but currently dormant — that event type is defined but never actually published anywhere in this codebase, a pre-existing gap unrelated to this work). No EF migration needed — `Relationship` follows the same pure in-memory `WorldState` list pattern as `DiplomaticRelation`/`TradeRoute`/`Kingdom`/`Religion` (only `Citizen` and `Settlement` are actually EF-persisted). 6 new unit tests. Live verification of the `CitizenBorn` trigger specifically was blocked by the resumed save's settlements all being below the 3.0 food-per-capita reproduction threshold (a real game-state condition, not a bug) — mechanism confirmed via exact-value unit tests instead. |
+| 2026-07-09 | **Week 3 Day 14 shipped and tested:** narrow additive hooks wiring Emotion/Relationship into `CitizenSystem`'s existing decision chain per RFC-001 — high Fear lowers the effective critical-need thresholds (a citizen already afraid acts sooner), and high Loneliness adds a `Socialize` goal. **Found and fixed a real design bug during this work**: the first placement of the Loneliness hook required `HomeSettlementId != null`, but `EmotionSystem` only targets high Loneliness for citizens *without* a settlement — the two conditions could almost never both be true. Relocated `Socialize` to the bottom fallback (reached by a homeless citizen who couldn't find or found a settlement this tick either), matching where `Loneliness` is actually elevated. 6 unit tests, all fast integration tests still passing, and live-confirmed the priority ordering is correct: three real citizens in the running simulation had `Loneliness=60` (past the 40 threshold) but correctly kept pursuing higher-priority goals (`FindWater`/`TravelToSettlement`/`JoinSettlement`) instead of being wrongly overridden into `Socialize`. |
+| 2026-07-09 | **Week 3 Day 15 (close-out) shipped:** added `EmotionRelationshipIntegrationTests.cs` — runs `EmotionSystem`/`RelationshipSystem` alongside the full existing system stack (citizens, settlements, economy) over 2 simulated months, not just in isolated unit-test harnesses; confirms population survives and at least one citizen's Emotions measurably diverge from defaults. `TG-330_Emotion.md` and `TG-380_Relationships.md` both given an "Implementation note" pointing to `RFC-001`/the new systems, listing exactly which of their named concepts are and aren't implemented yet. `RFC-001` marked Implemented, noting both of its open questions were resolved as recommended. **Week 3 final tally:** 22 new unit tests (94 total, up from 72 at the start of the week) + 1 new integration test (4 fast total), full suite passing, `EmotionSystem`/`RelationshipSystem` both registered in the tick scheduler and confirmed live against the running/resumed simulation. |
+
+---
+
+## Quick Links
+
+- Philosophy start: [`01_Foundations/TG-000_Vision.md`](01_Foundations/TG-000_Vision.md)
+- Non-negotiable rules: [`01_Foundations/TG-001_Constitution.md`](01_Foundations/TG-001_Constitution.md)
+- System architecture: [`02_Engine/TG-002_Software_Architecture.md`](02_Engine/TG-002_Software_Architecture.md)
+- Repo/project layout: [`02_Engine/TG-003_Project_Structure.md`](02_Engine/TG-003_Project_Structure.md)
+- Engineering standard (PR/lint checklist): [`06_Development/TG-DEV-000_Engineering_Standard.md`](06_Development/TG-DEV-000_Engineering_Standard.md)
+- Latest implementation status: [`06_Development/TG-DEV-009_AI_Production_Readiness.md`](06_Development/TG-DEV-009_AI_Production_Readiness.md)
+- Execution plan: [`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md)
+- Active ADRs: [`ADR/ADR-001-empty-project-disposition.md`](ADR/ADR-001-empty-project-disposition.md)
+- Active RFCs: [`RFC/RFC-001-emotion-system.md`](RFC/RFC-001-emotion-system.md) (Week 3 scoping)
+
+---
+
+## Architecture Overview
+
+Six layers, strictly downward-dependent (per `TG-002`/`TG-003`):
+
+```
+World Observatory (React)        — read-only presentation, never mutates state
+        ↓
+Garden API (ASP.NET Core)        — 17 controllers, 5 SignalR hubs, read/observe + admin only
+        ↓
+Simulation Engine                — the only layer allowed to mutate World State
+        ↓
+World State Repository           — "the present," mutable, validated every tick
+        ↓
+Historical Archive                — "the past," append-only, immutable
+        ↓
+Persistence (PostgreSQL via EF Core)
+```
+
+### Documented project layout (`TG-003`) vs. what's actually built
+
+| Project | Spec role | Actual state |
+|---|---|---|
+| `Garden.Core` | Time, IDs, event/interface contracts | ✅ Implemented |
+| `Garden.World` | Entities, world-state collections | ✅ Implemented (17 entity types) |
+| `Garden.Engine` | All simulation disciplines, rules, systems | ✅ Implemented (12 systems, 15 services) — carries logic TG-003 assigned elsewhere (see below) |
+| `Garden.Infrastructure` | EF Core, persistence, migrations | ✅ Implemented |
+| `Garden.Api` | Controllers, SignalR hubs | ✅ Implemented (17 controllers, 5 hubs) |
+| `Garden.Observatory` | React/Vite frontend | ✅ Implemented (9 pages, builds clean) |
+| `Garden.Contracts` | DTOs / event contracts (per `TG-DEV-002`) | ⚠️ Empty `.csproj`, referenced by the build graph but unused — role absorbed into `Garden.Core` |
+| `Garden.Shared` | Math/random/collection utilities (per `TG-DEV-002`) | ⚠️ Empty `.csproj`, referenced by the build graph but unused — e.g. `SimulationRandom.cs` lives in `Garden.Engine/Random/` instead |
+| `Garden.Story` | Story engine, narrative templates | ⚠️ Empty `.csproj`, **not referenced anywhere** — `StoryEngine.cs` actually lives in `Garden.Engine/Services/` |
+| `Garden.Simulation` | (role never concretely assigned) | ⚠️ Empty `.csproj`, **not referenced anywhere**, no orphaned logic exists for it either |
+| `Garden.Tools` | (role never concretely assigned) | ⚠️ Empty `.csproj`, **not referenced anywhere** |
+
+This drift (5 of 11 declared projects are hollow, with logic consolidated into `Garden.Engine`
+instead) is a real spec-vs-code divergence, not just unstarted work — see `DEVELOPMENT_PLAN.md`
+Day 3 for the proposed resolution (an ADR, not a rewrite).
+
+### Coverage snapshot by science volume (detail in `DEVELOPMENT_PLAN.md`)
+
+| Volume | Folder | Implementation reality |
+|---|---|---|
+| III — Natural | `03_Sciences/01_Natural` | ~40% reflected (Weather/Season/Hydrology/Resource/Ecology systems exist but are simplified placeholders relative to spec scope) |
+| IV — Life | `03_Sciences/02_Life` | ~0% — no Flora/Fauna/Disease/Evolution/Domestication/Extinction system exists |
+| V — Cognitive | `03_Sciences/03_Cognitive` | Thin subset only (Needs = physiological only; Personality = 6 of 16+ dimensions); **Emotion and Perception have zero code footprint** |
+| VI — Social | `03_Sciences/04_Social` | Economics/Culture/Religion partially real; Politics is a 4-item population lookup table; Communication/Language/Groups(generic)/Norms/Education/Law = 0% |
+| VII — Civilization | `03_Sciences/05_Civilization` | Diplomacy/Kingdoms/Trade reasonably implemented; **Warfare and Borders/Territory have zero code footprint**; Technology's implementation directly contradicts its own spec's "no predefined tech tree" principle |
+| — Story | `04_Story` | Core services exist (`StoryEngine`, `HistoryManager`, `SignificanceEvaluator`, `MemoryService`, `TimelineService`) but Legends/Myths generation is unimplemented |
+| — Observatory | `05_Observatory` | Dashboard/map/search/notifications implemented; multi-scale camera, layered maps, replay/branching, accessibility, and modding are all unimplemented |
+
+---
+
+*This index is a living document. Update it whenever a specification is added, renamed,
+retired to `Archive/`, or promoted from `RFC/`. Record the reasoning behind non-obvious
+structural decisions as an ADR rather than editing history in this Change Log.*
