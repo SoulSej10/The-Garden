@@ -47,7 +47,7 @@ public class CivilizationController : ControllerBase
             var leader = _worldState.Citizens.FirstOrDefault(c => c.Id == k.LeaderId);
             return new
             {
-                k.Id, k.Name, k.CapitalName, k.LeaderName,
+                Id = k.Id.ToString(), k.Name, k.CapitalName, k.LeaderName,
                 LeaderAge = leader?.Age ?? 0,
                 k.Population, k.GovernmentType,
                 SettlementCount = k.MemberSettlementIds.Count,
@@ -68,7 +68,7 @@ public class CivilizationController : ControllerBase
             .Where(s => kingdom.MemberSettlementIds.Contains(s.Id))
             .Select(s => new
             {
-                s.Id, s.Name, s.Population, s.GovernmentType,
+                Id = s.Id.ToString(), s.Name, s.Population, s.GovernmentType,
                 s.LeaderName, s.TileX, s.TileY, CompletedBuildings = s.CompletedBuildings,
                 FoodReserves = s.Storage.GetQuantity("Food")
             }).ToList();
@@ -78,7 +78,7 @@ public class CivilizationController : ControllerBase
                      || kingdom.MemberSettlementIds.Contains(r.EntityBId))
             .Select(r => new
             {
-                r.Id,
+                Id = r.Id.ToString(),
                 EntityA = r.EntityAName,
                 EntityB = r.EntityBName,
                 Relation = r.CurrentRelation.ToString(),
@@ -87,10 +87,10 @@ public class CivilizationController : ControllerBase
 
         return Ok(new
         {
-            kingdom.Id, kingdom.Name, kingdom.CapitalName,
+            Id = kingdom.Id.ToString(), kingdom.Name, kingdom.CapitalName,
             Leader = leader != null ? new
             {
-                leader.Id, Name = $"{leader.FirstName} {leader.LastName}",
+                Id = leader.Id.ToString(), Name = $"{leader.FirstName} {leader.LastName}",
                 leader.Age, leader.Attributes.Intelligence,
                 leader.Personality.Compassion, leader.ContributionScore
             } : null,
@@ -107,7 +107,7 @@ public class CivilizationController : ControllerBase
             .Where(s => s.LeaderId != null)
             .Select(s => new
             {
-                s.Id, s.Name, s.GovernmentType,
+                Id = s.Id.ToString(), s.Name, s.GovernmentType,
                 s.LeaderName, s.Population, s.FoundedTick,
                 BuildingCount = s.CompletedBuildings
             }).ToList();
@@ -124,7 +124,7 @@ public class CivilizationController : ControllerBase
                 var citizen = _worldState.Citizens.FirstOrDefault(c => c.Id == s.LeaderId);
                 return citizen != null ? new
                 {
-                    LeaderId = citizen.Id,
+                    LeaderId = citizen.Id.ToString(),
                     LeaderName = $"{citizen.FirstName} {citizen.LastName}",
                     citizen.Age, citizen.BiologicalSex,
                     citizen.ContributionScore, citizen.Reputation,
@@ -132,7 +132,7 @@ public class CivilizationController : ControllerBase
                     citizen.Personality.Compassion,
                     citizen.Personality.Diligence,
                     citizen.Personality.Aggression,
-                    SettlementId = s.Id,
+                    SettlementId = s.Id.ToString(),
                     SettlementName = s.Name,
                     s.GovernmentType
                 } : null;
@@ -147,7 +147,7 @@ public class CivilizationController : ControllerBase
     {
         var result = _worldState.DiplomaticRelations.Select(r => new
         {
-            r.Id, EntityA = r.EntityAName, EntityB = r.EntityBName,
+            Id = r.Id.ToString(), EntityA = r.EntityAName, EntityB = r.EntityBName,
             Relation = r.CurrentRelation.ToString(), r.RelationScore,
             r.HasTradeAgreement, r.IsAlliance, r.LastInteractionTick,
             r.EstablishedTick
@@ -162,7 +162,7 @@ public class CivilizationController : ControllerBase
             .Where(r => r.IsActive)
             .Select(r => new
             {
-                r.Id, r.FromSettlementName, r.ToSettlementName,
+                Id = r.Id.ToString(), r.FromSettlementName, r.ToSettlementName,
                 r.PrimaryGood, r.TotalVolumeTransported, r.TripCount,
                 r.Distance, r.EconomicValue, r.EstablishedTick, r.LastTripTick
             }).ToList();
@@ -175,7 +175,7 @@ public class CivilizationController : ControllerBase
         var discovered = _technologyService.GetDiscoveredTechnologies()
             .Select(t => new
             {
-                t.Id, t.Name, t.Category, t.Description,
+                Id = t.Id.ToString(), t.Name, t.Category, t.Description,
                 DiscoveredTick = t.DiscoveredTick,
                 SettlementName = t.DiscoveredBySettlementName,
                 CitizenName = t.DiscoveredByCitizenName
@@ -184,7 +184,7 @@ public class CivilizationController : ControllerBase
         var inProgress = _technologyService.GetUndiscoveredTechnologies()
             .Select(t => new
             {
-                t.Id, t.Name, t.Category, t.Description,
+                Id = t.Id.ToString(), t.Name, t.Category, t.Description,
                 Progress = Math.Round(t.CurrentProgress / t.ProgressRequired * 100, 1),
                 t.ProgressRequired, t.CurrentProgress
             }).ToList();
@@ -199,10 +199,10 @@ public class CivilizationController : ControllerBase
             .Where(s => s.CulturalTraits.Count > 0)
             .Select(s => new
             {
-                s.Id, s.Name, s.Population,
+                Id = s.Id.ToString(), s.Name, s.Population,
                 Traits = s.CulturalTraits.Select(t => new
                 {
-                    t.Id, t.Name, t.Description, t.Category,
+                    Id = t.Id.ToString(), t.Name, t.Description, t.Category,
                     t.Strength, t.EstablishedTick
                 }),
                 s.ReligionName
@@ -215,7 +215,7 @@ public class CivilizationController : ControllerBase
     {
         var result = _worldState.Religions.Select(r => new
         {
-            r.Id, r.Name, r.Description, r.CoreValue,
+            Id = r.Id.ToString(), r.Name, r.Description, r.CoreValue,
             Tenets = r.Tenets, r.FollowerCount, r.OriginSettlementName,
             r.CulturalInfluence, r.EstablishedTick
         }).ToList();
@@ -229,7 +229,7 @@ public class CivilizationController : ControllerBase
             .Where(c => c.IsAlive && (c.CurrentGoal == "Migrating" || c.CurrentActivity == "Migrating"))
             .Select(c => new
             {
-                c.Id, Name = $"{c.FirstName} {c.LastName}",
+                Id = c.Id.ToString(), Name = $"{c.FirstName} {c.LastName}",
                 c.TileX, c.TileY, c.CurrentActivity
             }).ToList();
 

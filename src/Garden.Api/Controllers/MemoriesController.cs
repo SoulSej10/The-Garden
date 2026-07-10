@@ -31,7 +31,7 @@ public class MemoriesController : ControllerBase
             TotalMemories = memories.Count,
             Memories = memories.Select(m => new
             {
-                m.Id, m.Tick, m.EventType, m.Title, m.Description,
+                Id = m.Id.ToString(), m.Tick, m.EventType, m.Title, m.Description,
                 m.Confidence, m.EmotionalImpact
             })
         });
@@ -47,7 +47,7 @@ public class MemoriesController : ControllerBase
             TotalMemories = memories.Count,
             Memories = memories.Select(m => new
             {
-                m.Id, m.Tick, m.EventType, m.Title, m.Description,
+                Id = m.Id.ToString(), m.Tick, m.EventType, m.Title, m.Description,
                 m.AncestorIds
             })
         });
@@ -63,7 +63,7 @@ public class MemoriesController : ControllerBase
             TotalMemories = memories.Count,
             Memories = memories.Select(m => new
             {
-                m.Id, m.Tick, m.EventType, m.Title, m.Description,
+                Id = m.Id.ToString(), m.Tick, m.EventType, m.Title, m.Description,
                 m.Importance
             })
         });

@@ -30,7 +30,7 @@ public class StoriesController : ControllerBase
             TotalStories = _storyEngine.Stories.Count,
             Stories = stories.Select(s => new
             {
-                s.Id, s.Tick, s.Category, s.Title, s.Summary,
+                Id = s.Id.ToString(), s.Tick, s.Category, s.Title, s.Summary,
                 s.ParticipantNames, s.GeneratedAtTick
             })
         });
@@ -44,7 +44,7 @@ public class StoriesController : ControllerBase
 
         return Ok(new
         {
-            story.Id, story.Tick, story.Category, story.Title,
+            Id = story.Id.ToString(), story.Tick, story.Category, story.Title,
             story.Summary, story.Narrative, story.ParticipantNames,
             story.RelatedRecordIds, story.GeneratedAtTick
         });

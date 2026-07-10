@@ -32,7 +32,7 @@ public class HistoryController : ControllerBase
             EventTypeCounts = _archive.GetEventTypeCounts(),
             Records = records.TakeLast(100).Reverse().Select(r => new
             {
-                r.Id, r.Tick, r.Year, r.Day, r.Season,
+                Id = r.Id.ToString(), r.Tick, r.Year, r.Day, r.Season,
                 r.EventType, r.Category, r.Title, r.Description,
                 r.LocationX, r.LocationY, r.LocationName,
                 r.ParticipantNames, r.Severity, r.Importance
@@ -45,7 +45,15 @@ public class HistoryController : ControllerBase
     {
         var record = _archive.GetById(id);
         if (record == null) return NotFound();
-        return Ok(record);
+        return Ok(new
+        {
+            Id = record.Id.ToString(), record.Tick, record.Year, record.Day, record.Season,
+            record.EventType, record.Category, record.Title, record.Description,
+            record.LocationX, record.LocationY, record.LocationName,
+            record.ParticipantIds, record.ParticipantNames,
+            record.RelatedSettlementId, record.RelatedEventIds,
+            record.Severity, record.SourceEventIds, record.Importance
+        });
     }
 
     [HttpGet("timeline")]
@@ -100,7 +108,7 @@ public class HistoryController : ControllerBase
             TotalPages = (int)Math.Ceiling(total / (double)pageSize),
             Records = records.Select(r => new
             {
-                r.Id, r.Tick, r.Year, r.Day, r.Season,
+                Id = r.Id.ToString(), r.Tick, r.Year, r.Day, r.Season,
                 r.EventType, r.Category, r.Title, r.Description,
                 r.LocationX, r.LocationY, r.LocationName,
                 r.ParticipantNames, r.Severity, r.Importance
