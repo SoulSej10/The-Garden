@@ -11,6 +11,7 @@ public class WorldState
     public List<Settlement> Settlements { get; } = [];
     public List<Kingdom> Kingdoms { get; } = [];
     public List<DiplomaticRelation> DiplomaticRelations { get; } = [];
+    public List<Relationship> Relationships { get; } = [];
     public List<TradeRoute> TradeRoutes { get; } = [];
     public List<Technology> Technologies { get; } = [];
     public List<Religion> Religions { get; } = [];

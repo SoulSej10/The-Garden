@@ -89,6 +89,36 @@ public class CitizensController : ControllerBase
         });
     }
 
+    [HttpGet("{id}/relationships")]
+    public IActionResult GetRelationships(string id)
+    {
+        var citizen = _worldState.Citizens.FirstOrDefault(c => c.Id.ToString() == id);
+        if (citizen == null) return NotFound(new { Error = "Citizen not found" });
+
+        var relationships = _worldState.Relationships
+            .Where(r => r.EntityAId == citizen.Id || r.EntityBId == citizen.Id)
+            .Select(r =>
+            {
+                var otherId = r.EntityAId == citizen.Id ? r.EntityBId : r.EntityAId;
+                var other = _worldState.Citizens.FirstOrDefault(c => c.Id == otherId);
+                return new
+                {
+                    OtherCitizenId = otherId.ToString(),
+                    OtherCitizenName = other != null ? $"{other.FirstName} {other.LastName}" : "Unknown",
+                    Trust = Math.Round(r.Trust, 1),
+                    Affection = Math.Round(r.Affection, 1),
+                    SocialDistance = Math.Round(r.SocialDistance, 1),
+                    r.InteractionCount,
+                    r.EstablishedTick,
+                    r.LastInteractionTick
+                };
+            })
+            .OrderBy(r => r.SocialDistance)
+            .ToList();
+
+        return Ok(relationships);
+    }
+
     [HttpGet("statistics")]
     public IActionResult GetStatistics()
     {
@@ -177,6 +207,15 @@ public class CitizensController : ControllerBase
                 Energy = Math.Round(c.Needs.Energy, 1),
                 Warmth = Math.Round(c.Needs.Warmth, 1),
                 Health = Math.Round(c.Needs.Health, 1)
+            },
+            Emotions = new
+            {
+                Fear = Math.Round(c.Emotions.Fear, 1),
+                Joy = Math.Round(c.Emotions.Joy, 1),
+                Sadness = Math.Round(c.Emotions.Sadness, 1),
+                Trust = Math.Round(c.Emotions.Trust, 1),
+                Curiosity = Math.Round(c.Emotions.Curiosity, 1),
+                Loneliness = Math.Round(c.Emotions.Loneliness, 1)
             }
         };
     }

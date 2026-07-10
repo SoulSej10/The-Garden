@@ -40,6 +40,7 @@ public class GardenDbContext : DbContext
             entity.OwnsOne(e => e.Attributes);
             entity.OwnsOne(e => e.Personality);
             entity.OwnsOne(e => e.Needs);
+            entity.OwnsOne(e => e.Emotions);
             entity.OwnsMany(e => e.Memories);
         });
 

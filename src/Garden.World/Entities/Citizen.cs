@@ -23,6 +23,7 @@ public class Citizen
     public CitizenAttributes Attributes { get; set; } = new();
     public PersonalityTraits Personality { get; set; } = new();
     public CitizenNeeds Needs { get; set; } = new();
+    public EmotionalState Emotions { get; set; } = new();
     public List<CitizenMemory> Memories { get; init; } = [];
 
     public double ContributionScore { get; set; }
@@ -84,6 +85,23 @@ public class CitizenNeeds
     public const double EnergyCriticalThreshold = 15.0;
     public const double WarmthCriticalThreshold = 15.0;
     public const double HealthCriticalThreshold = 20.0;
+}
+
+// RFC-001 (specification/RFC/RFC-001-emotion-system.md): first increment of
+// TG-330_Emotion.md, covering 6 of the 15 named emotions - the ones with a
+// real trigger already available in this codebase. All six are 0-100
+// doubles, matching every other citizen stat (CitizenNeeds, PersonalityTraits,
+// Reputation) rather than a scale TG-330 never specifies. EmotionSystem
+// (Garden.Engine/Systems) owns all updates to this state - do not mutate it
+// from CitizenSystem or elsewhere.
+public class EmotionalState
+{
+    public double Fear { get; set; }
+    public double Joy { get; set; }
+    public double Sadness { get; set; }
+    public double Trust { get; set; } = 50.0;
+    public double Curiosity { get; set; }
+    public double Loneliness { get; set; }
 }
 
 public class CitizenMemory

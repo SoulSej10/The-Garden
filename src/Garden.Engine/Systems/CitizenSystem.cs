@@ -143,9 +143,16 @@ public class CitizenSystem : IScheduledSystem
         var restScore = Math.Max(0, EnergyWarningThreshold - citizen.Needs.Energy);
         var exploreScore = citizen.Personality.Curiosity * 0.1 + (citizen.Needs.Energy > 50 ? 5 : 0);
 
-        var thirstCritical = citizen.Needs.Thirst >= ThirstCriticalThreshold;
-        var hungerCritical = citizen.Needs.Hunger >= HungerCriticalThreshold;
-        var energyCritical = citizen.Needs.Energy <= EnergyCriticalThreshold;
+        // RFC-001 (Week 3 Day 14): a citizen who is already afraid acts on
+        // physiological needs sooner rather than waiting until they're fully
+        // critical - a narrow, additive read of EmotionalState.Fear, not a
+        // rewrite of this decision chain. 10 points is enough to matter
+        // (thresholds are 15-80 apart) without ever making a merely-anxious
+        // citizen treat a non-issue as an emergency.
+        var fearUrgency = citizen.Emotions.Fear > 50.0 ? 10.0 : 0.0;
+        var thirstCritical = citizen.Needs.Thirst >= ThirstCriticalThreshold - fearUrgency;
+        var hungerCritical = citizen.Needs.Hunger >= HungerCriticalThreshold - fearUrgency;
+        var energyCritical = citizen.Needs.Energy <= EnergyCriticalThreshold + fearUrgency;
 
         if (thirstCritical)
         {
@@ -320,8 +327,24 @@ public class CitizenSystem : IScheduledSystem
         }
         else
         {
-            citizen.CurrentGoal = "Explore";
-            citizen.CurrentActivity = "Exploring";
+            // RFC-001 (Week 3 Day 14): Loneliness (EmotionSystem) targets a
+            // high value specifically for citizens with no HomeSettlementId
+            // - this is the fallback reached when such a citizen couldn't
+            // find or found a settlement this tick either (see the
+            // HomeSettlementId == null block above), so "give up looking for
+            // a home for now and seek company instead" is a coherent low-
+            // priority alternative to blind wandering, not a rewrite of the
+            // settlement-seeking logic above it.
+            if (citizen.Emotions.Loneliness > 40.0)
+            {
+                citizen.CurrentGoal = "Socialize";
+                citizen.CurrentActivity = "Socializing";
+            }
+            else
+            {
+                citizen.CurrentGoal = "Explore";
+                citizen.CurrentActivity = "Exploring";
+            }
         }
     }
 
