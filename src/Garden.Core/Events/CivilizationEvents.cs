@@ -140,3 +140,21 @@ public record DialectFormedEvent : CivilizationEvent
     public string SettlementBName { get; init; } = string.Empty;
     public double Divergence { get; init; }
 }
+
+// RFC-004: two of TG-550_Education.md's 10 named events - fired when
+// EducationSystem pairs a mentor/student and when that apprenticeship ends.
+public record ApprenticeshipStartedEvent : CivilizationEvent
+{
+    public GameEntityId MentorId { get; init; }
+    public string MentorName { get; init; } = string.Empty;
+    public GameEntityId StudentId { get; init; }
+    public string StudentName { get; init; } = string.Empty;
+}
+
+public record ApprenticeshipCompletedEvent : CivilizationEvent
+{
+    public GameEntityId MentorId { get; init; }
+    public string MentorName { get; init; } = string.Empty;
+    public GameEntityId StudentId { get; init; }
+    public string StudentName { get; init; } = string.Empty;
+}

@@ -68,7 +68,7 @@ public class CitizensController : ControllerBase
 
         return Ok(new
         {
-            Citizen = MapCitizenDetail(citizen, _communicationSystem),
+            Citizen = MapCitizenDetail(citizen, _communicationSystem, _worldState),
             RecentEvents = citizen.Memories
                 .OrderByDescending(m => m.Tick)
                 .Take(20)
@@ -176,7 +176,7 @@ public class CitizensController : ControllerBase
     // resolves each KnownEventIds key against CommunicationSystem.EventTitles
     // (the same in-memory dictionary the system populates when it marks a
     // discoverer/founder, or diffuses knowledge to a listener).
-    private static object MapCitizenDetail(World.Entities.Citizen c, CommunicationSystem communicationSystem)
+    private static object MapCitizenDetail(World.Entities.Citizen c, CommunicationSystem communicationSystem, WorldState worldState)
     {
         return new
         {
@@ -231,7 +231,28 @@ public class CitizensController : ControllerBase
                     Key = key,
                     Title = communicationSystem.EventTitles.TryGetValue(key, out var title) ? title : key
                 })
-                .ToList()
+                .ToList(),
+            Apprenticeship = BuildApprenticeship(c, worldState)
+        };
+    }
+
+    // RFC-004 Day 39: minimal read-only surfacing of a citizen's active
+    // apprenticeship, if any - as either the mentor or the student.
+    private static object? BuildApprenticeship(World.Entities.Citizen c, WorldState worldState)
+    {
+        var apprenticeship = worldState.Apprenticeships
+            .FirstOrDefault(a => a.IsActive && (a.MentorId == c.Id || a.StudentId == c.Id));
+        if (apprenticeship == null) return null;
+
+        var isMentor = apprenticeship.MentorId == c.Id;
+        var otherId = isMentor ? apprenticeship.StudentId : apprenticeship.MentorId;
+        var other = worldState.Citizens.FirstOrDefault(x => x.Id == otherId);
+
+        return new
+        {
+            Role = isMentor ? "Mentor" : "Student",
+            OtherCitizenId = otherId.ToString(),
+            OtherCitizenName = other != null ? $"{other.FirstName} {other.LastName}" : "Unknown"
         };
     }
 }

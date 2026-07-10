@@ -1,6 +1,6 @@
 # RFC-004: Education — Apprenticeship (First Increment)
 
-**Status:** Proposed
+**Status:** Implemented (Week 8, 2026-07-10 - see DEVELOPMENT_PLAN.md Days 36-40)
 **Date:** 2026-07-10
 **Author:** DEVELOPMENT_PLAN.md (Week 7 close-out backlog triage)
 **Governing spec:** `03_Sciences/04_Social/TG-550_Education.md`
@@ -127,3 +127,26 @@ established convention rather than fixing that separately-tracked backlog item h
    thresholds are expected and a shared value across systems isn't required - but flag
    this as worth revisiting if apprenticeships turn out to form too rarely or too often in
    live verification.)
+
+## Implementation notes (Week 8, added at close-out)
+
+- Implemented as designed: `Apprenticeship` entity, `EducationSystem` (yearly cadence
+  matching `TechnologyService`/`ReligionService`/`KingdomService`/`LanguageSystem`),
+  `ApprenticeshipStartedEvent`/`ApprenticeshipCompletedEvent`, and a minimal per-citizen
+  "who they're mentoring/learning from" surfacing in the Observatory. Both open questions
+  resolved as recommended (life-stage gating added; `SocialDistance < 40` reused).
+- 8 new unit tests (133 total) cover pairing gates (life stage, Intelligence gap, social
+  distance), gradual transfer capped at the mentor's value, and both completion paths
+  (gap closes, or the relationship decays past the contact threshold).
+- **A real structural limitation was found during live verification, not fixed here**:
+  `RelationshipSystem`'s only live trigger (`CitizenBornEvent`) bonds the two *parents*
+  of a newborn, never the parent and the child. Since `EducationSystem`'s mentor/student
+  pairing requires an *existing* `Relationship` between an Adult/Elder and a Child/Teen,
+  and no code path in this codebase ever creates a cross-generation relationship, an
+  apprenticeship cannot organically form at all right now - not merely rare, structurally
+  unreachable until something creates parent-child (or similarly cross-generation)
+  `Relationship` rows. This is a natural follow-up to `RelationshipSystem` itself, not an
+  `EducationSystem` bug, and is out of this RFC's scope. Verified instead entirely through
+  `EducationSystemTests.cs`'s synthetic pairs (which construct the Relationship directly,
+  bypassing the trigger gap) and confirmed the Observatory UI renders cleanly (no crash,
+  correct conditional absence) with a citizen that has none.

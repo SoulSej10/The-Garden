@@ -385,6 +385,17 @@ function CitizenDetailPanel({ data, relationships }: { data: CitizenDetail; rela
         </div>
       </div>
 
+      {data.apprenticeship && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Apprenticeship</p>
+          <div className="rounded border px-2 py-1.5 text-sm">
+            {data.apprenticeship.role === 'Mentor'
+              ? `Mentoring ${data.apprenticeship.otherCitizenName}`
+              : `Learning from ${data.apprenticeship.otherCitizenName}`}
+          </div>
+        </div>
+      )}
+
       {relationships.length > 0 && (
         <div>
           <p className="text-xs font-medium text-muted-foreground mb-2">Relationships</p>

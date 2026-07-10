@@ -233,6 +233,11 @@ export interface CitizenDetail {
     key: string
     title: string
   }>
+  apprenticeship: {
+    role: 'Mentor' | 'Student'
+    otherCitizenId: string
+    otherCitizenName: string
+  } | null
 }
 
 export interface CitizenDetailData {

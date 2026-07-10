@@ -14,6 +14,7 @@ public class WorldState
     public List<Relationship> Relationships { get; } = [];
     public List<TradeRoute> TradeRoutes { get; } = [];
     public List<LanguageDivergence> LanguageDivergences { get; } = [];
+    public List<Apprenticeship> Apprenticeships { get; } = [];
     public List<Technology> Technologies { get; } = [];
     public List<Religion> Religions { get; } = [];
     public WorldMap Map { get; set; } = new();

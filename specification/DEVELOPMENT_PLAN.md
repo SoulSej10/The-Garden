@@ -126,7 +126,8 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 | Warfare & Military Organization | `TG-640_Warfare_Military_Organization.md` | Largest single unimplemented system in the whole library; spec gives no combat-resolution, morale, or logistics-attrition formulas at all. |
 | Infrastructure-as-network | `TG-660_Infrastructure.md` | Spec explicitly rejects the building-centric model the current `ConstructionSystem`/`Building.cs` uses — this is a philosophy-vs-implementation conflict that needs a decision, not just new code. |
 | Science & Technology redesign | `TG-670_Science_Technology.md` | Spec explicitly disclaims "a predefined technology tree"; current `Technology.cs` is exactly that. Needs an ADR: change the doc to match reality, or redesign the system to match the doc. |
-| ~~Communication~~ / ~~Language~~ / ~~Education~~ / Law & Justice | `TG-500` (scoped, shipped), `TG-510` (scoped, shipped), `TG-550` (scoped via `RFC-004`), `TG-590` | **Communication shipped Week 5, Language shipped Week 6, Education scoped for Week 8 via `RFC/RFC-004-education-apprenticeship.md` (2026-07-10) — deliberately not waiting on Groups/Social Norms (both zero-code-footprint), same precedent RFC-002/003 set.** Law & Justice still needs its own RFC. |
+| ~~Communication~~ / ~~Language~~ / ~~Education~~ / Law & Justice | `TG-500` (scoped, shipped), `TG-510` (scoped, shipped), `TG-550` (scoped, shipped), `TG-590` | **Communication shipped Week 5, Language shipped Week 6, Education shipped Week 8 — see `RFC/RFC-002`/`RFC/RFC-003`/`RFC/RFC-004`.** Law & Justice still needs its own RFC. |
+| `RelationshipSystem` never bonds parent and child | Week 8 Day 39 finding | `RelationshipSystem`'s only live trigger (`CitizenBornEvent`) bonds a newborn's two *parents*, never the parent and the child. This makes `EducationSystem`'s mentor/student pairing (Adult/Elder ↔ Child/Teen, gated on an *existing* `Relationship`) structurally unreachable — not rare, impossible — until a cross-generation `Relationship` trigger exists. Natural follow-up to `RelationshipSystem` itself, not an `EducationSystem` bug. |
 | ~~`TechnologyService` progress-scaling bug~~ | Week 5 Day 22 finding, **fixed 2026-07-10** | `EvaluateTechnology()` accumulated each individual `Technology.CurrentProgress` at `settlementProgress * 0.1`, but nothing else in the codebase treated `settlement.TechnologyProgress` as 10x the per-tech scale — confirmed live, zero technologies discovered after 55+ simulated years. Fixed by removing the scale-down (category multipliers for Agriculture/Construction retained). Verified: 3 new unit tests, and live — a fresh run discovered 10 technologies across 2 settlements within Year 1 alone. |
 | ~~`TradeRouteService` never creates routes~~ | Week 6 Day 29 finding, **fixed 2026-07-10** | Root cause: once a route existed for a settlement pair (active or not), `EvaluateTradeRoutes()`'s `existing != null` check unconditionally skipped re-evaluating that pair forever — so a route that went quiet once (an ordinary occurrence) permanently locked that pair out of trading again, even when a fresh surplus/scarcity later appeared. A secondary bug was found alongside it: goods always flowed a fixed direction regardless of which settlement actually held the surplus. Fixed by letting an inactive route reactivate against a newly-found trade good, and by determining flow direction from the actual surplus holder. Verified: 3 new unit tests (124 total) including an exact reproduction of the live numbers reported (Food 74 vs 0, 23 tiles apart) and a reactivation-after-abandonment test. **Live re-verification was inconclusive** — a fresh run's settlements repeatedly sat exactly at the FindTradeGood boundary (Food = 10, needs strictly <10) rather than crossing it, a separate equilibrium detail worth noting but not chased further here. |
 | `CivilizationSystem`'s "yearly" cadence isn't a year | Week 6 Day 27 finding | `_lastYearlyTick >= 336` (used by `TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`) is ~14 days at `SimulationTime`'s actual scale (1 year = 24 × 30 × 12 = 8640 ticks), not a year. Affects five systems' cadence naming at once — needs its own look (rename to reflect reality, or fix the threshold to 8640) rather than a fix folded into whichever RFC happens to notice it next. |
@@ -211,7 +212,7 @@ Verified instead via the existing `RelationshipSystemTests.cs` coverage plus con
 UI renders cleanly (no crash, no console errors, correct conditional absence) with genuinely
 empty data.
 
-## Week 8 (2026-07-10 → in progress) — Education: Apprenticeship
+## Week 8 (2026-07-10, complete) — Education: Apprenticeship
 
 Committed day-to-day plan, scoped from `RFC/RFC-004-education-apprenticeship.md`, mirroring
 Weeks 5-6's shape (a new pairwise entity + a new yearly `IScheduledSystem` + tests + minimal
@@ -219,11 +220,21 @@ UI + close-out) since RFC-004 explicitly follows that same template.
 
 | Day | Task | Status |
 |---|---|---|
-| 36 | `Apprenticeship` entity + `EducationSystem` skeleton, wired into DI/scheduler | Pending |
-| 37 | Mentor/student pairing (life-stage + Intelligence-gap + `Relationship` gate), gradual Intelligence transfer, `ApprenticeshipStarted`/`Completed` events | Pending |
-| 38 | Unit tests for pairing gates, transfer, and completion conditions | Pending |
-| 39 | Minimal Observatory surfacing: a citizen's active apprenticeship (mentor or student role) | Pending |
-| 40 | Close-out: changelog, RFC-004 status update, full verification, commit/push | Pending |
+| 36 | `Apprenticeship` entity + `EducationSystem` skeleton, wired into DI/scheduler | Done |
+| 37 | Mentor/student pairing (life-stage + Intelligence-gap + `Relationship` gate), gradual Intelligence transfer, `ApprenticeshipStarted`/`Completed` events | Done — implemented alongside Day 36 |
+| 38 | Unit tests for pairing gates, transfer, and completion conditions | Done — 8 new tests, `EducationSystemTests.cs` |
+| 39 | Minimal Observatory surfacing: a citizen's active apprenticeship (mentor or student role) | Done — `CitizensController` + citizen detail panel, verified live (no crash, correct absence when no data) |
+| 40 | Close-out: changelog, RFC-004 status update, full verification, commit/push | Done |
+
+**Live-verification note, and a real finding:** apprenticeships could not be verified
+against organic data — not because the trigger is rare, but because it's currently
+**structurally unreachable**. `RelationshipSystem`'s only live trigger
+(`CitizenBornEvent`) bonds a newborn's two *parents*, never the parent and the child, so
+no cross-generation `Relationship` (the precondition for a mentor/student pairing) can ever
+exist yet. This is a natural follow-up to `RelationshipSystem` itself, not an
+`EducationSystem` bug — noted in the Backlog table below, not fixed here. Verified instead
+via `EducationSystemTests.cs`'s synthetic pairs and confirming the Observatory UI handles
+empty data cleanly.
 
 ---
 
