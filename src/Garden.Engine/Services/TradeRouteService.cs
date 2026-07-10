@@ -41,7 +41,7 @@ public class TradeRouteService
                         (r.FromSettlementId == a.Id && r.ToSettlementId == b.Id) ||
                         (r.FromSettlementId == b.Id && r.ToSettlementId == a.Id));
 
-                if (existing != null)
+                if (existing is { IsActive: true })
                 {
                     if (tick - existing.LastTripTick > 168)
                     {
@@ -59,13 +59,34 @@ public class TradeRouteService
                         _logger.LogDebug("Trade route between {A} and {B} abandoned due to inactivity",
                             existing.FromSettlementName, existing.ToSettlementName);
                     }
-                    continue;
+                    else
+                    {
+                        continue;
+                    }
                 }
 
+                // Bug found during Week 6 Day 29 live verification
+                // (task_b82147bd): this used to `continue` unconditionally
+                // whenever `existing != null`, regardless of IsActive - so a
+                // pair whose route went quiet once (a common, ordinary
+                // occurrence as local surpluses come and go) was locked out
+                // of trading forever, even when a fresh surplus/scarcity
+                // later made the pair exactly as trade-worthy as any other.
+                // Falling through here lets an inactive route reactivate.
                 var good = FindTradeGood(a, b);
                 if (good == null) continue;
 
-                EstablishRoute(a, b, good, dist, tick);
+                // Bug found alongside the reactivation fix above: the
+                // surplus-holder isn't necessarily `a` - FindTradeGood
+                // matches either direction (`aQty >= 20 && bQty < 10` OR the
+                // reverse), but goods must always flow from whichever
+                // settlement actually has the surplus.
+                var (from, to) = a.Storage.GetQuantity(good) >= 20 ? (a, b) : (b, a);
+
+                if (existing != null)
+                    ReactivateRoute(existing, from, to, good, tick);
+                else
+                    EstablishRoute(from, to, good, dist, tick);
             }
         }
     }
@@ -82,14 +103,14 @@ public class TradeRouteService
         return null;
     }
 
-    private void EstablishRoute(Settlement a, Settlement b, string good, double distance, long tick)
+    private void EstablishRoute(Settlement from, Settlement to, string good, double distance, long tick)
     {
         var route = new TradeRoute
         {
-            FromSettlementId = a.Id,
-            FromSettlementName = a.Name,
-            ToSettlementId = b.Id,
-            ToSettlementName = b.Name,
+            FromSettlementId = from.Id,
+            FromSettlementName = from.Name,
+            ToSettlementId = to.Id,
+            ToSettlementName = to.Name,
             PrimaryGood = good,
             Distance = distance,
             EstablishedTick = tick,
@@ -98,25 +119,50 @@ public class TradeRouteService
         };
 
         _worldState.TradeRoutes.Add(route);
-        ExecuteTrip(route, a, b, good, tick);
-
-        var fromName = distance <= 15 ? a.Name : b.Name;
-        var toName = distance <= 15 ? b.Name : a.Name;
+        ExecuteTrip(route, from, to, good, tick);
 
         _eventBus.Publish(new TradeRouteEstablishedEvent
         {
             Tick = tick,
             RouteId = route.Id,
             FromSettlementId = route.FromSettlementId,
-            FromSettlementName = fromName,
+            FromSettlementName = from.Name,
             ToSettlementId = route.ToSettlementId,
-            ToSettlementName = toName,
+            ToSettlementName = to.Name,
             PrimaryGood = good,
             Distance = distance
         });
 
         _logger.LogInformation("Trade route established: {Good} between {A} and {B}",
-            good, fromName, toName);
+            good, from.Name, to.Name);
+    }
+
+    /// <summary>
+    /// Reactivates a route that previously went inactive, rather than
+    /// leaving that settlement pair permanently locked out of trading (see
+    /// EvaluateTradeRoutes for the full context).
+    /// </summary>
+    private void ReactivateRoute(TradeRoute route, Settlement from, Settlement to, string good, long tick)
+    {
+        route.IsActive = true;
+        route.PrimaryGood = good;
+        route.LastTripTick = tick;
+        ExecuteTrip(route, from, to, good, tick);
+
+        _eventBus.Publish(new TradeRouteEstablishedEvent
+        {
+            Tick = tick,
+            RouteId = route.Id,
+            FromSettlementId = from.Id,
+            FromSettlementName = from.Name,
+            ToSettlementId = to.Id,
+            ToSettlementName = to.Name,
+            PrimaryGood = good,
+            Distance = route.Distance
+        });
+
+        _logger.LogInformation("Trade route reactivated: {Good} between {A} and {B}",
+            good, from.Name, to.Name);
     }
 
     private static void ExecuteTrip(TradeRoute route, Settlement from, Settlement to, string good, long tick)
