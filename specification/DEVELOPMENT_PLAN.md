@@ -123,15 +123,15 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 |---|---|---|
 | Life Sciences foundation (Fauna, Decomposers, Population Ecology, Disease, Evolution) | `TG-220`–`TG-290` | Flora's first increment (`ForestExpanded`/`Declined` history) shipped Week 10 via `RFC/RFC-006` — see Week 10's Day 49 assessment. Everything else in Volume IV is still greenfield; `AgricultureSystem`/`CitizenSystem` still hardcode biology this volume is supposed to own — untangling that is itself a design question, and blocks Population Ecology specifically since it needs food/population dynamics `AgricultureSystem` currently owns outright. |
 | `HistorySystem.Archive()`'s `LocationY` was always `LocationX + 1` | Week 10 Day 48 finding, **fixed 2026-07-10** | Affected all ~25 `Archive()` call sites (every historical event type), not just this week's new ones — every historical record's Y coordinate was silently wrong since Week 1. No prior test asserted on `LocationY`, which is why it went undetected. Fixed by giving `Archive()` separate `locationX`/`locationY` parameters and updating all 25 call sites; a new regression test locks in the correct behavior. Verified live: `locationY` now genuinely independent of `locationX`. |
-| Borders & Territorial Dynamics | `TG-620_Borders_Territorial_Dynamics.md` | Spec explicitly calls for a regional-influence-field model; current code is a flat `TerritoryRadius` int. No decay function specified anywhere — needs to be invented. |
+| ~~Borders & Territorial Dynamics~~ | `TG-620_Borders_Territorial_Dynamics.md` (scoped via `RFC-007`) | **Scoped for Week 11 (2026-07-10) via `RFC/RFC-007-borders-territorial-influence.md`** — a regional-influence field derived from existing Population/Legitimacy, replacing the flat ever-growing `TerritoryRadius` int with something that can also contract. |
 | Warfare & Military Organization | `TG-640_Warfare_Military_Organization.md` | Largest single unimplemented system in the whole library; spec gives no combat-resolution, morale, or logistics-attrition formulas at all. |
 | Infrastructure-as-network | `TG-660_Infrastructure.md` | Spec explicitly rejects the building-centric model the current `ConstructionSystem`/`Building.cs` uses — this is a philosophy-vs-implementation conflict that needs a decision, not just new code. |
 | Science & Technology redesign | `TG-670_Science_Technology.md` | Spec explicitly disclaims "a predefined technology tree"; current `Technology.cs` is exactly that. Needs an ADR: change the doc to match reality, or redesign the system to match the doc. |
 | ~~Communication~~ / ~~Language~~ / ~~Education~~ / ~~Law & Justice~~ | `TG-500` (scoped, shipped), `TG-510` (scoped, shipped), `TG-550` (scoped, shipped), `TG-590` (scoped, shipped) | **Communication shipped Week 5, Language shipped Week 6, Education shipped Week 8, Law & Justice shipped Week 9 — see `RFC/RFC-002` through `RFC/RFC-005`.** All four Volume VI items originally grouped together are now shipped. |
-| `RelationshipSystem` has too narrow a trigger set | Week 8 Day 39 + Week 9 Day 44 findings | Two related gaps found back-to-back: (1) `RelationshipSystem`'s only live trigger (`CitizenBornEvent`) bonds a newborn's two *parents*, never the parent and the child — making `EducationSystem`'s mentor/student pairing structurally unreachable; (2) both of `RelationshipSystem`'s triggers apply only *positive* Trust deltas (`+3.0`/`+15.0`) — nothing ever lowers Trust, making `LawSystem`'s dispute detection (`Trust < 20`) equally unreachable. Both are natural follow-ups to `RelationshipSystem` itself, not bugs in `EducationSystem`/`LawSystem`. Worth addressing together, since both increments' organic verification depends on it. |
+| `RelationshipSystem` has too narrow a trigger set | Week 8 Day 39 + Week 9 Day 44 findings, **scheduled Week 12 Days 56-57** | Two related gaps found back-to-back: (1) `RelationshipSystem`'s only live trigger (`CitizenBornEvent`) bonds a newborn's two *parents*, never the parent and the child — making `EducationSystem`'s mentor/student pairing structurally unreachable; (2) both of `RelationshipSystem`'s triggers apply only *positive* Trust deltas (`+3.0`/`+15.0`) — nothing ever lowers Trust, making `LawSystem`'s dispute detection (`Trust < 20`) equally unreachable. Both are natural follow-ups to `RelationshipSystem` itself, not bugs in `EducationSystem`/`LawSystem`. |
 | ~~`TechnologyService` progress-scaling bug~~ | Week 5 Day 22 finding, **fixed 2026-07-10** | `EvaluateTechnology()` accumulated each individual `Technology.CurrentProgress` at `settlementProgress * 0.1`, but nothing else in the codebase treated `settlement.TechnologyProgress` as 10x the per-tech scale — confirmed live, zero technologies discovered after 55+ simulated years. Fixed by removing the scale-down (category multipliers for Agriculture/Construction retained). Verified: 3 new unit tests, and live — a fresh run discovered 10 technologies across 2 settlements within Year 1 alone. |
 | ~~`TradeRouteService` never creates routes~~ | Week 6 Day 29 finding, **fixed 2026-07-10** | Root cause: once a route existed for a settlement pair (active or not), `EvaluateTradeRoutes()`'s `existing != null` check unconditionally skipped re-evaluating that pair forever — so a route that went quiet once (an ordinary occurrence) permanently locked that pair out of trading again, even when a fresh surplus/scarcity later appeared. A secondary bug was found alongside it: goods always flowed a fixed direction regardless of which settlement actually held the surplus. Fixed by letting an inactive route reactivate against a newly-found trade good, and by determining flow direction from the actual surplus holder. Verified: 3 new unit tests (124 total) including an exact reproduction of the live numbers reported (Food 74 vs 0, 23 tiles apart) and a reactivation-after-abandonment test. **Live re-verification was inconclusive** — a fresh run's settlements repeatedly sat exactly at the FindTradeGood boundary (Food = 10, needs strictly <10) rather than crossing it, a separate equilibrium detail worth noting but not chased further here. |
-| `CivilizationSystem`'s "yearly" cadence isn't a year | Week 6 Day 27 finding | `_lastYearlyTick >= 336` (used by `TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`) is ~14 days at `SimulationTime`'s actual scale (1 year = 24 × 30 × 12 = 8640 ticks), not a year. Affects five systems' cadence naming at once — needs its own look (rename to reflect reality, or fix the threshold to 8640) rather than a fix folded into whichever RFC happens to notice it next. |
+| `CivilizationSystem`'s "yearly" cadence isn't a year | Week 6 Day 27 finding, **scheduled Week 12 Day 58** | `_lastYearlyTick >= 336` (used by `TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`/`EducationSystem`/`LawSystem`/`TerritorySystem`) is ~14 days at `SimulationTime`'s actual scale (1 year = 24 × 30 × 12 = 8640 ticks), not a year. Affects eight systems' cadence naming at once. |
 | ~~`DialectFormedEvent` never archived by `HistorySystem`~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 31** | `HistorySystem` subscribes to all 12 of Week 1's original `CivilizationEvent` types, but `DialectFormedEvent` (added Week 6) was never added alongside them — reproducing the exact TG-001 Law IV ("History Is Permanent") violation Week 1 Day 1 was created to close, this time on new code rather than old. |
 | ~~`EmotionalState` never surfaced in the Observatory~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 32** | `Citizen.Emotions` (6 emotions, Week 3 Days 11-12) is returned by `CitizensController.GetCitizen` but `CitizenDetail`/`CitizensPage.tsx` never expose or render it — confirmed via grep, zero references anywhere in `Garden.Observatory`. Week 4 Day 16 surfaced Settlement tier/Governance but nothing ever covered surfacing Emotion on the Citizen page itself. |
 | ~~`Relationship` data never surfaced in the Observatory~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 33** | `CitizensController` has a dedicated `GET /citizens/{id}/relationships` endpoint (Trust/Affection/SocialDistance per pair, Week 3 Day 13) that the frontend never calls — confirmed via grep, no "relationship" reference in `CitizensPage.tsx` or anywhere else in the Observatory beyond an unrelated `tradeRelationships: unknown` placeholder field. |
@@ -303,6 +303,39 @@ Dynamics (`TG-620`) instead - a single invented decay function on top of the exi
 `TerritoryRadius` field, closer in shape to Weeks 5-9's clean additive RFCs than anything
 left in Volume IV. This plan defers the final call to whoever picks up Week 11.
 
+**Decision (2026-07-10):** Borders & Territorial Dynamics, via `RFC/RFC-007-borders-
+territorial-influence.md`. It doesn't depend on resolving `AgricultureSystem`'s hardcoding
+(unlike the next Life Sciences slice would), keeping the same weekly RFC cadence moving
+without an open-ended architectural detour. The `AgricultureSystem` ADR stays open in the
+Backlog table for whenever someone wants to unblock Population Ecology specifically.
+
+## Week 11 (2026-07-10 → in progress) — Borders & Territorial Dynamics: Territorial Influence
+
+Committed day-to-day plan, scoped from `RFC/RFC-007-borders-territorial-influence.md`,
+mirroring the established shape (new system logic on existing fields + tests + minimal UI +
+close-out).
+
+| Day | Task | Status |
+|---|---|---|
+| 51 | `Settlement.TerritorialInfluence` field + `TerritorySystem` skeleton, wired into DI/scheduler | Pending |
+| 52 | Influence-driven expand/contract (`BorderContractedEvent`), pairwise dispute detection (`BorderDisputeBeginsEvent`) | Pending |
+| 53 | Unit tests for influence computation, expand/contract thresholds, and dispute detection | Pending |
+| 54 | Minimal Observatory surfacing: a settlement's `TerritorialInfluence` and any active border disputes | Pending |
+| 55 | Close-out: changelog, RFC-007 status update, full verification, commit/push | Pending |
+
+## Week 12 (planned) — Anomaly Cleanup 2: RelationshipSystem + CivilizationSystem Cadence
+
+Consolidates the two open findings still sitting in the Backlog table since Weeks 8-10,
+rather than letting them accumulate further - same rationale as Week 7.
+
+| Day | Task | Status |
+|---|---|---|
+| 56 | Extend `RelationshipSystem` to bond a newborn with both parents (not just parent-to-parent), unblocking `EducationSystem`'s mentor/student gate | Pending |
+| 57 | Add a real negative-Trust trigger to `RelationshipSystem` (e.g. a citizen dying while another depended on them, or a failed `LawSystem` case lowering Trust between the disputing pair), unblocking `LawSystem`'s dispute detection | Pending |
+| 58 | Fix `CivilizationSystem`'s `_lastYearlyTick >= 336` cadence to match `SimulationTime`'s real 8,640-tick year, across all six affected systems (`TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`/`EducationSystem`/`LawSystem`/`TerritorySystem`) | Pending |
+| 59 | Live re-verification: confirm Education/Law & Justice can now trigger organically, and that yearly systems now genuinely run once per in-game year | Pending |
+| 60 | Close-out: changelog, full verification, commit/push | Pending |
+
 ---
 
 ## Project-Wide Timeline Estimate (as of 2026-07-10)
@@ -319,25 +352,27 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 | Weeks | Scope | Basis for the estimate |
 |---|---|---|
 | 1-10 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1) | Actuals |
-| 11 | Undecided — either the `AgricultureSystem` crop-growth ADR (blocks further Volume IV progress) or Borders & Territorial Dynamics (a cleaner, unblocked slice); see Week 10 Day 49's assessment | Open, deferred to whoever picks up Week 11 |
-| 12-13 | Remaining Life Sciences (Fauna, Population Ecology, Disease, Evolution) | Only reachable after Week 11's ADR resolves the `AgricultureSystem` question — budget unchanged at ~2 weeks, timing shifted later |
-| 14 | Borders & Territorial Dynamics (if not pulled into Week 11) | A single invented decay function + one entity, similar shape to Language |
-| 15-16 | Warfare & Military Organization | Explicitly "the largest single unimplemented system in the whole library" — budgeted 2 weeks |
-| 17-18 | Infrastructure-as-network | Needs an ADR first (philosophy conflict with current `ConstructionSystem`), then whatever that ADR decides — budgeted 2 weeks |
-| 19 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
-| 20 | Legends & Myths generation | Its own dependencies (Character/Civilization Stories, Historical Narrative) already exist, so this is closer to Communication/Language in size |
-| 21 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
-| 22 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
-| 23 | Real LLM-backed AI narrator | Needs a provider-integration ADR (cost/latency/determinism) before implementation — budgeted 1 week for a first real integration |
-| 24 | API rate limiting/versioning + `TradeCompletedEvent` cleanup + final pass | Both explicitly called "small, well-understood scope" in the original backlog |
+| 11 (in progress) | Borders & Territorial Dynamics (`RFC-007`) | Decided 2026-07-10 over the `AgricultureSystem` ADR — a cleaner, unblocked slice, same shape as Weeks 5-9 |
+| 12 (planned) | Anomaly Cleanup 2: `RelationshipSystem` trigger set + `CivilizationSystem` cadence fix | Consolidates two open findings rather than letting them accumulate further, same rationale as Week 7 |
+| 13 | The `AgricultureSystem` crop-growth ADR | Needed before any further Life Sciences work; still open |
+| 14-15 | Remaining Life Sciences (Fauna, Population Ecology, Disease, Evolution) | Reachable once Week 13's ADR resolves the `AgricultureSystem` question — budget unchanged at ~2 weeks |
+| 16-17 | Warfare & Military Organization | Explicitly "the largest single unimplemented system in the whole library" — budgeted 2 weeks |
+| 18-19 | Infrastructure-as-network | Needs an ADR first (philosophy conflict with current `ConstructionSystem`), then whatever that ADR decides — budgeted 2 weeks |
+| 20 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
+| 21 | Legends & Myths generation | Its own dependencies (Character/Civilization Stories, Historical Narrative) already exist, so this is closer to Communication/Language in size |
+| 22 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
+| 23 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
+| 24 | Real LLM-backed AI narrator | Needs a provider-integration ADR (cost/latency/determinism) before implementation — budgeted 1 week for a first real integration |
+| 25 | API rate limiting/versioning + `TradeCompletedEvent` cleanup + final pass | Both explicitly called "small, well-understood scope" in the original backlog |
 
-**Total projection: ~24 weeks end-to-end (about 5.5 months), of which 10 are done —
-roughly 14 more weeks from here.** Treat this as a planning band, not a
+**Total projection: ~25 weeks end-to-end (about 6 months), of which 10 are done —
+roughly 15 more weeks from here.** Treat this as a planning band, not a
 commitment: past estimate accuracy on the *already-completed* weeks has been good (every
 week landed in its planned 5 days), but every week has also found something the plan didn't
-predict, so the true number is more likely 15-20 remaining weeks than exactly 15. This
-section should be re-forecast at the end of each week, the same way `SPEC_INDEX.md`'s Change
-Log gets updated after every day.
+predict — including a whole extra cleanup week (12) added mid-course for this exact reason —
+so the true number is more likely 15-20 remaining weeks than exactly 15. This section should
+be re-forecast at the end of each week, the same way `SPEC_INDEX.md`'s Change Log gets
+updated after every day.
 
 ---
 
