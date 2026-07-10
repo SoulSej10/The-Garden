@@ -52,7 +52,21 @@ public class TechnologyService
 
             foreach (var tech in undiscoved)
             {
-                var contribution = progress * 0.1;
+                // Week 5 Day 22 finding, fixed here: this used to be
+                // `progress * 0.1`, a 10x scale-down with no counterpart
+                // anywhere else - settlement.TechnologyProgress (displayed
+                // as a % in the Observatory) accumulates the full `progress`
+                // value, and nothing treats the per-tech scale as different.
+                // At 0.1x, even the cheapest technology (Stone Tools, 30.0
+                // required) needed ~385 simulated years for a 26-member
+                // settlement - confirmed live, zero technologies discovered
+                // after 55+ years. Removing the scale-down keeps both
+                // counters on the same scale, matching CultureService's
+                // `TechnologyProgress > 50` threshold and the Observatory's
+                // CurrentProgress/ProgressRequired*100 display, both of
+                // which assume progress and requirement are comparable
+                // magnitudes.
+                var contribution = progress;
                 if (tech.Category == "Agriculture" && settlement.Buildings.Any(b => b.BuildingType == "Farm" && b.Status == BuildingStatus.Completed))
                     contribution *= 1.5;
                 if (tech.Category == "Construction" && settlement.CompletedBuildings > 0)
