@@ -397,6 +397,17 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
       </div>
 
       <div>
+        <h3 className="mb-2 text-sm font-medium">Population</h3>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Carrying capacity — how many members this settlement's food and housing can sustain right now.
+        </p>
+        <div className="flex items-center gap-3">
+          <Progress value={detail.carryingCapacity > 0 ? Math.min(100, (detail.population / detail.carryingCapacity) * 100) : 0} />
+          <span className="w-20 text-xs text-right">{detail.population} / {detail.carryingCapacity.toFixed(0)}</span>
+        </div>
+      </div>
+
+      <div>
         <h3 className="mb-2 text-sm font-medium">Not Yet Tracked</h3>
         <p className="text-xs text-muted-foreground">
           Families, security, and trade relationships aren't modeled in the simulation yet - this panel will show them here once those systems exist.

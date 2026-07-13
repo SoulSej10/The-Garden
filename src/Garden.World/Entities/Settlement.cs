@@ -55,6 +55,12 @@ public class Settlement
     // per-settlement inputs that already exist (Population, Legitimacy) -
     // no formula given in the spec. TerritorySystem owns all updates.
     public double TerritorialInfluence { get; set; }
+    // RFC-008 (specification/RFC/RFC-008-population-ecology-carrying-capacity.md):
+    // TG-240's carrying-capacity concept, computed from the two per-settlement
+    // inputs ReproductionSystem already gates reproduction on (Food,
+    // housing occupancy) - no formula given in the spec. PopulationEcologySystem
+    // owns all updates.
+    public double CarryingCapacity { get; set; }
 
     public int CompletedBuildings => Buildings.Count(b => b.Status == BuildingStatus.Completed);
     public int UnderConstructionBuildings => Buildings.Count(b => b.Status == BuildingStatus.UnderConstruction);
@@ -72,8 +78,10 @@ public class Settlement
     public bool IsWithinTerritory(int x, int y) =>
         Math.Abs(x - TileX) <= TerritoryRadius && Math.Abs(y - TileY) <= TerritoryRadius;
 
-    public bool HasAvailableHousing =>
+    public int HousingCapacity =>
         Buildings
             .Where(b => b.BuildingType is "Shelter" or "House" && b.Status == BuildingStatus.Completed)
-            .Sum(b => BuildingTypes.GetMaxOccupants(b.BuildingType)) > MemberIds.Count;
+            .Sum(b => BuildingTypes.GetMaxOccupants(b.BuildingType));
+
+    public bool HasAvailableHousing => HousingCapacity > MemberIds.Count;
 }

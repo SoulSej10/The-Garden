@@ -198,3 +198,22 @@ public record BorderDisputeBeginsEvent : CivilizationEvent
     public GameEntityId SettlementBId { get; init; }
     public string SettlementBName { get; init; } = string.Empty;
 }
+
+// RFC-008: two of TG-240_Population_Ecology.md's 10 named events - fired
+// when a settlement's population crosses its carrying capacity (Decline),
+// or grows meaningfully while remaining comfortably under it (Boom).
+public record PopulationDeclineEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+    public int Population { get; init; }
+    public double CarryingCapacity { get; init; }
+}
+
+public record PopulationBoomEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+    public int Population { get; init; }
+    public double CarryingCapacity { get; init; }
+}

@@ -121,7 +121,7 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 
 | Backlog item | Spec reference(s) | Why it's not day-planned yet |
 |---|---|---|
-| Life Sciences foundation (Fauna, Decomposers, Population Ecology, Disease, Evolution) | `TG-220`–`TG-290` | Flora's first increment (`ForestExpanded`/`Declined` history) shipped Week 10 via `RFC/RFC-006` — see Week 10's Day 49 assessment. Everything else in Volume IV is still greenfield; `AgricultureSystem`/`CitizenSystem` still hardcode biology this volume is supposed to own — untangling that is itself a design question, and blocks Population Ecology specifically since it needs food/population dynamics `AgricultureSystem` currently owns outright. |
+| Life Sciences foundation (Fauna, Decomposers, Disease, Evolution) | `TG-220`, `TG-230`, `TG-250`, `TG-260` | Flora's first increment (`ForestExpanded`/`Declined` history) shipped Week 10 via `RFC/RFC-006`; Population Ecology's first increment (Carrying Capacity) shipped Week 14 via `RFC/RFC-008`, unblocked by `ADR-002` — see Week 13's ADR. Fauna, Decomposers, Disease, and Evolution remain greenfield: no species other than `Citizen` exists anywhere in this codebase, so predator-prey, competition, and disease-vector concepts have nothing to apply to yet. |
 | `HistorySystem.Archive()`'s `LocationY` was always `LocationX + 1` | Week 10 Day 48 finding, **fixed 2026-07-10** | Affected all ~25 `Archive()` call sites (every historical event type), not just this week's new ones — every historical record's Y coordinate was silently wrong since Week 1. No prior test asserted on `LocationY`, which is why it went undetected. Fixed by giving `Archive()` separate `locationX`/`locationY` parameters and updating all 25 call sites; a new regression test locks in the correct behavior. Verified live: `locationY` now genuinely independent of `locationX`. |
 | ~~Borders & Territorial Dynamics~~ | `TG-620_Borders_Territorial_Dynamics.md` (scoped via `RFC-007`) | **Scoped for Week 11 (2026-07-10) via `RFC/RFC-007-borders-territorial-influence.md`** — a regional-influence field derived from existing Population/Legitimacy, replacing the flat ever-growing `TerritoryRadius` int with something that can also contract. |
 | Warfare & Military Organization | `TG-640_Warfare_Military_Organization.md` | Largest single unimplemented system in the whole library; spec gives no combat-resolution, morale, or logistics-attrition formulas at all. |
@@ -405,6 +405,91 @@ clean (0 warnings/0 errors).
 
 ---
 
+## Week 13 (2026-07-13, complete) — The `AgricultureSystem` Crop-Growth ADR
+
+Resolves the Week 10 Day 49 backlog item that had blocked Population Ecology for two full cycles:
+"`AgricultureSystem`/`CitizenSystem` still hardcode biology this volume is supposed to own."
+
+| Day | Task | Status |
+|---|---|---|
+| 62 | Write `ADR-002`: decide whether Population Ecology needs a real Flora-driven crop system first, or can reuse `AgricultureSystem`/`ReproductionSystem`'s existing outputs | Done |
+| 63 | Gap-fill found while writing the ADR: `AgricultureSystem` had zero dedicated unit tests | Done |
+| 64 | Write `RFC/RFC-008-population-ecology-carrying-capacity.md`, scoping Week 14 | Done |
+| 65 | Validate RFC-008's proposed `CarryingCapacity` formula against real running-simulation settlement data | Done |
+| 66 | Close-out: changelog, commit/push | Done |
+
+### Days 62-66 actuals (2026-07-13)
+
+- **Day 62**: `ADR-002` accepted — `AgricultureSystem`'s season/moisture yield formula stays as-is (no
+  `TG-210` formula exists to conform to either way); Population Ecology will instead reuse
+  `AgricultureSystem`'s `Food` output and `ReproductionSystem`'s existing `foodPerCapita >= 3.0` /
+  `HasAvailableHousing` gates as its carrying-capacity inputs — the same "reuse an existing field"
+  posture every RFC since RFC-004 has used.
+- **Day 63**: Writing the ADR surfaced a real, previously-unnoticed gap: `AgricultureSystem` has
+  existed since early in this project with zero dedicated unit tests, only ever exercised indirectly
+  through `SurvivalSimulationTests`'s multi-year integration runs. Added `AgricultureSystemTests.cs`
+  (6 tests) covering the season growth modifiers, the moisture penalty, the no-seeds-no-yield case,
+  and the `FarmHarvestedEvent` payload.
+- **Day 64**: `RFC-008` written, scoping `Settlement.CarryingCapacity = Math.Min(HousingCapacity,
+  FoodCapacity)` and a new `PopulationEcologySystem` (monthly cadence) that detects crossings into/out
+  of sustainable capacity, publishing `PopulationDeclineEvent`/`PopulationBoomEvent` (2 of `TG-240`'s
+  10 named events) — both subscribed to `HistorySystem` at introduction time, continuing the practice
+  reinforced Week 12 Day 61.
+- **Day 65**: Queried a resumed live simulation's real settlement data to sanity-check the formula
+  before committing to it in code — confirmed `HousingCapacity`/`FoodCapacity` produce sane,
+  non-degenerate numbers against real settlements (not just synthetic test data).
+- **Day 66**: `SPEC_INDEX.md` Change Log updated; Backlog table's "Life Sciences foundation" row
+  narrowed to reflect Population Ecology Increment 1 now being scheduled (Week 14). Full verification:
+  build clean, unit tests passing, fast integration tests passing.
+
+---
+
+## Week 14 (2026-07-13, complete) — Population Ecology: Carrying Capacity (Increment 1 of Volume IV, continued)
+
+Scoped from `RFC/RFC-008-population-ecology-carrying-capacity.md`, mirroring RFC-007's shape (a
+derived field + a new `IScheduledSystem` + tests + minimal UI + close-out) since RFC-008 explicitly
+follows that template.
+
+| Day | Task | Status |
+|---|---|---|
+| 67 | `Settlement.CarryingCapacity` field (EF migration) + `PopulationEcologySystem` skeleton | Done |
+| 68 | Pressure-crossing detection + `PopulationBoomEvent`/`PopulationDeclineEvent`, `HistorySystem` wired at introduction time | Done |
+| 69 | Unit tests for `PopulationEcologySystem` | Done |
+| 70 | Observatory surfacing of carrying capacity/population pressure | Done |
+| 71 | Close-out: live verification, changelog, full verification, commit/push | Done |
+
+### Days 67-71 actuals (2026-07-13)
+
+- **Day 67**: `Settlement.CarryingCapacity` added with EF migration `AddSettlementCarryingCapacity`
+  (applied live); `PopulationEcologySystem` skeleton (monthly cadence, `IntervalTicks = 24 * 30`)
+  computing `Math.Min(HousingCapacity, Food/3.0)` each evaluation. Also added `Settlement.HousingCapacity`
+  as a real `int` property (previously only exposed as the boolean `HasAvailableHousing`), refactored
+  the latter to reuse it.
+- **Day 68**: Pressure-crossing detection for `PopulationDeclineEvent` (population exceeds capacity)
+  and a state-transition detection for `PopulationBoomEvent` (real growth while comfortably under
+  capacity). Both subscribed to `HistorySystem` under `HistoryCategories.Settlement` at introduction
+  time, continuing the practice reinforced Week 12 Day 61.
+- **Day 69**: Writing `PopulationEcologySystemTests.cs` caught a real design flaw before it shipped —
+  the first Boom-detection draft (a pure pressure-crossing model, mirroring `TerritorySystem`) could
+  never actually fire, since real population growth raises pressure rather than lowering it. Redesigned
+  around a state transition (`isGrowingComfortably`) instead. 6 tests, including a dedicated test for
+  the exact false-positive RFC-008's own open questions worried about (capacity rising via a food
+  surplus without real population growth must not be misreported as a boom).
+- **Day 70**: `SettlementsController.GetById` now returns `CarryingCapacity`; Observatory's settlement
+  detail panel gained a "Population" section (progress bar + `population / carryingCapacity` numbers),
+  mirroring the Territory section's shape.
+- **Day 71**: Live-verified against a resumed simulation across all 8 real settlements —
+  `CarryingCapacity` computed correctly (most settlements currently `0` because their real `Food`
+  storage is genuinely `0`, the same scarcity Week 12 Day 59 observed; one settlement had real food and
+  showed a real non-zero capacity). Observatory Population section rendered correctly in both states,
+  no console errors. `RFC-008` marked Implemented with full implementation notes. Full verification:
+  build clean, 175/175 unit tests, 3/3 fast integration tests, `tsc --noEmit` clean.
+
+**Week 14 final tally:** 175 unit tests (up from 158), 3 fast integration tests, full solution build
+clean (0 warnings/0 errors).
+
+---
+
 ## Project-Wide Timeline Estimate (as of 2026-07-13)
 
 Asked directly: *how many weeks to finish everything?* Answered honestly, with the same
@@ -418,20 +503,18 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 
 | Weeks | Scope | Basis for the estimate |
 |---|---|---|
-| 1-12 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2 | Actuals |
-| 13 | The `AgricultureSystem` crop-growth ADR | Needed before any further Life Sciences work; still open |
-| 14-15 | Remaining Life Sciences (Fauna, Population Ecology, Disease, Evolution) | Reachable once Week 13's ADR resolves the `AgricultureSystem` question — budget unchanged at ~2 weeks |
-| 16-17 | Warfare & Military Organization | Explicitly "the largest single unimplemented system in the whole library" — budgeted 2 weeks |
-| 18-19 | Infrastructure-as-network | Needs an ADR first (philosophy conflict with current `ConstructionSystem`), then whatever that ADR decides — budgeted 2 weeks |
-| 20 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
-| 21 | Legends & Myths generation | Its own dependencies (Character/Civilization Stories, Historical Narrative) already exist, so this is closer to Communication/Language in size |
-| 22 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
-| 23 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
-| 24 | Real LLM-backed AI narrator | Needs a provider-integration ADR (cost/latency/determinism) before implementation — budgeted 1 week for a first real integration |
-| 25 | API rate limiting/versioning + `TradeCompletedEvent` cleanup + `History/search` `totalRecords` bug + final pass | All explicitly called "small, well-understood scope" or already isolated in the backlog |
+| 1-14 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2) | Actuals |
+| 15-16 | Remaining Life Sciences (Fauna, Decomposers, Disease, Evolution) | No species other than `Citizen` exists yet, so each of these needs its own scoping RFC deciding what minimal species/organism concept to introduce - budgeted 2 weeks |
+| 17-18 | Warfare & Military Organization | Explicitly "the largest single unimplemented system in the whole library" — budgeted 2 weeks |
+| 19-20 | Infrastructure-as-network | Needs an ADR first (philosophy conflict with current `ConstructionSystem`), then whatever that ADR decides — budgeted 2 weeks |
+| 21 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
+| 22 | Legends & Myths generation | Its own dependencies (Character/Civilization Stories, Historical Narrative) already exist, so this is closer to Communication/Language in size |
+| 23 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
+| 24 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
+| 25 | Real LLM-backed AI narrator + API rate limiting/versioning + `TradeCompletedEvent` cleanup + `History/search` `totalRecords` bug + final pass | Consolidating the smaller remaining items into a final week, same rationale as prior anomaly-cleanup weeks |
 
-**Total projection: ~25 weeks end-to-end (about 6 months), of which 12 are done —
-roughly 13 more weeks from here.** Treat this as a planning band, not a
+**Total projection: ~25 weeks end-to-end (about 6 months), of which 14 are done —
+roughly 11 more weeks from here.** Treat this as a planning band, not a
 commitment: past estimate accuracy on the *already-completed* weeks has been good (every
 week landed in its planned 5 days), but every week has also found something the plan didn't
 predict — including a whole extra cleanup week (12) added mid-course for this exact reason —

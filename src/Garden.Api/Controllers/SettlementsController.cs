@@ -149,6 +149,7 @@ public class SettlementsController : ControllerBase
             LegalCases = BuildLegalCaseSummary(settlement),
             settlement.TerritorialInfluence,
             BorderDisputes = BuildBorderDisputes(settlement),
+            settlement.CarryingCapacity,
             // Not yet modeled in the simulation - surfaced as explicit
             // placeholders rather than omitted, so the UI can show them once
             // these systems exist instead of silently having no field.

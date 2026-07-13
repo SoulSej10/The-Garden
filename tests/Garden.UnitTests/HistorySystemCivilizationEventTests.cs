@@ -506,4 +506,44 @@ public class HistorySystemCivilizationEventTests
         Assert.Equal("SeasonChanged", record.EventType);
         Assert.Equal(HistoryCategories.Nature, record.Category);
     }
+
+    [Fact]
+    public void PopulationDecline_IsArchived()
+    {
+        // Regression test per RFC-008: subscribed at introduction time,
+        // continuing the practice reinforced Week 12 Day 61.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new PopulationDeclineEvent
+        {
+            Tick = 6000,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot",
+            Population = 25,
+            CarryingCapacity = 20.0
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("PopulationDecline", record.EventType);
+        Assert.Equal(HistoryCategories.Settlement, record.Category);
+    }
+
+    [Fact]
+    public void PopulationBoom_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new PopulationBoomEvent
+        {
+            Tick = 6500,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Upperridge",
+            Population = 12,
+            CarryingCapacity = 40.0
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("PopulationBoom", record.EventType);
+        Assert.Equal(HistoryCategories.Settlement, record.Category);
+    }
 }

@@ -369,6 +369,7 @@ export interface SettlementDetail {
     otherSettlementId: string
     otherSettlementName: string
   }>
+  carryingCapacity: number
   families: unknown
   security: unknown
   tradeRelationships: unknown

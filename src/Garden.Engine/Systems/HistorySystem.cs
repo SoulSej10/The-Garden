@@ -109,6 +109,13 @@ public class HistorySystem : IScheduledSystem
         // as unsubscribed here. A fourth instance of the TG-001 Law IV
         // violation this project keeps finding in its own new/old code.
         _eventBus.Subscribe<SeasonChangedEvent>(OnSeasonChanged);
+
+        // RFC-008 (specification/RFC/RFC-008-population-ecology-carrying-capacity.md):
+        // subscribed at introduction time, continuing the practice
+        // reinforced Week 12 Day 61 rather than risking a fifth instance of
+        // the same TG-001 Law IV gap.
+        _eventBus.Subscribe<PopulationDeclineEvent>(OnPopulationDecline);
+        _eventBus.Subscribe<PopulationBoomEvent>(OnPopulationBoom);
     }
 
     private void OnCitizenBorn(CitizenBornEvent e)
@@ -448,6 +455,22 @@ public class HistorySystem : IScheduledSystem
             $"{e.NewSeason} Begins",
             $"The season turned from {e.PreviousSeason} to {e.NewSeason}.",
             string.Empty, 0, 0, e.Tick, [], [], 5.0);
+    }
+
+    private void OnPopulationDecline(PopulationDeclineEvent e)
+    {
+        Archive(HistoryCategories.Settlement, "PopulationDecline",
+            $"{e.SettlementName} Outgrows Its Means",
+            $"{e.SettlementName}'s population ({e.Population}) has exceeded what its food and housing can sustain ({e.CarryingCapacity:F1}).",
+            e.SettlementName, 0, 0, e.Tick, [], [], 5.0, e.SettlementId.Value.ToString());
+    }
+
+    private void OnPopulationBoom(PopulationBoomEvent e)
+    {
+        Archive(HistoryCategories.Settlement, "PopulationBoom",
+            $"{e.SettlementName} Flourishes",
+            $"{e.SettlementName}'s population ({e.Population}) is growing comfortably within its means ({e.CarryingCapacity:F1}).",
+            e.SettlementName, 0, 0, e.Tick, [], [], 5.0, e.SettlementId.Value.ToString());
     }
 
     private void Archive(string category, string eventType, string title, string description,
