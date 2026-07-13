@@ -75,11 +75,12 @@ public class RelationshipSystemTests
         var (world, bus, _) = CreateHarness();
         var parentA = GameEntityId.New();
         var parentB = GameEntityId.New();
+        var newborn = GameEntityId.New();
 
         bus.Publish(new CitizenBornEvent
         {
             Tick = 5,
-            CitizenId = GameEntityId.New(),
+            CitizenId = newborn,
             CitizenName = "Newborn",
             TileX = 0,
             TileY = 0,
@@ -87,9 +88,100 @@ public class RelationshipSystemTests
             ParentBId = parentB
         });
 
-        var rel = Assert.Single(world.Relationships);
-        Assert.True(rel.Trust > 60.0);
-        Assert.True(rel.Affection > 65.0);
+        var parentRel = world.Relationships.Single(r =>
+            (r.EntityAId == parentA || r.EntityBId == parentA) &&
+            (r.EntityAId == parentB || r.EntityBId == parentB));
+        Assert.True(parentRel.Trust > 60.0);
+        Assert.True(parentRel.Affection > 65.0);
+    }
+
+    [Fact]
+    public void CitizenBorn_AlsoBondsEachParent_WithTheNewborn()
+    {
+        // Week 12 Day 56 (anomaly cleanup): CitizenBornEvent previously only
+        // bonded the two parents with each other, never with the newborn -
+        // a cross-generation Relationship (the precondition for
+        // EducationSystem's mentor/student pairing) could never exist.
+        var (world, bus, _) = CreateHarness();
+        var parentA = GameEntityId.New();
+        var parentB = GameEntityId.New();
+        var newborn = GameEntityId.New();
+
+        bus.Publish(new CitizenBornEvent
+        {
+            Tick = 5,
+            CitizenId = newborn,
+            CitizenName = "Newborn",
+            TileX = 0,
+            TileY = 0,
+            ParentAId = parentA,
+            ParentBId = parentB
+        });
+
+        Assert.Equal(3, world.Relationships.Count); // parentA-parentB, parentA-newborn, parentB-newborn
+
+        var parentAChild = world.Relationships.Single(r =>
+            (r.EntityAId == parentA || r.EntityBId == parentA) &&
+            (r.EntityAId == newborn || r.EntityBId == newborn));
+        var parentBChild = world.Relationships.Single(r =>
+            (r.EntityAId == parentB || r.EntityBId == parentB) &&
+            (r.EntityAId == newborn || r.EntityBId == newborn));
+
+        Assert.True(parentAChild.Trust > 60.0);
+        Assert.True(parentBChild.Trust > 60.0);
+    }
+
+    [Fact]
+    public void CitizenDied_LowersTrust_InSurvivorsOtherRelationships_WhenBondWasClose()
+    {
+        // Week 12 Day 57: LawSystem's dispute detection needs Trust to be
+        // able to fall below the neutral baseline organically - grief is
+        // the negative trigger this fills that gap with.
+        var (world, bus, _) = CreateHarness();
+        var deceased = GameEntityId.New();
+        var mourner = GameEntityId.New();
+        var stranger = GameEntityId.New();
+
+        // Close bond with the deceased (Affection > 60 threshold).
+        bus.Publish(new CitizenBornEvent
+        {
+            Tick = 1, CitizenId = deceased, CitizenName = "Deceased", TileX = 0, TileY = 0,
+            ParentAId = mourner, ParentBId = GameEntityId.New()
+        });
+        // An unrelated relationship the mourner has with someone else.
+        bus.Publish(new TradeCompletedEvent { Tick = 2, FromCitizenId = mourner, ToCitizenId = stranger, ItemType = "Wood", Quantity = 1 });
+
+        var otherRel = world.Relationships.Single(r =>
+            (r.EntityAId == mourner || r.EntityBId == mourner) &&
+            (r.EntityAId == stranger || r.EntityBId == stranger));
+        var trustBefore = otherRel.Trust;
+
+        bus.Publish(new CitizenDiedEvent { Tick = 10, CitizenId = deceased, CitizenName = "Deceased", CauseOfDeath = "Old age", AgeAtDeath = 80 });
+
+        Assert.True(otherRel.Trust < trustBefore,
+            $"Expected mourner's other relationship Trust to drop after a close bond died, but {trustBefore} -> {otherRel.Trust}");
+    }
+
+    [Fact]
+    public void CitizenDied_DoesNotAffect_RelationshipsOfDistantAcquaintances()
+    {
+        var (world, bus, _) = CreateHarness();
+        var deceased = GameEntityId.New();
+        var acquaintance = GameEntityId.New();
+        var stranger = GameEntityId.New();
+
+        // A single trade is a much weaker bond than the CloseBondAffectionThreshold.
+        bus.Publish(new TradeCompletedEvent { Tick = 1, FromCitizenId = acquaintance, ToCitizenId = deceased, ItemType = "Wood", Quantity = 1 });
+        bus.Publish(new TradeCompletedEvent { Tick = 2, FromCitizenId = acquaintance, ToCitizenId = stranger, ItemType = "Stone", Quantity = 1 });
+
+        var otherRel = world.Relationships.Single(r =>
+            (r.EntityAId == acquaintance || r.EntityBId == acquaintance) &&
+            (r.EntityAId == stranger || r.EntityBId == stranger));
+        var trustBefore = otherRel.Trust;
+
+        bus.Publish(new CitizenDiedEvent { Tick = 10, CitizenId = deceased, CitizenName = "Deceased", CauseOfDeath = "Old age", AgeAtDeath = 80 });
+
+        Assert.Equal(trustBefore, otherRel.Trust);
     }
 
     [Fact]

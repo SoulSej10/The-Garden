@@ -128,10 +128,11 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 | Infrastructure-as-network | `TG-660_Infrastructure.md` | Spec explicitly rejects the building-centric model the current `ConstructionSystem`/`Building.cs` uses — this is a philosophy-vs-implementation conflict that needs a decision, not just new code. |
 | Science & Technology redesign | `TG-670_Science_Technology.md` | Spec explicitly disclaims "a predefined technology tree"; current `Technology.cs` is exactly that. Needs an ADR: change the doc to match reality, or redesign the system to match the doc. |
 | ~~Communication~~ / ~~Language~~ / ~~Education~~ / ~~Law & Justice~~ | `TG-500` (scoped, shipped), `TG-510` (scoped, shipped), `TG-550` (scoped, shipped), `TG-590` (scoped, shipped) | **Communication shipped Week 5, Language shipped Week 6, Education shipped Week 8, Law & Justice shipped Week 9 — see `RFC/RFC-002` through `RFC/RFC-005`.** All four Volume VI items originally grouped together are now shipped. |
-| `RelationshipSystem` has too narrow a trigger set | Week 8 Day 39 + Week 9 Day 44 findings, **scheduled Week 12 Days 56-57** | Two related gaps found back-to-back: (1) `RelationshipSystem`'s only live trigger (`CitizenBornEvent`) bonds a newborn's two *parents*, never the parent and the child — making `EducationSystem`'s mentor/student pairing structurally unreachable; (2) both of `RelationshipSystem`'s triggers apply only *positive* Trust deltas (`+3.0`/`+15.0`) — nothing ever lowers Trust, making `LawSystem`'s dispute detection (`Trust < 20`) equally unreachable. Both are natural follow-ups to `RelationshipSystem` itself, not bugs in `EducationSystem`/`LawSystem`. |
+| ~~`RelationshipSystem` has too narrow a trigger set~~ | Week 8 Day 39 + Week 9 Day 44 findings, **fixed Week 12 Days 56-57 (2026-07-13)** | Two related gaps found back-to-back: (1) `RelationshipSystem`'s only live trigger (`CitizenBornEvent`) bonded a newborn's two *parents*, never the parent and the child — making `EducationSystem`'s mentor/student pairing structurally unreachable; (2) both of `RelationshipSystem`'s triggers applied only *positive* Trust deltas — nothing ever lowered Trust, making `LawSystem`'s dispute detection (`Trust < 20`) equally unreachable. Fixed by also bonding each parent with the newborn (Day 56), and by adding `OnCitizenDied` — a close mourner's Trust drops in their *other* existing relationships (Day 57). 3 new tests. **Live re-verification (Day 59) ran ~3 in-game years and saw neither mechanic fire organically** — no citizen died in that window — consistent with this project's precedent of not fabricating false positives; both mechanisms are directly unit-tested. |
 | ~~`TechnologyService` progress-scaling bug~~ | Week 5 Day 22 finding, **fixed 2026-07-10** | `EvaluateTechnology()` accumulated each individual `Technology.CurrentProgress` at `settlementProgress * 0.1`, but nothing else in the codebase treated `settlement.TechnologyProgress` as 10x the per-tech scale — confirmed live, zero technologies discovered after 55+ simulated years. Fixed by removing the scale-down (category multipliers for Agriculture/Construction retained). Verified: 3 new unit tests, and live — a fresh run discovered 10 technologies across 2 settlements within Year 1 alone. |
 | ~~`TradeRouteService` never creates routes~~ | Week 6 Day 29 finding, **fixed 2026-07-10** | Root cause: once a route existed for a settlement pair (active or not), `EvaluateTradeRoutes()`'s `existing != null` check unconditionally skipped re-evaluating that pair forever — so a route that went quiet once (an ordinary occurrence) permanently locked that pair out of trading again, even when a fresh surplus/scarcity later appeared. A secondary bug was found alongside it: goods always flowed a fixed direction regardless of which settlement actually held the surplus. Fixed by letting an inactive route reactivate against a newly-found trade good, and by determining flow direction from the actual surplus holder. Verified: 3 new unit tests (124 total) including an exact reproduction of the live numbers reported (Food 74 vs 0, 23 tiles apart) and a reactivation-after-abandonment test. **Live re-verification was inconclusive** — a fresh run's settlements repeatedly sat exactly at the FindTradeGood boundary (Food = 10, needs strictly <10) rather than crossing it, a separate equilibrium detail worth noting but not chased further here. |
-| `CivilizationSystem`'s "yearly" cadence isn't a year | Week 6 Day 27 finding, **scheduled Week 12 Day 58** | `_lastYearlyTick >= 336` (used by `TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`/`EducationSystem`/`LawSystem`/`TerritorySystem`) is ~14 days at `SimulationTime`'s actual scale (1 year = 24 × 30 × 12 = 8640 ticks), not a year. Affects eight systems' cadence naming at once. |
+| ~~`CivilizationSystem`'s "yearly" cadence isn't a year~~ | Week 6 Day 27 finding, **fixed Week 12 Day 58 (2026-07-13)** | `_lastYearlyTick >= 336` (used by `TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`/`EducationSystem`/`LawSystem`/`TerritorySystem`) was ~14 days at `SimulationTime`'s actual scale (1 year = 24 × 30 × 12 = 8640 ticks), not a year — affected eight systems' cadence naming at once. Fixed by adding `SimulationTime.TicksPerYear` as a single source of truth and replacing every hardcoded `336` (production code and tests) with it. One test (`LawSystemTests.FailsAsJusticeFailure_WhenLegitimacyIsZero_AfterUnresolvedWindow`) had hardcoded the old value directly and needed updating. |
+| `History/search`'s `totalRecords` under-reports the real record count | Week 12 Day 59 finding | Observed live: querying with `pageSize=500`/`1000` returned that many actual records in the `records` array, but `totalRecords` stayed at `50` regardless — the count and the page fetch appear to disagree. Not chased further (out of Week 12 scope); needs its own investigation into `HistoryController.Search`/`HistoricalArchive.Search`'s two separate calls (one for records, one for the total). |
 | ~~`DialectFormedEvent` never archived by `HistorySystem`~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 31** | `HistorySystem` subscribes to all 12 of Week 1's original `CivilizationEvent` types, but `DialectFormedEvent` (added Week 6) was never added alongside them — reproducing the exact TG-001 Law IV ("History Is Permanent") violation Week 1 Day 1 was created to close, this time on new code rather than old. |
 | ~~`EmotionalState` never surfaced in the Observatory~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 32** | `Citizen.Emotions` (6 emotions, Week 3 Days 11-12) is returned by `CitizensController.GetCitizen` but `CitizenDetail`/`CitizensPage.tsx` never expose or render it — confirmed via grep, zero references anywhere in `Garden.Observatory`. Week 4 Day 16 surfaced Settlement tier/Governance but nothing ever covered surfacing Emotion on the Citizen page itself. |
 | ~~`Relationship` data never surfaced in the Observatory~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 33** | `CitizensController` has a dedicated `GET /citizens/{id}/relationships` endpoint (Trust/Affection/SocialDistance per pair, Week 3 Day 13) that the frontend never calls — confirmed via grep, no "relationship" reference in `CitizensPage.tsx` or anywhere else in the Observatory beyond an unrelated `tradeRelationships: unknown` placeholder field. |
@@ -329,22 +330,52 @@ occurred organically within the verification window - both are gated by real thr
 that simply weren't crossed in this particular run, not bugs. Verified via
 `TerritorySystemTests.cs`'s direct scenarios instead.
 
-## Week 12 (planned) — Anomaly Cleanup 2: RelationshipSystem + CivilizationSystem Cadence
+## Week 12 (2026-07-13, complete) — Anomaly Cleanup 2: RelationshipSystem + CivilizationSystem Cadence
 
 Consolidates the two open findings still sitting in the Backlog table since Weeks 8-10,
 rather than letting them accumulate further - same rationale as Week 7.
 
 | Day | Task | Status |
 |---|---|---|
-| 56 | Extend `RelationshipSystem` to bond a newborn with both parents (not just parent-to-parent), unblocking `EducationSystem`'s mentor/student gate | Pending |
-| 57 | Add a real negative-Trust trigger to `RelationshipSystem` (e.g. a citizen dying while another depended on them, or a failed `LawSystem` case lowering Trust between the disputing pair), unblocking `LawSystem`'s dispute detection | Pending |
-| 58 | Fix `CivilizationSystem`'s `_lastYearlyTick >= 336` cadence to match `SimulationTime`'s real 8,640-tick year, across all six affected systems (`TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`/`EducationSystem`/`LawSystem`/`TerritorySystem`) | Pending |
-| 59 | Live re-verification: confirm Education/Law & Justice can now trigger organically, and that yearly systems now genuinely run once per in-game year | Pending |
-| 60 | Close-out: changelog, full verification, commit/push | Pending |
+| 56 | Extend `RelationshipSystem` to bond a newborn with both parents (not just parent-to-parent), unblocking `EducationSystem`'s mentor/student gate | Done |
+| 57 | Add a real negative-Trust trigger to `RelationshipSystem` (a citizen dying lowers Trust in a close mourner's *other* existing relationships - grief makes someone more guarded generally), unblocking `LawSystem`'s dispute detection | Done |
+| 58 | Fix `CivilizationSystem`'s `_lastYearlyTick >= 336` cadence to match `SimulationTime`'s real 8,640-tick year, across all eight affected systems (`TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`/`EducationSystem`/`LawSystem`/`TerritorySystem`) | Done |
+| 59 | Live re-verification: confirm Education/Law & Justice can now trigger organically, and that yearly systems now genuinely run once per in-game year | Done |
+| 60 | Close-out: changelog, full verification, commit/push | Done |
+
+### Days 56-58 actuals (2026-07-13)
+
+- **Day 56**: `RelationshipSystem.OnCitizenBorn` now also bonds each parent with the newborn (same deltas as the parent-parent bond, reused rather than inventing a new profile). Fixed the now-3-relationship `CitizenBorn_CreatesStrongerBond...` test (previously asserted `Assert.Single`) and added `CitizenBorn_AlsoBondsEachParent_WithTheNewborn`.
+- **Day 57**: Added `RelationshipSystem.OnCitizenDied` - a citizen's close mourners (existing Relationship, Affection > 60) get Trust lowered on their *other* existing relationships, the first mechanic in the project that can ever push Trust below the neutral baseline. 2 new tests (`CitizenDied_LowersTrust_InSurvivorsOtherRelationships_WhenBondWasClose`, `CitizenDied_DoesNotAffect_RelationshipsOfDistantAcquaintances`).
+- **Day 58**: Added `SimulationTime.TicksPerYear` (`24 * 30 * 12 = 8640`) as the single source of truth; replaced every hardcoded `336` in `CivilizationSystem`, `EducationSystem`, `LanguageSystem`, `LawSystem`, `TerritorySystem` (and the tests that simulated yearly ticks) with it. Found and fixed one test (`LawSystemTests.FailsAsJusticeFailure_WhenLegitimacyIsZero_AfterUnresolvedWindow`) that broke because it hardcoded the old 336-tick "year" directly rather than deriving it.
+- Full verification after all three days: build 0 warnings/0 errors, 156/156 unit tests, 3/3 fast integration tests (1m15s).
+
+### Day 59 actuals (2026-07-13)
+
+Ran the resumed live simulation at 500x speed for ~3 in-game years (11831 → 25912+ ticks), well past
+the 8640-tick real-year boundary the Day 58 fix established. Most settlements showed near-zero food
+reserves throughout — a real, non-buggy scarcity condition, not induced. No organic `CitizenDied`,
+`ApprenticeshipStarted`, `CaseResolved`, `JusticeFailure`, or `TechnologyDiscovered` event occurred in
+that window. This is treated as a legitimate non-finding, not a bug, per the precedent Week 11 Day 54
+established for `BorderDispute`'s non-occurrence: these are probability/threshold-gated mechanics
+(old-age death chance only above age 70; health-critical death needs sustained zero-food/water; Education/
+Law both need specific Relationship states) that simply weren't crossed in this particular ~3-year window,
+and every mechanism has direct unit-test coverage confirming it fires correctly when its real trigger
+condition is met. **New finding surfaced incidentally**: `/History/search`'s `totalRecords` field
+under-reports versus the actual `records` array length (reported `50` while `pageSize=500`/`1000` queries
+returned that many real records) — added to the Backlog table, not investigated further (out of scope).
+Simulation and `garden-api` preview server stopped cleanly after verification.
+
+### Day 60 close-out (2026-07-13)
+
+Week 12 complete. `SPEC_INDEX.md` Change Log updated with the full Week 12 entry; Backlog table's
+`RelationshipSystem` and `CivilizationSystem` cadence rows struck through as fixed, plus the new
+`History/search` `totalRecords` finding added as its own row. **Week 12 final tally:** 156 unit tests
+(up from 153), 3 fast integration tests, full solution build clean (0 warnings/0 errors).
 
 ---
 
-## Project-Wide Timeline Estimate (as of 2026-07-10)
+## Project-Wide Timeline Estimate (as of 2026-07-13)
 
 Asked directly: *how many weeks to finish everything?* Answered honestly, with the same
 caveat this plan opened with — large greenfield items are estimates, not commitments, and
@@ -357,9 +388,7 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 
 | Weeks | Scope | Basis for the estimate |
 |---|---|---|
-| 1-10 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1) | Actuals |
-| 11 (in progress) | Borders & Territorial Dynamics (`RFC-007`) | Decided 2026-07-10 over the `AgricultureSystem` ADR — a cleaner, unblocked slice, same shape as Weeks 5-9 |
-| 12 (planned) | Anomaly Cleanup 2: `RelationshipSystem` trigger set + `CivilizationSystem` cadence fix | Consolidates two open findings rather than letting them accumulate further, same rationale as Week 7 |
+| 1-12 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2 | Actuals |
 | 13 | The `AgricultureSystem` crop-growth ADR | Needed before any further Life Sciences work; still open |
 | 14-15 | Remaining Life Sciences (Fauna, Population Ecology, Disease, Evolution) | Reachable once Week 13's ADR resolves the `AgricultureSystem` question — budget unchanged at ~2 weeks |
 | 16-17 | Warfare & Military Organization | Explicitly "the largest single unimplemented system in the whole library" — budgeted 2 weeks |
@@ -369,10 +398,10 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 | 22 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
 | 23 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
 | 24 | Real LLM-backed AI narrator | Needs a provider-integration ADR (cost/latency/determinism) before implementation — budgeted 1 week for a first real integration |
-| 25 | API rate limiting/versioning + `TradeCompletedEvent` cleanup + final pass | Both explicitly called "small, well-understood scope" in the original backlog |
+| 25 | API rate limiting/versioning + `TradeCompletedEvent` cleanup + `History/search` `totalRecords` bug + final pass | All explicitly called "small, well-understood scope" or already isolated in the backlog |
 
-**Total projection: ~25 weeks end-to-end (about 6 months), of which 10 are done —
-roughly 15 more weeks from here.** Treat this as a planning band, not a
+**Total projection: ~25 weeks end-to-end (about 6 months), of which 12 are done —
+roughly 13 more weeks from here.** Treat this as a planning band, not a
 commitment: past estimate accuracy on the *already-completed* weeks has been good (every
 week landed in its planned 5 days), but every week has also found something the plan didn't
 predict — including a whole extra cleanup week (12) added mid-course for this exact reason —

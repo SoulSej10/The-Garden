@@ -99,7 +99,7 @@ public class LanguageSystemTests
         // until it crosses the threshold, then must never fire again.
         for (var year = 1; year <= 30; year++)
         {
-            world.CurrentTime = SimulationTime.FromTick(year * 336);
+            world.CurrentTime = SimulationTime.FromTick(year * SimulationTime.TicksPerYear);
             system.Execute();
         }
 

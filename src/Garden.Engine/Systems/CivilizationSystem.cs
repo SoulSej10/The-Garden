@@ -1,4 +1,5 @@
 using Garden.Core.Interfaces;
+using Garden.Core.Time;
 using Garden.Engine.Services;
 using Garden.World.Collections;
 using Microsoft.Extensions.Logging;
@@ -85,7 +86,7 @@ public class CivilizationSystem : IScheduledSystem
             _lastMonthlyTick = tick;
         }
 
-        if (tick - _lastYearlyTick >= 336)
+        if (tick - _lastYearlyTick >= SimulationTime.TicksPerYear)
         {
             _technologyService.EvaluateTechnology(tick);
             _cultureService.EvaluateCulture(tick);

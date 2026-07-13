@@ -127,7 +127,7 @@ public class EducationSystemTests
 
         for (var year = 1; year <= 20; year++)
         {
-            world.CurrentTime = SimulationTime.FromTick(year * 336);
+            world.CurrentTime = SimulationTime.FromTick(year * SimulationTime.TicksPerYear);
             system.Execute();
         }
 
@@ -151,7 +151,7 @@ public class EducationSystemTests
         Apprenticeship? apprenticeship = null;
         for (var year = 1; year <= 30 && (apprenticeship == null || apprenticeship.IsActive); year++)
         {
-            world.CurrentTime = SimulationTime.FromTick(year * 336);
+            world.CurrentTime = SimulationTime.FromTick(year * SimulationTime.TicksPerYear);
             system.Execute();
             apprenticeship = world.Apprenticeships.SingleOrDefault();
         }
@@ -186,7 +186,7 @@ public class EducationSystemTests
 
         var completed = false;
         bus.Subscribe<ApprenticeshipCompletedEvent>(_ => completed = true);
-        world.CurrentTime = SimulationTime.FromTick(336);
+        world.CurrentTime = SimulationTime.FromTick(SimulationTime.TicksPerYear);
         system.Execute();
 
         Assert.True(completed);

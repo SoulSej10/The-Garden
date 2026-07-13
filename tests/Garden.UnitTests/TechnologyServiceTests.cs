@@ -1,4 +1,5 @@
 using Garden.Core.Identifiers;
+using Garden.Core.Time;
 using Garden.Engine.Events;
 using Garden.Engine.Services;
 using Garden.World.Collections;
@@ -48,7 +49,7 @@ public class TechnologyServiceTests
         // 30.0). 60 years is a generous but still realistic upper bound for
         // a settlement's first technology.
         for (var year = 1; year <= 60; year++)
-            technology.EvaluateTechnology(tick: year * 336);
+            technology.EvaluateTechnology(tick: year * SimulationTime.TicksPerYear);
 
         Assert.NotEmpty(technology.GetDiscoveredTechnologies());
     }
@@ -64,7 +65,7 @@ public class TechnologyServiceTests
         world.Citizens.Add(smartest);
 
         for (var year = 1; year <= 60; year++)
-            technology.EvaluateTechnology(tick: year * 336);
+            technology.EvaluateTechnology(tick: year * SimulationTime.TicksPerYear);
 
         var discovered = Assert.Single(technology.GetDiscoveredTechnologies().Take(1));
         Assert.Equal(smartest.Id, discovered.DiscoveredByCitizenId);
@@ -77,7 +78,7 @@ public class TechnologyServiceTests
         AddSettlement(world, memberCount: 1); // below the >= 2 member gate
 
         for (var year = 1; year <= 60; year++)
-            technology.EvaluateTechnology(tick: year * 336);
+            technology.EvaluateTechnology(tick: year * SimulationTime.TicksPerYear);
 
         Assert.Empty(technology.GetDiscoveredTechnologies());
     }

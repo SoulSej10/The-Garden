@@ -1,6 +1,7 @@
 using Garden.Core.Events;
 using Garden.Core.Identifiers;
 using Garden.Core.Interfaces;
+using Garden.Core.Time;
 using Garden.World.Collections;
 using Garden.World.Entities;
 
@@ -13,10 +14,10 @@ namespace Garden.Engine.Systems;
 /// active TradeRoute or a positive DiplomaticRelation) or none. No named
 /// Language entity yet - see RFC-003's "Why no named Language entity yet".
 ///
-/// Yearly cadence (IntervalTicks = 336), matching TechnologyService/
-/// ReligionService/KingdomService's own cadence in CivilizationSystem -
-/// TG-510 explicitly says language should change "gradually over
-/// generations rather than daily".
+/// Yearly cadence (IntervalTicks = SimulationTime.TicksPerYear), matching
+/// TechnologyService/ReligionService/KingdomService's own cadence in
+/// CivilizationSystem - TG-510 explicitly says language should change
+/// "gradually over generations rather than daily".
 /// </summary>
 public class LanguageSystem : IScheduledSystem
 {
@@ -25,7 +26,7 @@ public class LanguageSystem : IScheduledSystem
     private long _nextExecutionTick;
 
     public string Name => "LanguageSystem";
-    public long IntervalTicks => 336;
+    public long IntervalTicks => SimulationTime.TicksPerYear;
     public long NextExecutionTick => _nextExecutionTick;
 
     // RFC-003: invented thresholds/rates (TG-510 gives no numbers).

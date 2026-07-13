@@ -1,6 +1,7 @@
 using Garden.Core.Events;
 using Garden.Core.Identifiers;
 using Garden.Core.Interfaces;
+using Garden.Core.Time;
 using Garden.Engine.Services;
 using Garden.World.Collections;
 using Garden.World.Entities;
@@ -15,9 +16,9 @@ namespace Garden.Engine.Systems;
 /// also contract, plus detecting (not resolving) genuine territorial
 /// disputes between settlements of comparable strength.
 ///
-/// Yearly cadence (IntervalTicks = 336), matching the established
-/// CivilizationSystem convention (the Week 6 Day 27 cadence-naming finding
-/// applies here too, scheduled for its own fix in Week 12).
+/// Yearly cadence (IntervalTicks = SimulationTime.TicksPerYear), matching
+/// the established CivilizationSystem convention (the Week 6 Day 27
+/// cadence-naming finding applies here too - fixed Week 12 Day 58).
 /// </summary>
 public class TerritorySystem : IScheduledSystem
 {
@@ -27,7 +28,7 @@ public class TerritorySystem : IScheduledSystem
     private long _nextExecutionTick;
 
     public string Name => "TerritorySystem";
-    public long IntervalTicks => 336;
+    public long IntervalTicks => SimulationTime.TicksPerYear;
     public long NextExecutionTick => _nextExecutionTick;
 
     // RFC-007: invented thresholds/formula (TG-620 gives no numbers).

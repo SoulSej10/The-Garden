@@ -32,12 +32,22 @@ public class RelationshipSystem : IScheduledSystem
     private const double AffectionHalfLife = 2000;
     private const double SocialDistanceHalfLife = 1000;
 
+    // Week 12 Day 57 (anomaly cleanup): invented - TG-380 gives no grief
+    // mechanic. "Close bond" reuses the Affection scale already on
+    // Relationship rather than adding a new concept; the penalty is applied
+    // to a mourner's OTHER existing relationships (not to the deceased's,
+    // which is about to become irrelevant), representing grief making
+    // someone measurably more guarded with everyone else they know.
+    private const double CloseBondAffectionThreshold = 60.0;
+    private const double GriefTrustPenalty = 12.0;
+
     public RelationshipSystem(WorldState worldState, IEventBus eventBus)
     {
         _worldState = worldState;
 
         eventBus.Subscribe<TradeCompletedEvent>(OnTradeCompleted);
         eventBus.Subscribe<CitizenBornEvent>(OnCitizenBorn);
+        eventBus.Subscribe<CitizenDiedEvent>(OnCitizenDied);
     }
 
     public void Execute()
@@ -109,5 +119,42 @@ public class RelationshipSystem : IScheduledSystem
         // modeled this increment - a much larger bump than a single trade.
         RecordInteraction(e.ParentAId, e.ParentBId, e.Tick,
             trustDelta: 15.0, affectionDelta: 20.0, closenessDelta: 25.0);
+
+        // Week 12 Day 56 (anomaly cleanup): CitizenBornEvent previously only
+        // bonded the two parents with each other, never with the newborn -
+        // meaning no cross-generation Relationship could ever exist, which
+        // made EducationSystem's Adult/Elder-mentor + Child/Teen-student
+        // pairing structurally unreachable (found Week 8 Day 39). A parent's
+        // bond with their own newborn is at least as strong as the bond
+        // between the two parents, so the same deltas are reused rather
+        // than inventing a separate, unjustified profile.
+        RecordInteraction(e.ParentAId, e.CitizenId, e.Tick,
+            trustDelta: 15.0, affectionDelta: 20.0, closenessDelta: 25.0);
+        RecordInteraction(e.ParentBId, e.CitizenId, e.Tick,
+            trustDelta: 15.0, affectionDelta: 20.0, closenessDelta: 25.0);
+    }
+
+    private void OnCitizenDied(CitizenDiedEvent e)
+    {
+        // Week 12 Day 57 (anomaly cleanup): nothing previously ever lowered
+        // Trust below the neutral baseline (50), which made LawSystem's
+        // dispute detection (Trust < 20) structurally unreachable (found
+        // Week 9 Day 43) - the same class of gap as Day 56's parent-child
+        // fix, just for the negative side of the relationship graph.
+        var mourners = _worldState.Relationships
+            .Where(r => r.EntityAId == e.CitizenId || r.EntityBId == e.CitizenId)
+            .Where(r => r.Affection > CloseBondAffectionThreshold)
+            .Select(r => r.EntityAId == e.CitizenId ? r.EntityBId : r.EntityAId)
+            .ToList();
+
+        foreach (var mourner in mourners)
+        {
+            foreach (var rel in _worldState.Relationships.Where(r =>
+                (r.EntityAId == mourner || r.EntityBId == mourner) &&
+                r.EntityAId != e.CitizenId && r.EntityBId != e.CitizenId))
+            {
+                rel.Trust = Math.Clamp(rel.Trust - GriefTrustPenalty, 0.0, 100.0);
+            }
+        }
     }
 }

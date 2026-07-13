@@ -1,6 +1,7 @@
 using Garden.Core.Events;
 using Garden.Core.Identifiers;
 using Garden.Core.Interfaces;
+using Garden.Core.Time;
 using Garden.World.Collections;
 using Garden.World.Entities;
 
@@ -13,11 +14,10 @@ namespace Garden.Engine.Systems;
 /// toward their own, modeling informal apprenticeship. No formal
 /// institutions (Schools/Libraries/Universities) exist yet.
 ///
-/// Yearly cadence (IntervalTicks = 336), matching TechnologyService/
-/// ReligionService/KingdomService/LanguageSystem's existing convention in
-/// CivilizationSystem (Week 6 Day 27 already flagged this cadence is
-/// actually ~14 days, not a year - a separately tracked backlog item, not
-/// re-litigated here).
+/// Yearly cadence (IntervalTicks = SimulationTime.TicksPerYear), matching
+/// TechnologyService/ReligionService/KingdomService/LanguageSystem's
+/// existing convention in CivilizationSystem (Week 6 Day 27 flagged this
+/// cadence was actually ~14 days, not a year - fixed Week 12 Day 58).
 /// </summary>
 public class EducationSystem : IScheduledSystem
 {
@@ -26,7 +26,7 @@ public class EducationSystem : IScheduledSystem
     private long _nextExecutionTick;
 
     public string Name => "EducationSystem";
-    public long IntervalTicks => 336;
+    public long IntervalTicks => SimulationTime.TicksPerYear;
     public long NextExecutionTick => _nextExecutionTick;
 
     // RFC-004: invented thresholds (TG-550 gives no numbers). Reuses

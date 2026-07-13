@@ -148,7 +148,7 @@ public class LawSystemTests
 
         for (var year = 0; year <= 4; year++)
         {
-            world.CurrentTime = SimulationTime.FromTick(year * 336);
+            world.CurrentTime = SimulationTime.FromTick(year * SimulationTime.TicksPerYear);
             system.Execute();
         }
 

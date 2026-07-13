@@ -1,6 +1,7 @@
 using Garden.Core.Events;
 using Garden.Core.Identifiers;
 using Garden.Core.Interfaces;
+using Garden.Core.Time;
 using Garden.World.Collections;
 using Garden.World.Entities;
 
@@ -13,9 +14,9 @@ namespace Garden.Engine.Systems;
 /// settlement's existing leader, gated by its existing Legitimacy score.
 /// No formal institutions (courts, judges, juries) exist yet.
 ///
-/// Yearly cadence (IntervalTicks = 336), matching TechnologyService/
-/// ReligionService/KingdomService/LanguageSystem/EducationSystem's
-/// existing convention in CivilizationSystem.
+/// Yearly cadence (IntervalTicks = SimulationTime.TicksPerYear), matching
+/// TechnologyService/ReligionService/KingdomService/LanguageSystem/
+/// EducationSystem's existing convention in CivilizationSystem.
 /// </summary>
 public class LawSystem : IScheduledSystem
 {
@@ -24,7 +25,7 @@ public class LawSystem : IScheduledSystem
     private long _nextExecutionTick;
 
     public string Name => "LawSystem";
-    public long IntervalTicks => 336;
+    public long IntervalTicks => SimulationTime.TicksPerYear;
     public long NextExecutionTick => _nextExecutionTick;
 
     // RFC-005: invented threshold (TG-590 gives no numbers) - "actively

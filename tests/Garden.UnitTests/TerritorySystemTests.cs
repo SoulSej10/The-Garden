@@ -62,7 +62,7 @@ public class TerritorySystemTests
 
         system.Execute(); // baseline: influence = 2.5
         settlement.Population = 60; // influence jumps to 30 - a rise > 10
-        world.CurrentTime = SimulationTime.FromTick(336);
+        world.CurrentTime = SimulationTime.FromTick(SimulationTime.TicksPerYear);
         var radiusBefore = settlement.TerritoryRadius;
         system.Execute();
 
@@ -82,7 +82,7 @@ public class TerritorySystemTests
         system.Execute(); // baseline: influence = 60*0.5 + 100*0.3 = 60
         settlement.Population = 5; // influence falls to 2.5+30=32.5, a drop > 10
         settlement.Legitimacy = 0.0;
-        world.CurrentTime = SimulationTime.FromTick(336);
+        world.CurrentTime = SimulationTime.FromTick(SimulationTime.TicksPerYear);
         system.Execute();
 
         Assert.Equal(4, settlement.TerritoryRadius);
@@ -98,7 +98,7 @@ public class TerritorySystemTests
         system.Execute();
         settlement.Population = 0;
         settlement.Legitimacy = 0.0;
-        world.CurrentTime = SimulationTime.FromTick(336);
+        world.CurrentTime = SimulationTime.FromTick(SimulationTime.TicksPerYear);
         system.Execute();
 
         Assert.Equal(1, settlement.TerritoryRadius);
@@ -160,7 +160,7 @@ public class TerritorySystemTests
         bus.Subscribe<BorderDisputeBeginsEvent>(_ => disputeCount++);
 
         system.Execute();
-        world.CurrentTime = SimulationTime.FromTick(336);
+        world.CurrentTime = SimulationTime.FromTick(SimulationTime.TicksPerYear);
         system.Execute();
         world.CurrentTime = SimulationTime.FromTick(672);
         system.Execute();
