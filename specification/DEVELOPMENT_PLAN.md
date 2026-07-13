@@ -656,6 +656,55 @@ solution build clean (0 warnings/0 errors).
 
 ---
 
+## Week 19 (2026-07-13, complete) — Leftover Sweep + Warfare: Dispute Escalation (Part 1)
+
+Per direct user request to proceed with Warfare & Military Organization while ensuring no leftovers
+remain from prior weeks. Opens with a full leftover-consolidation sweep (comparing every
+`CivilizationEvent`-derived record type against `HistorySystem`'s subscriptions, the same audit shape
+Week 12 Day 61 established), then scopes and begins `RFC-013`.
+
+| Day | Task | Status |
+|---|---|---|
+| 92 | Leftover sweep: audit every event type against `HistorySystem` subscriptions | Done |
+| 93 | Write `RFC/RFC-013-warfare-dispute-escalation.md` | Done |
+| 94 | `Settlement.MilitaryStrength` field (EF migration) + `War` entity + `WarfareSystem` skeleton | Done |
+| 95 | War declaration mechanic (escalates `TerritorySystem.ActiveDisputes` + `Hostile` `DiplomaticRelation`), `HistorySystem` wired at introduction time | Done |
+| 96 | Unit tests for war declaration | Done |
+
+### Days 92-96 actuals (2026-07-13)
+
+- **Day 92**: Full sweep found **four real, active events publishing since Week 8 (`ApprenticeshipStartedEvent`/`CompletedEvent`, `RFC-004`) and Week 9 (`CaseResolvedEvent`/`JusticeFailureEvent`, `RFC-005`) with zero `HistorySystem` subscribers** — the same TG-001 Law IV violation found and fixed four times before (Week 1, Week 7, Week 10, Week 12 Day 61), just never caught for these specific events until this sweep. All four confirmed as real, active publishers (not dead code, unlike the other unsubscribed-but-never-published events checked in the same pass — `Drought`/`Rain`/`River`/`Lake` events remain genuinely dead, `CitizenAte`/`Drank`/`Rested`/`Moved` and `ResourceRegenerated` remain deliberately excluded for frequency, matching Week 12 Day 61's findings). Fixed by subscribing all four (`HistoryCategories.Discovery` for Apprenticeship, reusing `CitizenAged`'s precedent for personal-milestone events; `HistoryCategories.Politics` for the Law events, reusing `LeaderElected`'s precedent), with 4 new regression tests.
+- **Day 93**: `RFC-013` written — the cleanest hook of any RFC in this series: `TerritorySystem.ActiveDisputes` (`RFC-007`, Week 11) already detects genuine territorial disputes but explicitly deferred any consequence; `DiplomaticRelation.CurrentRelation == Hostile` (pre-existing) is the literal "trust fails" signal `TG-640`'s own Design Philosophy names. This RFC escalates the two into war rather than building military organization from nothing.
+- **Day 94**: `Settlement.MilitaryStrength` added (EF migration `AddSettlementMilitaryStrength`) + pure in-memory `War` entity (`LegalCase`/`Apprenticeship` pattern) + `WarfareSystem` skeleton (yearly cadence, constructor-injecting `TerritorySystem` directly for `ActiveDisputes`).
+- **Day 95**: War declaration reads `TerritorySystem.ActiveDisputes` and `WorldState.DiplomaticRelations`; `WarDeclaredEvent` (reusing the `"WarDeclared"` string already whitelisted in `SignificanceEvaluator` since Week 1 but never previously published) subscribed to `HistorySystem` under the never-before-used `HistoryCategories.War`.
+- **Day 96**: Unit tests confirmed war declaration fires only when both a real dispute and a Hostile relation co-occur, and does not redeclare while already active.
+
+---
+
+## Week 20 (2026-07-13, complete) — Warfare: Battle Attrition & Peace (Part 2)
+
+| Day | Task | Status |
+|---|---|---|
+| 97 | Battle-resolution mechanic (population/legitimacy damage to the loser) | Done |
+| 98 | Peace mechanic (max-battles or critical-population threshold, partial `DiplomaticRelation` restoration) | Done |
+| 99 | Unit tests for battle resolution and peace | Done |
+| 100 | Observatory surfacing (settlement Military section) | Done |
+| 101 | Close-out: live verification, changelog, commit/push | Done |
+
+### Days 97-101 actuals (2026-07-13)
+
+- **Day 97**: Battle resolution weighs each side's win probability by relative `MilitaryStrength`; the loser takes real `Population`/`Legitimacy` damage — a genuine consequence, not fabricated. `BattleFoughtEvent` subscribed to `HistorySystem`.
+- **Day 98**: Peace triggers on max battles fought or the loser's population dropping critically low; restores some (not all) of the pair's `DiplomaticRelation.RelationScore` — the second RFC in this series (after `RFC-011`) to write back into an earlier system's state, justified because `TG-640` explicitly frames peace as reshaping future politics. `PeaceNegotiatedEvent` subscribed to `HistorySystem`.
+- **Day 99**: 7 new `WarfareSystemTests` total. **Two tests originally used a deliberately lopsided population pair to force a one-battle peace, but this violated `TerritorySystem`'s own comparable-influence requirement for dispute detection in the first place** — caught by the tests failing, not a design flaw; fixed by driving both through the max-battles path with comparable populations instead. 3 more regression tests for the `HistorySystem` wiring.
+- **Day 100**: Added a settlement "Military" section (Strength number + active-war badges) to the Observatory.
+- **Day 101**: **A real deployment bug was caught during live verification**: the EF migration for `Settlement.MilitaryStrength` had never been generated, and the API crashed on startup (`column s.MilitaryStrength does not exist`) — the preview tool itself misleadingly reported "started successfully" even after the process had already crashed; diagnosed directly via `dotnet run`, fixed by generating and applying the missing migration before re-verifying. Verified live against a resumed simulation run to Year 2: `MilitaryStrength` computed correctly from real data across all 8 settlements (36.5-64.5); no `WarDeclared` occurred organically within the ~2-year window — a legitimate non-finding (war requires a rare co-occurrence of an active dispute *and* a Hostile relation), not a bug, consistent with established precedent. Observatory's "Military" section rendered correctly with no console errors. Full verification: build clean, 222/222 unit tests, 3/3 fast integration tests, `tsc --noEmit` clean. `RFC-013` marked Implemented.
+
+**Week 19-20 combined final tally:** 222 unit tests (up from 208 — includes 4 tests for the Day 92
+leftover-sweep fix plus `WarfareSystem`'s own coverage), 3 fast integration tests, full solution build
+clean (0 warnings/0 errors).
+
+---
+
 ## Project-Wide Timeline Estimate (as of 2026-07-13)
 
 Asked directly: *how many weeks to finish everything?* Answered honestly, with the same
@@ -669,8 +718,7 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 
 | Weeks | Scope | Basis for the estimate |
 |---|---|---|
-| 1-18 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4), Decomposers & Microbiology (Volume IV increment 5), Fauna & Animal Behavior (Volume IV increment 6) | Actuals — Volume IV's six foundational documents all have a shipped first increment as of Week 18 |
-| 19-20 | Warfare & Military Organization | Explicitly "the largest single unimplemented system in the whole library" — budgeted 2 weeks |
+| 1-20 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4), Decomposers & Microbiology (Volume IV increment 5), Fauna & Animal Behavior (Volume IV increment 6), Anomaly Cleanup 3 (Week 19 Day 92), Warfare & Military Organization (dispute escalation) | Actuals |
 | 21-22 | Infrastructure-as-network | Needs an ADR first (philosophy conflict with current `ConstructionSystem`), then whatever that ADR decides — budgeted 2 weeks |
 | 23 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
 | 24 | Legends & Myths generation | Its own dependencies (Character/Civilization Stories, Historical Narrative) already exist, so this is closer to Communication/Language in size |
@@ -678,8 +726,8 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 | 26 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
 | 27 | Real LLM-backed AI narrator + API rate limiting/versioning + `TradeCompletedEvent` cleanup + `History/search` `totalRecords` bug + final pass | Consolidating the smaller remaining items into a final week, same rationale as prior anomaly-cleanup weeks |
 
-**Total projection: ~27 weeks end-to-end (about 6.5 months), of which 18 are done —
-roughly 9 more weeks from here.** Treat this as a planning band, not a
+**Total projection: ~27 weeks end-to-end (about 6.5 months), of which 20 are done —
+roughly 7 more weeks from here.** Treat this as a planning band, not a
 commitment: past estimate accuracy on the *already-completed* weeks has been good (every
 week landed in its planned 5 days), but every week has also found something the plan didn't
 predict — including a whole extra cleanup week (12) added mid-course for this exact reason —

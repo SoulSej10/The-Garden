@@ -748,4 +748,150 @@ public class HistorySystemCivilizationEventTests
         Assert.Equal("AnimalDied", record.EventType);
         Assert.Equal(HistoryCategories.Nature, record.Category);
     }
+
+    [Fact]
+    public void ApprenticeshipStarted_IsArchived()
+    {
+        // Regression test, Week 19 leftover-consolidation sweep: this
+        // event has been published since Week 8 (RFC-004) but was never
+        // subscribed here - the same TG-001 Law IV violation found and
+        // fixed multiple times before, just never caught for this one.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new ApprenticeshipStartedEvent
+        {
+            Tick = 8100,
+            MentorId = GameEntityId.New(),
+            MentorName = "Elder Rowan",
+            StudentId = GameEntityId.New(),
+            StudentName = "Piper Dunmore"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("ApprenticeshipStarted", record.EventType);
+        Assert.Equal(HistoryCategories.Discovery, record.Category);
+    }
+
+    [Fact]
+    public void ApprenticeshipCompleted_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new ApprenticeshipCompletedEvent
+        {
+            Tick = 8200,
+            MentorId = GameEntityId.New(),
+            MentorName = "Elder Rowan",
+            StudentId = GameEntityId.New(),
+            StudentName = "Piper Dunmore"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("ApprenticeshipCompleted", record.EventType);
+        Assert.Equal(HistoryCategories.Discovery, record.Category);
+    }
+
+    [Fact]
+    public void CaseResolved_IsArchived()
+    {
+        // Regression test, Week 19 leftover-consolidation sweep: this
+        // event has been published since Week 9 (RFC-005) but was never
+        // subscribed here.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new CaseResolvedEvent
+        {
+            Tick = 8300,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot",
+            CitizenAId = GameEntityId.New(),
+            CitizenAName = "Owen Dunmore",
+            CitizenBId = GameEntityId.New(),
+            CitizenBName = "Milo Crestwell"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("CaseResolved", record.EventType);
+        Assert.Equal(HistoryCategories.Politics, record.Category);
+    }
+
+    [Fact]
+    public void JusticeFailure_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new JusticeFailureEvent
+        {
+            Tick = 8400,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot",
+            CitizenAId = GameEntityId.New(),
+            CitizenAName = "Owen Dunmore",
+            CitizenBId = GameEntityId.New(),
+            CitizenBName = "Milo Crestwell"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("JusticeFailure", record.EventType);
+        Assert.Equal(HistoryCategories.Politics, record.Category);
+    }
+
+    [Fact]
+    public void WarDeclared_IsArchived()
+    {
+        // Regression test per RFC-013: subscribed at introduction time,
+        // continuing the practice reinforced Week 12 Day 61.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new WarDeclaredEvent
+        {
+            Tick = 8500,
+            SettlementAId = GameEntityId.New(),
+            SettlementAName = "Rivermoot",
+            SettlementBId = GameEntityId.New(),
+            SettlementBName = "Upperridge"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("WarDeclared", record.EventType);
+        Assert.Equal(HistoryCategories.War, record.Category);
+    }
+
+    [Fact]
+    public void BattleFought_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new BattleFoughtEvent
+        {
+            Tick = 8600,
+            WinnerId = GameEntityId.New(),
+            WinnerName = "Rivermoot",
+            LoserId = GameEntityId.New(),
+            LoserName = "Upperridge"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("BattleFought", record.EventType);
+        Assert.Equal(HistoryCategories.War, record.Category);
+    }
+
+    [Fact]
+    public void PeaceNegotiated_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new PeaceNegotiatedEvent
+        {
+            Tick = 8700,
+            SettlementAId = GameEntityId.New(),
+            SettlementAName = "Rivermoot",
+            SettlementBId = GameEntityId.New(),
+            SettlementBName = "Upperridge"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("PeaceNegotiated", record.EventType);
+        Assert.Equal(HistoryCategories.War, record.Category);
+    }
 }

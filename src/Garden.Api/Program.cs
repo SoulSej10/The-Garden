@@ -72,6 +72,7 @@ using (var scope = app.Services.CreateScope())
     scheduler.Register(scope.ServiceProvider.GetRequiredService<EvolutionSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<DecomposerSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<FaunaSystem>());
+    scheduler.Register(scope.ServiceProvider.GetRequiredService<WarfareSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<AgingSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<ReproductionSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<ConstructionSystem>());

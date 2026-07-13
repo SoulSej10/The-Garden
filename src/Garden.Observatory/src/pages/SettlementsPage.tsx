@@ -450,6 +450,23 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
       </div>
 
       <div>
+        <h3 className="mb-2 text-sm font-medium">Military</h3>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Strength — derived from population and legitimacy. Wars escalate from unresolved border disputes with hostile relations.
+        </p>
+        <p className="text-xs text-muted-foreground">Strength: {detail.militaryStrength.toFixed(0)}</p>
+        {detail.activeWars.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {detail.activeWars.map((w) => (
+              <div key={w.otherSettlementId} className="rounded border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-sm text-red-700 dark:text-red-400">
+                At war with {w.otherSettlementName} — {w.battlesFought} battle{w.battlesFought === 1 ? '' : 's'} fought
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
         <h3 className="mb-2 text-sm font-medium">Not Yet Tracked</h3>
         <p className="text-xs text-muted-foreground">
           Families, security, and trade relationships aren't modeled in the simulation yet - this panel will show them here once those systems exist.

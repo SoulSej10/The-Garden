@@ -306,3 +306,31 @@ public record AnimalDiedEvent : CivilizationEvent
     public string SettlementName { get; init; } = string.Empty;
     public double WildlifePopulation { get; init; }
 }
+
+// RFC-013: three of TG-640_Warfare_Military_Organization.md's 10 named
+// events - WarfareSystem escalates an already-detected TerritorySystem
+// border dispute (RFC-007) between settlements with a Hostile
+// DiplomaticRelation into a real, resolvable war.
+public record WarDeclaredEvent : CivilizationEvent
+{
+    public GameEntityId SettlementAId { get; init; }
+    public string SettlementAName { get; init; } = string.Empty;
+    public GameEntityId SettlementBId { get; init; }
+    public string SettlementBName { get; init; } = string.Empty;
+}
+
+public record BattleFoughtEvent : CivilizationEvent
+{
+    public GameEntityId WinnerId { get; init; }
+    public string WinnerName { get; init; } = string.Empty;
+    public GameEntityId LoserId { get; init; }
+    public string LoserName { get; init; } = string.Empty;
+}
+
+public record PeaceNegotiatedEvent : CivilizationEvent
+{
+    public GameEntityId SettlementAId { get; init; }
+    public string SettlementAName { get; init; } = string.Empty;
+    public GameEntityId SettlementBId { get; init; }
+    public string SettlementBName { get; init; } = string.Empty;
+}

@@ -74,6 +74,11 @@ public class Settlement
     // no individual animal agents (TG-230's own Performance Considerations
     // require aggregate modeling). FaunaSystem owns all updates.
     public double WildlifePopulation { get; set; }
+    // RFC-013 (specification/RFC/RFC-013-warfare-dispute-escalation.md):
+    // TG-640's military-capacity concept, derived from the two
+    // per-settlement inputs that already exist (Population, Legitimacy) -
+    // no formula given in the spec. WarfareSystem owns all updates.
+    public double MilitaryStrength { get; set; }
 
     public int CompletedBuildings => Buildings.Count(b => b.Status == BuildingStatus.Completed);
     public int UnderConstructionBuildings => Buildings.Count(b => b.Status == BuildingStatus.UnderConstruction);

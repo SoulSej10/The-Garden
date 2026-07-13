@@ -380,6 +380,13 @@ export interface SettlementDetail {
   } | null
   soilHealth: number
   wildlifePopulation: number
+  militaryStrength: number
+  activeWars: Array<{
+    otherSettlementId: string
+    otherSettlementName: string
+    battlesFought: number
+    intensity: number
+  }>
   families: unknown
   security: unknown
   tradeRelationships: unknown

@@ -145,6 +145,25 @@ public class HistorySystem : IScheduledSystem
         // subscribed at introduction time, continuing the same practice.
         _eventBus.Subscribe<SpeciesExpandedEvent>(OnSpeciesExpanded);
         _eventBus.Subscribe<AnimalDiedEvent>(OnAnimalDied);
+
+        // Week 19 leftover-consolidation sweep: a full audit (comparing
+        // every CivilizationEvent-derived record type against this
+        // system's subscriptions) found four real, active events that had
+        // been publishing since Week 8 (Education) and Week 9 (Law) with
+        // no subscriber here - the same TG-001 Law IV violation found and
+        // fixed four times before (Week 1, Week 7, Week 10, Week 12 Day
+        // 61), just never caught for these specific events until now.
+        _eventBus.Subscribe<ApprenticeshipStartedEvent>(OnApprenticeshipStarted);
+        _eventBus.Subscribe<ApprenticeshipCompletedEvent>(OnApprenticeshipCompleted);
+        _eventBus.Subscribe<CaseResolvedEvent>(OnCaseResolved);
+        _eventBus.Subscribe<JusticeFailureEvent>(OnJusticeFailure);
+
+        // RFC-013 (specification/RFC/RFC-013-warfare-dispute-escalation.md):
+        // subscribed at introduction time, continuing the practice
+        // reinforced Week 12 Day 61.
+        _eventBus.Subscribe<WarDeclaredEvent>(OnWarDeclared);
+        _eventBus.Subscribe<BattleFoughtEvent>(OnBattleFought);
+        _eventBus.Subscribe<PeaceNegotiatedEvent>(OnPeaceNegotiated);
     }
 
     private void OnCitizenBorn(CitizenBornEvent e)
@@ -590,6 +609,76 @@ public class HistorySystem : IScheduledSystem
             $"Wildlife Declines Near {e.SettlementName}",
             $"The wildlife population near {e.SettlementName} has fallen to {e.WildlifePopulation:F0}.",
             e.SettlementName, 0, 0, e.Tick, [], [], 4.5, e.SettlementId.Value.ToString());
+    }
+
+    private void OnApprenticeshipStarted(ApprenticeshipStartedEvent e)
+    {
+        Archive(HistoryCategories.Discovery, "ApprenticeshipStarted",
+            $"{e.StudentName} Begins Learning from {e.MentorName}",
+            $"{e.MentorName} took on {e.StudentName} as an apprentice.",
+            string.Empty, 0, 0, e.Tick,
+            [e.MentorId.Value.ToString(), e.StudentId.Value.ToString()],
+            [e.MentorName, e.StudentName], 4.5);
+    }
+
+    private void OnApprenticeshipCompleted(ApprenticeshipCompletedEvent e)
+    {
+        Archive(HistoryCategories.Discovery, "ApprenticeshipCompleted",
+            $"{e.StudentName} Completes Their Apprenticeship",
+            $"{e.StudentName}'s apprenticeship under {e.MentorName} has come to an end.",
+            string.Empty, 0, 0, e.Tick,
+            [e.MentorId.Value.ToString(), e.StudentId.Value.ToString()],
+            [e.MentorName, e.StudentName], 4.5);
+    }
+
+    private void OnCaseResolved(CaseResolvedEvent e)
+    {
+        Archive(HistoryCategories.Politics, "CaseResolved",
+            $"Dispute Resolved in {e.SettlementName}",
+            $"{e.SettlementName}'s leader resolved the dispute between {e.CitizenAName} and {e.CitizenBName}.",
+            e.SettlementName, 0, 0, e.Tick,
+            [e.CitizenAId.Value.ToString(), e.CitizenBId.Value.ToString()],
+            [e.CitizenAName, e.CitizenBName], 4.5, e.SettlementId.Value.ToString());
+    }
+
+    private void OnJusticeFailure(JusticeFailureEvent e)
+    {
+        Archive(HistoryCategories.Politics, "JusticeFailure",
+            $"Justice Fails in {e.SettlementName}",
+            $"{e.SettlementName}'s leader could not resolve the dispute between {e.CitizenAName} and {e.CitizenBName}.",
+            e.SettlementName, 0, 0, e.Tick,
+            [e.CitizenAId.Value.ToString(), e.CitizenBId.Value.ToString()],
+            [e.CitizenAName, e.CitizenBName], 5.0, e.SettlementId.Value.ToString());
+    }
+
+    private void OnWarDeclared(WarDeclaredEvent e)
+    {
+        Archive(HistoryCategories.War, "WarDeclared",
+            $"War Breaks Out Between {e.SettlementAName} and {e.SettlementBName}",
+            $"Years of unresolved dispute and failed trust have escalated into open war between {e.SettlementAName} and {e.SettlementBName}.",
+            e.SettlementAName, 0, 0, e.Tick,
+            [e.SettlementAId.Value.ToString(), e.SettlementBId.Value.ToString()],
+            [e.SettlementAName, e.SettlementBName], 8.0, e.SettlementAId.Value.ToString());
+    }
+
+    private void OnBattleFought(BattleFoughtEvent e)
+    {
+        Archive(HistoryCategories.War, "BattleFought",
+            $"{e.WinnerName} Prevails Over {e.LoserName}",
+            $"{e.WinnerName} won a battle against {e.LoserName}.",
+            e.WinnerName, 0, 0, e.Tick,
+            [e.WinnerId.Value.ToString(), e.LoserId.Value.ToString()],
+            [e.WinnerName, e.LoserName], 6.0, e.WinnerId.Value.ToString());
+    }
+
+    private void OnPeaceNegotiated(PeaceNegotiatedEvent e)
+    {
+        Archive(HistoryCategories.War, "PeaceNegotiated",
+            $"Peace Between {e.SettlementAName} and {e.SettlementBName}",
+            $"{e.SettlementAName} and {e.SettlementBName} have negotiated an end to their war.",
+            e.SettlementAName, 0, 0, e.Tick,
+            [e.SettlementAId.Value.ToString(), e.SettlementBId.Value.ToString()],
+            [e.SettlementAName, e.SettlementBName], 7.0, e.SettlementAId.Value.ToString());
     }
 
     private void Archive(string category, string eventType, string title, string description,

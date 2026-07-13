@@ -168,6 +168,8 @@ public class SettlementsController : ControllerBase
                 : null,
             settlement.SoilHealth,
             settlement.WildlifePopulation,
+            settlement.MilitaryStrength,
+            ActiveWars = BuildActiveWars(settlement),
             // Not yet modeled in the simulation - surfaced as explicit
             // placeholders rather than omitted, so the UI can show them once
             // these systems exist instead of silently having no field.
@@ -267,6 +269,25 @@ public class SettlementsController : ControllerBase
 
     // RFC-007 Day 54: minimal read-only surfacing of this settlement's
     // currently active border disputes, if any.
+    private object BuildActiveWars(Garden.World.Entities.Settlement settlement)
+    {
+        return _worldState.Wars
+            .Where(w => w.IsActive && (w.SettlementAId == settlement.Id || w.SettlementBId == settlement.Id))
+            .Select(w =>
+            {
+                var otherId = w.SettlementAId == settlement.Id ? w.SettlementBId : w.SettlementAId;
+                var other = _worldState.Settlements.FirstOrDefault(s => s.Id == otherId);
+                return new
+                {
+                    OtherSettlementId = otherId.ToString(),
+                    OtherSettlementName = other?.Name ?? "Unknown",
+                    w.BattlesFought,
+                    w.Intensity
+                };
+            })
+            .ToList();
+    }
+
     private object BuildBorderDisputes(Garden.World.Entities.Settlement settlement)
     {
         return _territorySystem.ActiveDisputes
