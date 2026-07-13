@@ -123,6 +123,11 @@ public class HistoryController : ControllerBase
             take: pageSize
         );
 
+        // Week 12 Day 61 (leftover consolidation sweep): this call never
+        // overrode Search's default `take: 50`, so the total silently
+        // capped at 50 regardless of how many records actually matched -
+        // confirmed live during Week 12 Day 59 (pageSize=500/1000 queries
+        // returned that many real records while totalRecords stayed at 50).
         var total = _archive.Search(
             eventType: eventType,
             category: category,
@@ -130,7 +135,8 @@ public class HistoryController : ControllerBase
             toTick: toTick,
             keyword: q,
             participantId: participantId,
-            settlementId: settlementId
+            settlementId: settlementId,
+            take: int.MaxValue
         ).Count;
 
         return Ok(new

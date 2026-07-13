@@ -101,6 +101,14 @@ public class HistorySystem : IScheduledSystem
         // Week 7 Day 31 both had to fix after the fact for earlier RFCs.
         _eventBus.Subscribe<BorderContractedEvent>(OnBorderContracted);
         _eventBus.Subscribe<BorderDisputeBeginsEvent>(OnBorderDisputeBegins);
+
+        // Week 12 Day 61 (leftover consolidation sweep): SeasonChangedEvent
+        // has been published by SeasonSystem since before this development
+        // cycle began, but - unlike ForestExpanded/Declined, which shared
+        // this exact gap and were fixed Week 10 - it had never been noticed
+        // as unsubscribed here. A fourth instance of the TG-001 Law IV
+        // violation this project keeps finding in its own new/old code.
+        _eventBus.Subscribe<SeasonChangedEvent>(OnSeasonChanged);
     }
 
     private void OnCitizenBorn(CitizenBornEvent e)
@@ -432,6 +440,14 @@ public class HistorySystem : IScheduledSystem
             e.SettlementAName, 0, 0, e.Tick,
             [e.SettlementAId.Value.ToString(), e.SettlementBId.Value.ToString()],
             [e.SettlementAName, e.SettlementBName], 6.0, e.SettlementAId.Value.ToString());
+    }
+
+    private void OnSeasonChanged(SeasonChangedEvent e)
+    {
+        Archive(HistoryCategories.Nature, "SeasonChanged",
+            $"{e.NewSeason} Begins",
+            $"The season turned from {e.PreviousSeason} to {e.NewSeason}.",
+            string.Empty, 0, 0, e.Tick, [], [], 5.0);
     }
 
     private void Archive(string category, string eventType, string title, string description,

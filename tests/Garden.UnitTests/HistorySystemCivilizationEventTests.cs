@@ -484,4 +484,26 @@ public class HistorySystemCivilizationEventTests
         Assert.Equal("BorderDisputeBegins", record.EventType);
         Assert.Equal(HistoryCategories.Diplomacy, record.Category);
     }
+
+    [Fact]
+    public void SeasonChanged_IsArchived()
+    {
+        // Regression test, Week 12 Day 61 (leftover consolidation sweep):
+        // SeasonChangedEvent has been published by SeasonSystem since
+        // before this development cycle began, but - unlike
+        // ForestExpanded/Declined, which shared this exact gap and were
+        // fixed Week 10 - it had never been noticed as unsubscribed here.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new SeasonChangedEvent
+        {
+            Tick = 5000,
+            PreviousSeason = Garden.Core.Time.Season.Spring,
+            NewSeason = Garden.Core.Time.Season.Summer
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("SeasonChanged", record.EventType);
+        Assert.Equal(HistoryCategories.Nature, record.Category);
+    }
 }

@@ -132,7 +132,8 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 | ~~`TechnologyService` progress-scaling bug~~ | Week 5 Day 22 finding, **fixed 2026-07-10** | `EvaluateTechnology()` accumulated each individual `Technology.CurrentProgress` at `settlementProgress * 0.1`, but nothing else in the codebase treated `settlement.TechnologyProgress` as 10x the per-tech scale — confirmed live, zero technologies discovered after 55+ simulated years. Fixed by removing the scale-down (category multipliers for Agriculture/Construction retained). Verified: 3 new unit tests, and live — a fresh run discovered 10 technologies across 2 settlements within Year 1 alone. |
 | ~~`TradeRouteService` never creates routes~~ | Week 6 Day 29 finding, **fixed 2026-07-10** | Root cause: once a route existed for a settlement pair (active or not), `EvaluateTradeRoutes()`'s `existing != null` check unconditionally skipped re-evaluating that pair forever — so a route that went quiet once (an ordinary occurrence) permanently locked that pair out of trading again, even when a fresh surplus/scarcity later appeared. A secondary bug was found alongside it: goods always flowed a fixed direction regardless of which settlement actually held the surplus. Fixed by letting an inactive route reactivate against a newly-found trade good, and by determining flow direction from the actual surplus holder. Verified: 3 new unit tests (124 total) including an exact reproduction of the live numbers reported (Food 74 vs 0, 23 tiles apart) and a reactivation-after-abandonment test. **Live re-verification was inconclusive** — a fresh run's settlements repeatedly sat exactly at the FindTradeGood boundary (Food = 10, needs strictly <10) rather than crossing it, a separate equilibrium detail worth noting but not chased further here. |
 | ~~`CivilizationSystem`'s "yearly" cadence isn't a year~~ | Week 6 Day 27 finding, **fixed Week 12 Day 58 (2026-07-13)** | `_lastYearlyTick >= 336` (used by `TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`/`EducationSystem`/`LawSystem`/`TerritorySystem`) was ~14 days at `SimulationTime`'s actual scale (1 year = 24 × 30 × 12 = 8640 ticks), not a year — affected eight systems' cadence naming at once. Fixed by adding `SimulationTime.TicksPerYear` as a single source of truth and replacing every hardcoded `336` (production code and tests) with it. One test (`LawSystemTests.FailsAsJusticeFailure_WhenLegitimacyIsZero_AfterUnresolvedWindow`) had hardcoded the old value directly and needed updating. |
-| `History/search`'s `totalRecords` under-reports the real record count | Week 12 Day 59 finding | Observed live: querying with `pageSize=500`/`1000` returned that many actual records in the `records` array, but `totalRecords` stayed at `50` regardless — the count and the page fetch appear to disagree. Not chased further (out of Week 12 scope); needs its own investigation into `HistoryController.Search`/`HistoricalArchive.Search`'s two separate calls (one for records, one for the total). |
+| ~~`History/search`'s `totalRecords` under-reports the real record count~~ | Week 12 Day 59 finding, **fixed Week 12 Day 61 (2026-07-13)** | Root cause: `HistoricalArchive.Search()`'s `take` parameter defaults to 50, and `HistoryController.Search`'s total-count call never overrode it — so the "total" silently inherited the default page size regardless of how many records actually matched. Fixed by passing `take: int.MaxValue` for that call. Verified live: `totalRecords` now reports 478 against a `pageSize=10` query, not capped at 50. 1 new unit test (`Search_DefaultTake_CapsResultsAt50_EvenWhenMoreRecordsMatch`). |
+| ~~`SeasonChangedEvent` never archived by `HistorySystem`~~ | Week 12 Day 61 finding, **fixed same day (2026-07-13)** | Found during this week's leftover sweep: `SeasonChangedEvent` has been published by `SeasonSystem` since before this development cycle began, but — unlike `ForestExpanded`/`Declined`, which shared this exact gap and were fixed Week 10 — it had never been noticed as unsubscribed in `HistorySystem`. A fourth instance of the recurring TG-001 Law IV violation (after Week 1, Week 7's `DialectFormedEvent`, Week 10's Forest events). Fixed by subscribing it under `HistoryCategories.Nature`. 1 new regression test; verified live — a real "Summer Begins" record now archives on the season boundary. |
 | ~~`DialectFormedEvent` never archived by `HistorySystem`~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 31** | `HistorySystem` subscribes to all 12 of Week 1's original `CivilizationEvent` types, but `DialectFormedEvent` (added Week 6) was never added alongside them — reproducing the exact TG-001 Law IV ("History Is Permanent") violation Week 1 Day 1 was created to close, this time on new code rather than old. |
 | ~~`EmotionalState` never surfaced in the Observatory~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 32** | `Citizen.Emotions` (6 emotions, Week 3 Days 11-12) is returned by `CitizensController.GetCitizen` but `CitizenDetail`/`CitizensPage.tsx` never expose or render it — confirmed via grep, zero references anywhere in `Garden.Observatory`. Week 4 Day 16 surfaced Settlement tier/Governance but nothing ever covered surfacing Emotion on the Citizen page itself. |
 | ~~`Relationship` data never surfaced in the Observatory~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 33** | `CitizensController` has a dedicated `GET /citizens/{id}/relationships` endpoint (Trust/Affection/SocialDistance per pair, Week 3 Day 13) that the frontend never calls — confirmed via grep, no "relationship" reference in `CitizensPage.tsx` or anywhere else in the Observatory beyond an unrelated `tradeRelationships: unknown` placeholder field. |
@@ -342,6 +343,7 @@ rather than letting them accumulate further - same rationale as Week 7.
 | 58 | Fix `CivilizationSystem`'s `_lastYearlyTick >= 336` cadence to match `SimulationTime`'s real 8,640-tick year, across all eight affected systems (`TechnologyService`/`ReligionService`/`KingdomService`/`CultureService`/`LanguageSystem`/`EducationSystem`/`LawSystem`/`TerritorySystem`) | Done |
 | 59 | Live re-verification: confirm Education/Law & Justice can now trigger organically, and that yearly systems now genuinely run once per in-game year | Done |
 | 60 | Close-out: changelog, full verification, commit/push | Done |
+| 61 | Leftover consolidation sweep (per user request): re-check the Backlog table and prior RFCs' "not fixed here" notes for anything small and contained still sitting open | Done |
 
 ### Days 56-58 actuals (2026-07-13)
 
@@ -370,8 +372,36 @@ Simulation and `garden-api` preview server stopped cleanly after verification.
 
 Week 12 complete. `SPEC_INDEX.md` Change Log updated with the full Week 12 entry; Backlog table's
 `RelationshipSystem` and `CivilizationSystem` cadence rows struck through as fixed, plus the new
-`History/search` `totalRecords` finding added as its own row. **Week 12 final tally:** 156 unit tests
-(up from 153), 3 fast integration tests, full solution build clean (0 warnings/0 errors).
+`History/search` `totalRecords` finding added as its own row.
+
+### Day 61 actuals (2026-07-13) — leftover consolidation sweep
+
+Per direct user request to check for anything left unconsolidated from prior weeks before moving on.
+Re-swept the Backlog table and every RFC's "not fixed here"/"out of scope" notes for anything small,
+contained, and still open (not another multi-week greenfield item). Found and fixed two:
+
+- **`SeasonChangedEvent` never archived by `HistorySystem`**: `SeasonSystem` has published this event
+  since before this development cycle began, but unlike `ForestExpanded`/`Declined` (the same gap,
+  fixed Week 10), nobody had noticed it was never subscribed — a fourth instance of the recurring
+  TG-001 Law IV violation. Fixed with a one-line subscription + handler under `HistoryCategories.Nature`.
+  1 regression test; verified live — a real "Summer Begins" record now archives on the season boundary
+  (confirmed via a fresh simulation run reaching tick 2161).
+- **`History/search`'s `totalRecords` under-reporting** (the Day 59 finding): root cause was
+  `HistoricalArchive.Search()`'s `take` parameter defaulting to 50, silently applied to the controller's
+  total-count call since it never overrode it. Fixed by passing `take: int.MaxValue` for that call.
+  1 new unit test; verified live — `totalRecords` now correctly reports 478 against a `pageSize=10` query.
+
+Confirmed via `grep` that no `TODO`/`FIXME`/`HACK` comments exist anywhere in `src/` (this project tracks
+findings in `SPEC_INDEX.md`/`DEVELOPMENT_PLAN.md` instead, so this is expected, not a gap). The other
+7 `EnvironmentalEvent` types named in RFC-006 (`RainStarted`/`Stopped`, `RiverExpanded`/`Shrank`,
+`LakeDried`, `DroughtStarted`/`Ended`) were checked and confirmed still genuinely dead code (never
+published anywhere) — wiring them to `HistorySystem` would do nothing, so left as-is pending their own
+Climate/Hydrology RFC, exactly as RFC-006 already scoped. `TradeCompletedEvent`'s dead-code status was
+also re-confirmed unchanged - fixing it needs an actual citizen-to-citizen trade mechanic invented from
+scratch, not a wiring fix, so it stays a backlog item rather than being force-fit into this sweep.
+
+**Week 12 final tally:** 158 unit tests (up from 153), 3 fast integration tests, full solution build
+clean (0 warnings/0 errors).
 
 ---
 

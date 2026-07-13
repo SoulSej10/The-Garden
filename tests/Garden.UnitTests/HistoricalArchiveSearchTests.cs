@@ -95,4 +95,24 @@ public class HistoricalArchiveSearchTests
         var record = Assert.Single(results);
         Assert.Equal("settlement-1", record.RelatedSettlementId);
     }
+
+    [Fact]
+    public void Search_DefaultTake_CapsResultsAt50_EvenWhenMoreRecordsMatch()
+    {
+        // Week 12 Day 61 (leftover consolidation sweep): documents the root
+        // cause of the Week 12 Day 59 live finding - HistoryController's
+        // total-count query called Search() without overriding `take`, so
+        // it silently inherited the default 50-record page and reported
+        // that as the total. Fixed by passing `take: int.MaxValue` for any
+        // caller that wants a true count rather than a page.
+        var archive = new HistoricalArchive();
+        for (var i = 0; i < 75; i++)
+            archive.Append(MakeRecord($"Event {i}", "desc", tick: i));
+
+        var defaultPage = archive.Search();
+        var trueTotal = archive.Search(take: int.MaxValue);
+
+        Assert.Equal(50, defaultPage.Count);
+        Assert.Equal(75, trueTotal.Count);
+    }
 }
