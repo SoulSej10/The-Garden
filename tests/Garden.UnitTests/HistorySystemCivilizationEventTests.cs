@@ -546,4 +546,115 @@ public class HistorySystemCivilizationEventTests
         Assert.Equal("PopulationBoom", record.EventType);
         Assert.Equal(HistoryCategories.Settlement, record.Category);
     }
+
+    [Fact]
+    public void OrganismInfected_IsArchived()
+    {
+        // Regression test per RFC-009: subscribed at introduction time,
+        // continuing the practice reinforced Week 12 Day 61.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new OrganismInfectedEvent
+        {
+            Tick = 7000,
+            CitizenId = GameEntityId.New(),
+            CitizenName = "Rowan Ashford",
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("OrganismInfected", record.EventType);
+        Assert.Equal(HistoryCategories.Death, record.Category);
+    }
+
+    [Fact]
+    public void DiseaseRecovered_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new DiseaseRecoveredEvent
+        {
+            Tick = 7100,
+            CitizenId = GameEntityId.New(),
+            CitizenName = "Rowan Ashford"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("DiseaseRecovered", record.EventType);
+        Assert.Equal(HistoryCategories.Death, record.Category);
+    }
+
+    [Fact]
+    public void EpidemicStarted_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new EpidemicStartedEvent
+        {
+            Tick = 7200,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot",
+            InfectionRate = 0.35
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("EpidemicStarted", record.EventType);
+        Assert.Equal(HistoryCategories.Disaster, record.Category);
+    }
+
+    [Fact]
+    public void EpidemicContained_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new EpidemicContainedEvent
+        {
+            Tick = 7300,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("EpidemicContained", record.EventType);
+        Assert.Equal(HistoryCategories.Disaster, record.Category);
+    }
+
+    [Fact]
+    public void AdaptiveShiftObserved_IsArchived()
+    {
+        // Regression test per RFC-010: subscribed at introduction time,
+        // continuing the practice reinforced Week 12 Day 61.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new AdaptiveShiftObservedEvent
+        {
+            Tick = 7400,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot",
+            AttributeName = "Endurance",
+            Delta = 0.8
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("AdaptiveShiftObserved", record.EventType);
+        Assert.Equal(HistoryCategories.Nature, record.Category);
+    }
+
+    [Fact]
+    public void EvolutionaryStagnation_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new EvolutionaryStagnationEvent
+        {
+            Tick = 7500,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("EvolutionaryStagnation", record.EventType);
+        Assert.Equal(HistoryCategories.Nature, record.Category);
+    }
 }

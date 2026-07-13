@@ -217,3 +217,50 @@ public record PopulationBoomEvent : CivilizationEvent
     public int Population { get; init; }
     public double CarryingCapacity { get; init; }
 }
+
+// RFC-009: four of TG-260_Disease_Health.md's 10 named events - fired by
+// DiseaseSystem's overcrowding-driven infection mechanic.
+public record OrganismInfectedEvent : CivilizationEvent
+{
+    public GameEntityId CitizenId { get; init; }
+    public string CitizenName { get; init; } = string.Empty;
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+}
+
+public record DiseaseRecoveredEvent : CivilizationEvent
+{
+    public GameEntityId CitizenId { get; init; }
+    public string CitizenName { get; init; } = string.Empty;
+}
+
+public record EpidemicStartedEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+    public double InfectionRate { get; init; }
+}
+
+public record EpidemicContainedEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+}
+
+// RFC-010: two of TG-250_Evolution_Adaptation.md's 10 named events -
+// EvolutionSystem observes population-level attribute drift that
+// ReproductionSystem's inheritance and CitizenSystem's differential
+// survival already produce, rather than adding a new selection mechanic.
+public record AdaptiveShiftObservedEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+    public string AttributeName { get; init; } = string.Empty;
+    public double Delta { get; init; }
+}
+
+public record EvolutionaryStagnationEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+}

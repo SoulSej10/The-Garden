@@ -370,6 +370,14 @@ export interface SettlementDetail {
     otherSettlementName: string
   }>
   carryingCapacity: number
+  activeInfections: number
+  attributeAverages: {
+    strength: number
+    endurance: number
+    intelligence: number
+    dexterity: number
+    perception: number
+  } | null
   families: unknown
   security: unknown
   tradeRelationships: unknown

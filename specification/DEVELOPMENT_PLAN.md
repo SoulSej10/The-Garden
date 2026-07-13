@@ -121,7 +121,7 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 
 | Backlog item | Spec reference(s) | Why it's not day-planned yet |
 |---|---|---|
-| Life Sciences foundation (Fauna, Decomposers, Disease, Evolution) | `TG-220`, `TG-230`, `TG-250`, `TG-260` | Flora's first increment (`ForestExpanded`/`Declined` history) shipped Week 10 via `RFC/RFC-006`; Population Ecology's first increment (Carrying Capacity) shipped Week 14 via `RFC/RFC-008`, unblocked by `ADR-002` — see Week 13's ADR. Fauna, Decomposers, Disease, and Evolution remain greenfield: no species other than `Citizen` exists anywhere in this codebase, so predator-prey, competition, and disease-vector concepts have nothing to apply to yet. |
+| Life Sciences foundation (Fauna, Decomposers) | `TG-220`, `TG-230` | Flora shipped Week 10 (`RFC-006`), Population Ecology shipped Week 14 (`RFC-008`, unblocked by `ADR-002`), Disease & Health shipped Week 15 (`RFC-009`), Evolution & Adaptation shipped Week 16 (`RFC-010`) — all four applied their principle to `Citizen`, the one population that already exists. Fauna and Decomposers remain genuinely greenfield: they require an actual wildlife/microbe population that doesn't exist anywhere in this codebase, so predator-prey and decomposition concepts have nothing to apply to yet — these need their own species-modeling RFC, not a reuse-existing-fields increment. |
 | `HistorySystem.Archive()`'s `LocationY` was always `LocationX + 1` | Week 10 Day 48 finding, **fixed 2026-07-10** | Affected all ~25 `Archive()` call sites (every historical event type), not just this week's new ones — every historical record's Y coordinate was silently wrong since Week 1. No prior test asserted on `LocationY`, which is why it went undetected. Fixed by giving `Archive()` separate `locationX`/`locationY` parameters and updating all 25 call sites; a new regression test locks in the correct behavior. Verified live: `locationY` now genuinely independent of `locationX`. |
 | ~~Borders & Territorial Dynamics~~ | `TG-620_Borders_Territorial_Dynamics.md` (scoped via `RFC-007`) | **Scoped for Week 11 (2026-07-10) via `RFC/RFC-007-borders-territorial-influence.md`** — a regional-influence field derived from existing Population/Legitimacy, replacing the flat ever-growing `TerritoryRadius` int with something that can also contract. |
 | Warfare & Military Organization | `TG-640_Warfare_Military_Organization.md` | Largest single unimplemented system in the whole library; spec gives no combat-resolution, morale, or logistics-attrition formulas at all. |
@@ -490,6 +490,86 @@ clean (0 warnings/0 errors).
 
 ---
 
+## Week 15 (2026-07-13, complete) — Disease & Health: Overcrowding-Driven Infection (Increment 3 of Volume IV)
+
+Scoped from `RFC/RFC-009-disease-health-overcrowding.md` — applies `TG-260`'s disease concept to
+`Citizen` (the one population that exists), reusing Week 14's `CarryingCapacity`/`Population`
+overcrowding signal directly rather than inventing a separate density concept.
+
+| Day | Task | Status |
+|---|---|---|
+| 72 | Write `RFC/RFC-009-disease-health-overcrowding.md` | Done |
+| 73 | `Infection` entity (pure in-memory) + `DiseaseSystem` skeleton | Done |
+| 74 | Onset/progression/recovery/death mechanic + `EpidemicStarted`/`Contained` crossing detection, `HistorySystem` wired at introduction time | Done |
+| 75 | Unit tests for `DiseaseSystem` | Done |
+| 76 | Observatory surfacing (settlement Health section) + close-out: live verification, changelog, commit/push | Done |
+
+### Days 72-76 actuals (2026-07-13)
+
+- **Day 72**: `RFC-009` written — overcrowded settlements (`Population >= CarryingCapacity`) risk
+  citizen infection; severity damages the existing `Needs.Health`; death reuses the existing
+  `CitizenDiedEvent` rather than a parallel path.
+- **Day 73**: `Infection` entity added (`Garden.World/Entities/Infection.cs`), following the exact
+  `LegalCase`/`Apprenticeship` pure-in-memory pattern — no EF migration needed. `DiseaseSystem`
+  skeleton (daily cadence) registered in DI/scheduler.
+- **Day 74**: Onset (small daily infection chance in overcrowded settlements), progression (severity
+  growth damages `Needs.Health`, recovery chance scaled by current health), and death (severity
+  reaching max reuses `CitizenDiedEvent`, cause `"Disease"`) implemented, plus settlement-level
+  epidemic crossing detection (`EpidemicStarted`/`ContainedEvent`). All 4 events subscribed to
+  `HistorySystem` at introduction time.
+- **Day 75**: 7 new `DiseaseSystemTests`. **A real archiving bug was caught by these tests, not live
+  verification**: `OrganismInfected`/`DiseaseRecovered` were first archived at severity `4.0`, which
+  `SignificanceEvaluator` silently classifies as "Low" (not archived) since it requires `> 4.0` for
+  "Medium" — bumped to `5.0` and the regression tests then passed correctly.
+- **Day 76**: Added a settlement "Health" section (active infection count) to the Observatory. Live
+  verification against a resumed simulation run to Year 2: organic events fired copiously — 514
+  `OrganismInfected`, 436 `DiseaseRecovered`, 39 `EpidemicStarted` records across the run; two real
+  settlements (Deepmill, Olddale) showed live active infections in the Observatory UI with no console
+  errors.
+
+---
+
+## Week 16 (2026-07-13, complete) — Evolution & Adaptation: Adaptive Drift Detection (Increment 4 of Volume IV)
+
+Scoped from `RFC/RFC-010-evolution-adaptive-drift.md` — observes the population-level attribute drift
+that `ReproductionSystem`'s inheritance-with-variance and `CitizenSystem`'s differential survival
+already produce, rather than adding a second selection mechanic.
+
+| Day | Task | Status |
+|---|---|---|
+| 77 | Write `RFC/RFC-010-evolution-adaptive-drift.md` | Done |
+| 78 | `EvolutionSystem` skeleton (yearly cadence, per-settlement average-Attribute tracking) | Done |
+| 79 | `AdaptiveShiftObserved`/`EvolutionaryStagnation` detection, `HistorySystem` wired at introduction time | Done |
+| 80 | Unit tests for `EvolutionSystem` | Done |
+| 81 | Observatory surfacing (settlement Adaptation section) + close-out: live verification, changelog, commit/push | Done |
+
+### Days 77-81 actuals (2026-07-13)
+
+- **Day 77**: `RFC-010` written — yearly per-settlement average of `Citizen.Attributes`, compared
+  against the prior year's average, no new selection mechanic (the existing inheritance/survival
+  already are the selection pressure `TG-250` calls for).
+- **Day 78**: `EvolutionSystem` skeleton added (yearly cadence, `SimulationTime.TicksPerYear`), no new
+  `Settlement`/`Citizen` field — averages tracked only in the system's own in-memory dictionaries.
+- **Day 79**: Attribute-shift detection (`AdaptiveShiftObservedEvent`, threshold 0.5) and multi-year
+  stagnation detection (`EvolutionaryStagnationEvent`, 3 consecutive stagnant years) implemented, both
+  subscribed to `HistorySystem` at introduction time.
+- **Day 80**: 5 new `EvolutionSystemTests`. **A subtle correctness bug was caught before it shipped**:
+  the first draft counted a settlement's very first yearly evaluation (no baseline to compare against)
+  as "stagnant," which could have fired `EvolutionaryStagnationEvent` after only 3 calls on a
+  brand-new settlement rather than 3 real years of genuine stagnation. Fixed by skipping the
+  stagnation counter entirely on the baseline-establishing year.
+- **Day 81**: Added a settlement "Adaptation" section (live Attribute averages) to the Observatory.
+  Live verification against the same resumed simulation run: 37 organic `AdaptiveShiftObserved`
+  records by Year 2, real diverging Attribute averages visible per settlement in the Observatory UI
+  (e.g. Deepmill: Strength 3.7, Perception 3.1 vs. Littledale: Strength 4.09, Perception 7.71), no
+  console errors. Full verification: build clean, 193/193 unit tests, 3/3 fast integration tests,
+  `tsc --noEmit` clean.
+
+**Week 15-16 combined final tally:** 193 unit tests (up from 175), 3 fast integration tests, full
+solution build clean (0 warnings/0 errors).
+
+---
+
 ## Project-Wide Timeline Estimate (as of 2026-07-13)
 
 Asked directly: *how many weeks to finish everything?* Answered honestly, with the same
@@ -503,17 +583,17 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 
 | Weeks | Scope | Basis for the estimate |
 |---|---|---|
-| 1-14 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2) | Actuals |
-| 15-16 | Remaining Life Sciences (Fauna, Decomposers, Disease, Evolution) | No species other than `Citizen` exists yet, so each of these needs its own scoping RFC deciding what minimal species/organism concept to introduce - budgeted 2 weeks |
-| 17-18 | Warfare & Military Organization | Explicitly "the largest single unimplemented system in the whole library" — budgeted 2 weeks |
-| 19-20 | Infrastructure-as-network | Needs an ADR first (philosophy conflict with current `ConstructionSystem`), then whatever that ADR decides — budgeted 2 weeks |
-| 21 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
-| 22 | Legends & Myths generation | Its own dependencies (Character/Civilization Stories, Historical Narrative) already exist, so this is closer to Communication/Language in size |
-| 23 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
-| 24 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
-| 25 | Real LLM-backed AI narrator + API rate limiting/versioning + `TradeCompletedEvent` cleanup + `History/search` `totalRecords` bug + final pass | Consolidating the smaller remaining items into a final week, same rationale as prior anomaly-cleanup weeks |
+| 1-16 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4) | Actuals |
+| 17-18 | Fauna & Decomposers (Volume IV, remaining) | Genuinely greenfield - no species other than `Citizen` exists anywhere in this codebase, so these need an actual wildlife/microbe population designed from scratch via their own RFC, unlike Disease/Evolution/Population Ecology which could reuse `Citizen` directly — budgeted 2 weeks |
+| 19-20 | Warfare & Military Organization | Explicitly "the largest single unimplemented system in the whole library" — budgeted 2 weeks |
+| 21-22 | Infrastructure-as-network | Needs an ADR first (philosophy conflict with current `ConstructionSystem`), then whatever that ADR decides — budgeted 2 weeks |
+| 23 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
+| 24 | Legends & Myths generation | Its own dependencies (Character/Civilization Stories, Historical Narrative) already exist, so this is closer to Communication/Language in size |
+| 25 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
+| 26 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
+| 27 | Real LLM-backed AI narrator + API rate limiting/versioning + `TradeCompletedEvent` cleanup + `History/search` `totalRecords` bug + final pass | Consolidating the smaller remaining items into a final week, same rationale as prior anomaly-cleanup weeks |
 
-**Total projection: ~25 weeks end-to-end (about 6 months), of which 14 are done —
+**Total projection: ~27 weeks end-to-end (about 6.5 months), of which 16 are done —
 roughly 11 more weeks from here.** Treat this as a planning band, not a
 commitment: past estimate accuracy on the *already-completed* weeks has been good (every
 week landed in its planned 5 days), but every week has also found something the plan didn't

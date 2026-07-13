@@ -116,6 +116,22 @@ public class HistorySystem : IScheduledSystem
         // the same TG-001 Law IV gap.
         _eventBus.Subscribe<PopulationDeclineEvent>(OnPopulationDecline);
         _eventBus.Subscribe<PopulationBoomEvent>(OnPopulationBoom);
+
+        // RFC-009 (specification/RFC/RFC-009-disease-health-overcrowding.md):
+        // subscribed at introduction time, continuing the practice
+        // reinforced Week 12 Day 61 rather than risking a sixth instance of
+        // the same TG-001 Law IV gap.
+        _eventBus.Subscribe<OrganismInfectedEvent>(OnOrganismInfected);
+        _eventBus.Subscribe<DiseaseRecoveredEvent>(OnDiseaseRecovered);
+        _eventBus.Subscribe<EpidemicStartedEvent>(OnEpidemicStarted);
+        _eventBus.Subscribe<EpidemicContainedEvent>(OnEpidemicContained);
+
+        // RFC-010 (specification/RFC/RFC-010-evolution-adaptive-drift.md):
+        // subscribed at introduction time, continuing the practice
+        // reinforced Week 12 Day 61 rather than risking a seventh instance
+        // of the same TG-001 Law IV gap.
+        _eventBus.Subscribe<AdaptiveShiftObservedEvent>(OnAdaptiveShiftObserved);
+        _eventBus.Subscribe<EvolutionaryStagnationEvent>(OnEvolutionaryStagnation);
     }
 
     private void OnCitizenBorn(CitizenBornEvent e)
@@ -471,6 +487,56 @@ public class HistorySystem : IScheduledSystem
             $"{e.SettlementName} Flourishes",
             $"{e.SettlementName}'s population ({e.Population}) is growing comfortably within its means ({e.CarryingCapacity:F1}).",
             e.SettlementName, 0, 0, e.Tick, [], [], 5.0, e.SettlementId.Value.ToString());
+    }
+
+    private void OnOrganismInfected(OrganismInfectedEvent e)
+    {
+        Archive(HistoryCategories.Death, "OrganismInfected",
+            $"{e.CitizenName} Falls Ill",
+            $"{e.CitizenName} contracted an infection amid overcrowding in {e.SettlementName}.",
+            e.SettlementName, 0, 0, e.Tick,
+            [e.CitizenId.Value.ToString()], [e.CitizenName], 5.0, e.SettlementId.Value.ToString());
+    }
+
+    private void OnDiseaseRecovered(DiseaseRecoveredEvent e)
+    {
+        Archive(HistoryCategories.Death, "DiseaseRecovered",
+            $"{e.CitizenName} Recovers",
+            $"{e.CitizenName} recovered from illness.",
+            string.Empty, 0, 0, e.Tick, [e.CitizenId.Value.ToString()], [e.CitizenName], 5.0);
+    }
+
+    private void OnEpidemicStarted(EpidemicStartedEvent e)
+    {
+        Archive(HistoryCategories.Disaster, "EpidemicStarted",
+            $"Epidemic Strikes {e.SettlementName}",
+            $"An epidemic has taken hold in {e.SettlementName}, with {e.InfectionRate:P0} of its population infected.",
+            e.SettlementName, 0, 0, e.Tick, [], [], 7.0, e.SettlementId.Value.ToString());
+    }
+
+    private void OnEpidemicContained(EpidemicContainedEvent e)
+    {
+        Archive(HistoryCategories.Disaster, "EpidemicContained",
+            $"{e.SettlementName}'s Epidemic Subsides",
+            $"The epidemic in {e.SettlementName} has been contained.",
+            e.SettlementName, 0, 0, e.Tick, [], [], 5.0, e.SettlementId.Value.ToString());
+    }
+
+    private void OnAdaptiveShiftObserved(AdaptiveShiftObservedEvent e)
+    {
+        var direction = e.Delta > 0 ? "risen" : "fallen";
+        Archive(HistoryCategories.Nature, "AdaptiveShiftObserved",
+            $"{e.SettlementName}'s Population Adapts",
+            $"{e.SettlementName}'s average {e.AttributeName} has {direction} by {Math.Abs(e.Delta):F1} over the past year.",
+            e.SettlementName, 0, 0, e.Tick, [], [], 4.5, e.SettlementId.Value.ToString());
+    }
+
+    private void OnEvolutionaryStagnation(EvolutionaryStagnationEvent e)
+    {
+        Archive(HistoryCategories.Nature, "EvolutionaryStagnation",
+            $"{e.SettlementName} Reaches Equilibrium",
+            $"{e.SettlementName}'s population has shown no meaningful attribute shift for several years.",
+            e.SettlementName, 0, 0, e.Tick, [], [], 4.5, e.SettlementId.Value.ToString());
     }
 
     private void Archive(string category, string eventType, string title, string description,

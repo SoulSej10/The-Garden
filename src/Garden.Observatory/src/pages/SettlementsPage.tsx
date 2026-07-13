@@ -408,6 +408,36 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
       </div>
 
       <div>
+        <h3 className="mb-2 text-sm font-medium">Health</h3>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Active infections — overcrowding-driven, tracked per citizen.
+        </p>
+        {detail.activeInfections > 0 ? (
+          <div className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-sm text-amber-700 dark:text-amber-400">
+            {detail.activeInfections} {detail.activeInfections === 1 ? 'citizen is' : 'citizens are'} currently infected
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">No active infections.</p>
+        )}
+      </div>
+
+      {detail.attributeAverages && (
+        <div>
+          <h3 className="mb-2 text-sm font-medium">Adaptation</h3>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Average Attributes across living members — drift here over generations reflects real inheritance and survival, not a scripted mechanic.
+          </p>
+          <div className="grid grid-cols-5 gap-2 text-xs">
+            <div><p className="text-muted-foreground">Strength</p><p>{detail.attributeAverages.strength}</p></div>
+            <div><p className="text-muted-foreground">Endurance</p><p>{detail.attributeAverages.endurance}</p></div>
+            <div><p className="text-muted-foreground">Intelligence</p><p>{detail.attributeAverages.intelligence}</p></div>
+            <div><p className="text-muted-foreground">Dexterity</p><p>{detail.attributeAverages.dexterity}</p></div>
+            <div><p className="text-muted-foreground">Perception</p><p>{detail.attributeAverages.perception}</p></div>
+          </div>
+        </div>
+      )}
+
+      <div>
         <h3 className="mb-2 text-sm font-medium">Not Yet Tracked</h3>
         <p className="text-xs text-muted-foreground">
           Families, security, and trade relationships aren't modeled in the simulation yet - this panel will show them here once those systems exist.

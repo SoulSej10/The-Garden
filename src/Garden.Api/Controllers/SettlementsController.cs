@@ -150,6 +150,22 @@ public class SettlementsController : ControllerBase
             settlement.TerritorialInfluence,
             BorderDisputes = BuildBorderDisputes(settlement),
             settlement.CarryingCapacity,
+            ActiveInfections = _worldState.Infections.Count(i => i.IsActive && settlement.MemberIds.Contains(i.CitizenId)),
+            // Average Attributes across living members - a live computed
+            // value, not a stored field, mirroring how Wellbeing is
+            // already derived. EvolutionSystem detects meaningful drift in
+            // these same averages over time; this is the same signal, not
+            // a duplicate concept.
+            AttributeAverages = aliveMembers.Count > 0
+                ? new
+                {
+                    Strength = Math.Round(aliveMembers.Average(c => c.Attributes.Strength), 2),
+                    Endurance = Math.Round(aliveMembers.Average(c => c.Attributes.Endurance), 2),
+                    Intelligence = Math.Round(aliveMembers.Average(c => c.Attributes.Intelligence), 2),
+                    Dexterity = Math.Round(aliveMembers.Average(c => c.Attributes.Dexterity), 2),
+                    Perception = Math.Round(aliveMembers.Average(c => c.Attributes.Perception), 2)
+                }
+                : null,
             // Not yet modeled in the simulation - surfaced as explicit
             // placeholders rather than omitted, so the UI can show them once
             // these systems exist instead of silently having no field.
