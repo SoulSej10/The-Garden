@@ -66,6 +66,7 @@ using (var scope = app.Services.CreateScope())
     scheduler.Register(scope.ServiceProvider.GetRequiredService<LanguageSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<EducationSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<LawSystem>());
+    scheduler.Register(scope.ServiceProvider.GetRequiredService<TerritorySystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<AgingSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<ReproductionSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<ConstructionSystem>());

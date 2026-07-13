@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Garden.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Garden.Infrastructure.Migrations
 {
     [DbContext(typeof(GardenDbContext))]
-    partial class GardenDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260710074004_AddSettlementTerritorialInfluence")]
+    partial class AddSettlementTerritorialInfluence
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

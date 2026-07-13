@@ -309,7 +309,7 @@ territorial-influence.md`. It doesn't depend on resolving `AgricultureSystem`'s 
 without an open-ended architectural detour. The `AgricultureSystem` ADR stays open in the
 Backlog table for whenever someone wants to unblock Population Ecology specifically.
 
-## Week 11 (2026-07-10 → in progress) — Borders & Territorial Dynamics: Territorial Influence
+## Week 11 (2026-07-10, complete) — Borders & Territorial Dynamics: Territorial Influence
 
 Committed day-to-day plan, scoped from `RFC/RFC-007-borders-territorial-influence.md`,
 mirroring the established shape (new system logic on existing fields + tests + minimal UI +
@@ -317,11 +317,17 @@ close-out).
 
 | Day | Task | Status |
 |---|---|---|
-| 51 | `Settlement.TerritorialInfluence` field + `TerritorySystem` skeleton, wired into DI/scheduler | Pending |
-| 52 | Influence-driven expand/contract (`BorderContractedEvent`), pairwise dispute detection (`BorderDisputeBeginsEvent`) | Pending |
-| 53 | Unit tests for influence computation, expand/contract thresholds, and dispute detection | Pending |
-| 54 | Minimal Observatory surfacing: a settlement's `TerritorialInfluence` and any active border disputes | Pending |
-| 55 | Close-out: changelog, RFC-007 status update, full verification, commit/push | Pending |
+| 51 | `Settlement.TerritorialInfluence` field + `TerritorySystem` skeleton, wired into DI/scheduler | Done — required a real EF migration (`AddSettlementTerritorialInfluence`), applied and verified live |
+| 52 | Influence-driven expand/contract (`BorderContractedEvent`), pairwise dispute detection (`BorderDisputeBeginsEvent`) | Done — implemented alongside Day 51; both events subscribed to `HistorySystem` at introduction time, avoiding a third instance of the Week 7/10 Law IV gap |
+| 53 | Unit tests for influence computation, expand/contract thresholds, and dispute detection | Done — 8 new tests, `TerritorySystemTests.cs`, plus 2 more for the `HistorySystem` wiring |
+| 54 | Minimal Observatory surfacing: a settlement's `TerritorialInfluence` and any active border disputes | Done — verified live (influence 23.5→24 rounded, matching API exactly; Enter-key activation used since a direct dispatch click was flaky this session, same known false-negative pattern from Week 4 Day 19) |
+| 55 | Close-out: changelog, RFC-007 status update, full verification, commit/push | Done |
+
+**Live-verification note:** `TerritorialInfluence` itself was confirmed live with real
+Population/Legitimacy data. Neither `BorderContractedEvent` nor `BorderDisputeBeginsEvent`
+occurred organically within the verification window - both are gated by real thresholds
+that simply weren't crossed in this particular run, not bugs. Verified via
+`TerritorySystemTests.cs`'s direct scenarios instead.
 
 ## Week 12 (planned) — Anomaly Cleanup 2: RelationshipSystem + CivilizationSystem Cadence
 

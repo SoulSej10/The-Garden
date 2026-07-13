@@ -444,4 +444,44 @@ public class HistorySystemCivilizationEventTests
         Assert.Equal("ForestDeclined", record.EventType);
         Assert.Equal(HistoryCategories.Nature, record.Category);
     }
+
+    [Fact]
+    public void BorderContracted_IsArchived()
+    {
+        // Regression test per RFC-007: subscribed at introduction time this
+        // time, rather than being found missing later like DialectFormed
+        // (Week 7) and ForestExpanded/Declined (Week 10) both were.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new BorderContractedEvent
+        {
+            Tick = 4000,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot",
+            NewTerritorySize = 4
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("BorderContracted", record.EventType);
+        Assert.Equal(HistoryCategories.Settlement, record.Category);
+    }
+
+    [Fact]
+    public void BorderDisputeBegins_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new BorderDisputeBeginsEvent
+        {
+            Tick = 4500,
+            SettlementAId = GameEntityId.New(),
+            SettlementAName = "Upperridge",
+            SettlementBId = GameEntityId.New(),
+            SettlementBName = "Newdale"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("BorderDisputeBegins", record.EventType);
+        Assert.Equal(HistoryCategories.Diplomacy, record.Category);
+    }
 }

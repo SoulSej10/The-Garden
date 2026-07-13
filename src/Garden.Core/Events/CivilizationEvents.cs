@@ -180,3 +180,21 @@ public record JusticeFailureEvent : CivilizationEvent
     public GameEntityId CitizenBId { get; init; }
     public string CitizenBName { get; init; } = string.Empty;
 }
+
+// RFC-007: two of TG-620_Borders_Territorial_Dynamics.md's 10 named events -
+// fired when TerritorySystem contracts a settlement's territory, or detects
+// two settlements of comparable influence with overlapping territory.
+public record BorderContractedEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+    public int NewTerritorySize { get; init; }
+}
+
+public record BorderDisputeBeginsEvent : CivilizationEvent
+{
+    public GameEntityId SettlementAId { get; init; }
+    public string SettlementAName { get; init; } = string.Empty;
+    public GameEntityId SettlementBId { get; init; }
+    public string SettlementBName { get; init; } = string.Empty;
+}

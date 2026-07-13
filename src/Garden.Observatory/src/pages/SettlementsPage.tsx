@@ -377,6 +377,26 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
       )}
 
       <div>
+        <h3 className="mb-2 text-sm font-medium">Territory</h3>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Regional influence, derived from population and legitimacy — how strongly this settlement's administrative reach is felt.
+        </p>
+        <div className="flex items-center gap-3">
+          <Progress value={detail.territorialInfluence} />
+          <span className="w-10 text-xs text-right">{detail.territorialInfluence.toFixed(0)}</span>
+        </div>
+        {detail.borderDisputes.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {detail.borderDisputes.map((d) => (
+              <div key={d.otherSettlementId} className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-sm text-amber-700 dark:text-amber-400">
+                Border dispute with {d.otherSettlementName}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
         <h3 className="mb-2 text-sm font-medium">Not Yet Tracked</h3>
         <p className="text-xs text-muted-foreground">
           Families, security, and trade relationships aren't modeled in the simulation yet - this panel will show them here once those systems exist.

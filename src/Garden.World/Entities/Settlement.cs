@@ -50,6 +50,11 @@ public class Settlement
     public string ReligionName { get; set; } = string.Empty;
     public double TechnologyProgress { get; set; }
     public GameEntityId? KingdomId { get; set; }
+    // RFC-007 (specification/RFC/RFC-007-borders-territorial-influence.md):
+    // TG-620's regional-influence-field model, computed from the two
+    // per-settlement inputs that already exist (Population, Legitimacy) -
+    // no formula given in the spec. TerritorySystem owns all updates.
+    public double TerritorialInfluence { get; set; }
 
     public int CompletedBuildings => Buildings.Count(b => b.Status == BuildingStatus.Completed);
     public int UnderConstructionBuildings => Buildings.Count(b => b.Status == BuildingStatus.UnderConstruction);

@@ -94,6 +94,13 @@ public class HistorySystem : IScheduledSystem
         // archive the same way FarmHarvested did before Week 4 Day 18.
         _eventBus.Subscribe<ForestExpandedEvent>(OnForestExpanded);
         _eventBus.Subscribe<ForestDeclinedEvent>(OnForestDeclined);
+
+        // RFC-007 (specification/RFC/RFC-007-borders-territorial-influence.md):
+        // subscribed at introduction time this time, rather than being found
+        // missing later - the same TG-001 Law IV pattern Week 1 Day 1 and
+        // Week 7 Day 31 both had to fix after the fact for earlier RFCs.
+        _eventBus.Subscribe<BorderContractedEvent>(OnBorderContracted);
+        _eventBus.Subscribe<BorderDisputeBeginsEvent>(OnBorderDisputeBegins);
     }
 
     private void OnCitizenBorn(CitizenBornEvent e)
@@ -407,6 +414,24 @@ public class HistorySystem : IScheduledSystem
             $"A Forest Recedes Near ({e.TileX}, {e.TileY})",
             $"Drought caused a forest to decline by {e.AreaLost} tile(s) near ({e.TileX}, {e.TileY}).",
             string.Empty, e.TileX, e.TileY, e.Tick, [], [], 5.0);
+    }
+
+    private void OnBorderContracted(BorderContractedEvent e)
+    {
+        Archive(HistoryCategories.Settlement, "BorderContracted",
+            $"{e.SettlementName}'s Territory Contracts",
+            $"{e.SettlementName}'s territory shrank to radius {e.NewTerritorySize}.",
+            e.SettlementName, 0, 0, e.Tick, [], [], 5.0, e.SettlementId.Value.ToString());
+    }
+
+    private void OnBorderDisputeBegins(BorderDisputeBeginsEvent e)
+    {
+        Archive(HistoryCategories.Diplomacy, "BorderDisputeBegins",
+            $"Border Dispute Between {e.SettlementAName} and {e.SettlementBName}",
+            $"{e.SettlementAName} and {e.SettlementBName} now claim overlapping territory of comparable strength.",
+            e.SettlementAName, 0, 0, e.Tick,
+            [e.SettlementAId.Value.ToString(), e.SettlementBId.Value.ToString()],
+            [e.SettlementAName, e.SettlementBName], 6.0, e.SettlementAId.Value.ToString());
     }
 
     private void Archive(string category, string eventType, string title, string description,

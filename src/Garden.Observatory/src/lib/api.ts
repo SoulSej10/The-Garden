@@ -364,6 +364,11 @@ export interface SettlementDetail {
     resolved: number
     failed: number
   }
+  territorialInfluence: number
+  borderDisputes: Array<{
+    otherSettlementId: string
+    otherSettlementName: string
+  }>
   families: unknown
   security: unknown
   tradeRelationships: unknown

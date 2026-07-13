@@ -1,6 +1,6 @@
 # RFC-007: Borders & Territorial Dynamics — Territorial Influence (First Increment)
 
-**Status:** Proposed
+**Status:** Implemented (Week 11, 2026-07-10 - see DEVELOPMENT_PLAN.md Days 51-55)
 **Date:** 2026-07-10
 **Author:** DEVELOPMENT_PLAN.md (Week 10 close-out backlog triage)
 **Governing spec:** `03_Sciences/05_Civilization/TG-620_Borders_Territorial_Dynamics.md`
@@ -96,3 +96,23 @@ A new `TerritorySystem` (`Garden.Engine/Systems/`), `IScheduledSystem`, yearly c
    settlement changed enough to act? vs. are *these two* settlements comparably matched?)
    and conflating them risks the same kind of accidental coupling Week 6's Language RFC
    avoided by not literally importing `DiplomacyService`'s bands.)
+
+## Implementation notes (Week 11, added at close-out)
+
+- Implemented as designed: `Settlement.TerritorialInfluence` (with a real EF migration,
+  since `Settlement` is EF-persisted), `TerritorySystem` (yearly cadence, matching the
+  established convention), `BorderContractedEvent`/`BorderDisputeBeginsEvent`, and a
+  minimal per-settlement influence/dispute surfacing in the Observatory. Both open
+  questions resolved as recommended.
+- **Subscribed both new events to `HistorySystem` at introduction time**, rather than
+  discovering the gap later - the same TG-001 Law IV pattern that had to be fixed after
+  the fact for `DialectFormedEvent` (Week 7) and `ForestExpanded`/`Declined` (Week 10).
+  Caught during this week's own live verification before it became a third instance of
+  the same mistake.
+- 8 new unit tests for `TerritorySystem` plus 2 more for the `HistorySystem` wiring (153
+  total). Verified live: `TerritorialInfluence` computed correctly from real Population/
+  Legitimacy (23.5 for one settlement), and the Observatory's Territory section rendered
+  the value correctly (24, rounded) with no console errors. No `BorderContracted`/
+  `BorderDisputeBeginsEvent` occurred organically within the verification window - neither
+  is a bug, both are gated by real thresholds that simply weren't crossed in this run;
+  the mechanism itself is directly unit-tested.

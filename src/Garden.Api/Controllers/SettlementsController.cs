@@ -13,17 +13,20 @@ public class SettlementsController : ControllerBase
     private readonly SettlementManager _settlementManager;
     private readonly ConstructionSystem _constructionSystem;
     private readonly GovernanceService _governanceService;
+    private readonly TerritorySystem _territorySystem;
 
     public SettlementsController(
         WorldState worldState,
         SettlementManager settlementManager,
         ConstructionSystem constructionSystem,
-        GovernanceService governanceService)
+        GovernanceService governanceService,
+        TerritorySystem territorySystem)
     {
         _worldState = worldState;
         _settlementManager = settlementManager;
         _constructionSystem = constructionSystem;
         _governanceService = governanceService;
+        _territorySystem = territorySystem;
     }
 
     [HttpGet]
@@ -144,6 +147,8 @@ public class SettlementsController : ControllerBase
             CurrentProblems = problems,
             LanguageDivergence = BuildLanguageDivergence(settlement),
             LegalCases = BuildLegalCaseSummary(settlement),
+            settlement.TerritorialInfluence,
+            BorderDisputes = BuildBorderDisputes(settlement),
             // Not yet modeled in the simulation - surfaced as explicit
             // placeholders rather than omitted, so the UI can show them once
             // these systems exist instead of silently having no field.
@@ -239,6 +244,25 @@ public class SettlementsController : ControllerBase
             Resolved = cases.Count(c => !c.IsOpen && c.WasResolvedFairly),
             Failed = cases.Count(c => !c.IsOpen && !c.WasResolvedFairly)
         };
+    }
+
+    // RFC-007 Day 54: minimal read-only surfacing of this settlement's
+    // currently active border disputes, if any.
+    private object BuildBorderDisputes(Garden.World.Entities.Settlement settlement)
+    {
+        return _territorySystem.ActiveDisputes
+            .Where(d => d.SettlementAId == settlement.Id || d.SettlementBId == settlement.Id)
+            .Select(d =>
+            {
+                var otherId = d.SettlementAId == settlement.Id ? d.SettlementBId : d.SettlementAId;
+                var other = _worldState.Settlements.FirstOrDefault(s => s.Id == otherId);
+                return new
+                {
+                    OtherSettlementId = otherId.ToString(),
+                    OtherSettlementName = other?.Name ?? "Unknown"
+                };
+            })
+            .ToList();
     }
 }
 
