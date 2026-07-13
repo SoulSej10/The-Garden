@@ -438,6 +438,18 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
       )}
 
       <div>
+        <h3 className="mb-2 text-sm font-medium">Ecology</h3>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Soil health — depleted by farming, restored as fallen trees and the deceased decompose. Wildlife population — driven by forest habitat within the territory.
+        </p>
+        <div className="flex items-center gap-3">
+          <Progress value={detail.soilHealth} />
+          <span className="w-24 text-xs text-right">Soil {detail.soilHealth.toFixed(0)}</span>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">Wildlife: {detail.wildlifePopulation.toFixed(0)}</p>
+      </div>
+
+      <div>
         <h3 className="mb-2 text-sm font-medium">Not Yet Tracked</h3>
         <p className="text-xs text-muted-foreground">
           Families, security, and trade relationships aren't modeled in the simulation yet - this panel will show them here once those systems exist.

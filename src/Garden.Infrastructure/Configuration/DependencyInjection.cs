@@ -59,6 +59,8 @@ public static class DependencyInjection
         services.AddSingleton<PopulationEcologySystem>();
         services.AddSingleton<DiseaseSystem>();
         services.AddSingleton<EvolutionSystem>();
+        services.AddSingleton<DecomposerSystem>();
+        services.AddSingleton<FaunaSystem>();
         services.AddSingleton<AgingSystem>();
         services.AddSingleton<ReproductionSystem>();
         services.AddSingleton<SpawnSystem>();

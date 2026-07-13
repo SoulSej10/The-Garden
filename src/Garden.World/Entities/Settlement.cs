@@ -61,6 +61,19 @@ public class Settlement
     // housing occupancy) - no formula given in the spec. PopulationEcologySystem
     // owns all updates.
     public double CarryingCapacity { get; set; }
+    // RFC-011 (specification/RFC/RFC-011-decomposers-soil-health.md):
+    // TG-220's soil-health concept, fed by existing CitizenDied/ForestDeclined
+    // events (organic matter) and depleted by existing FarmHarvested events -
+    // no formula given in the spec. Defaults to 100 (healthy) so this is a
+    // no-op for AgricultureSystem until the first harvest actually depletes
+    // it. DecomposerSystem owns all updates.
+    public double SoilHealth { get; set; } = 100.0;
+    // RFC-012 (specification/RFC/RFC-012-fauna-aggregate-wildlife.md):
+    // TG-230's aggregate wildlife population, driven by Forest-tile habitat
+    // within the settlement's territory - no formula given in the spec, and
+    // no individual animal agents (TG-230's own Performance Considerations
+    // require aggregate modeling). FaunaSystem owns all updates.
+    public double WildlifePopulation { get; set; }
 
     public int CompletedBuildings => Buildings.Count(b => b.Status == BuildingStatus.Completed);
     public int UnderConstructionBuildings => Buildings.Count(b => b.Status == BuildingStatus.UnderConstruction);

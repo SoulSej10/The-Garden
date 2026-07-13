@@ -378,6 +378,8 @@ export interface SettlementDetail {
     dexterity: number
     perception: number
   } | null
+  soilHealth: number
+  wildlifePopulation: number
   families: unknown
   security: unknown
   tradeRelationships: unknown

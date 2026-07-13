@@ -132,6 +132,19 @@ public class HistorySystem : IScheduledSystem
         // of the same TG-001 Law IV gap.
         _eventBus.Subscribe<AdaptiveShiftObservedEvent>(OnAdaptiveShiftObserved);
         _eventBus.Subscribe<EvolutionaryStagnationEvent>(OnEvolutionaryStagnation);
+
+        // RFC-011 (specification/RFC/RFC-011-decomposers-soil-health.md):
+        // subscribed at introduction time, continuing the practice
+        // reinforced Week 12 Day 61 rather than risking an eighth instance
+        // of the same TG-001 Law IV gap.
+        _eventBus.Subscribe<NutrientPulseOccurredEvent>(OnNutrientPulseOccurred);
+        _eventBus.Subscribe<OrganicMatterAccumulatedEvent>(OnOrganicMatterAccumulated);
+        _eventBus.Subscribe<WasteFullyDecomposedEvent>(OnWasteFullyDecomposed);
+
+        // RFC-012 (specification/RFC/RFC-012-fauna-aggregate-wildlife.md):
+        // subscribed at introduction time, continuing the same practice.
+        _eventBus.Subscribe<SpeciesExpandedEvent>(OnSpeciesExpanded);
+        _eventBus.Subscribe<AnimalDiedEvent>(OnAnimalDied);
     }
 
     private void OnCitizenBorn(CitizenBornEvent e)
@@ -536,6 +549,46 @@ public class HistorySystem : IScheduledSystem
         Archive(HistoryCategories.Nature, "EvolutionaryStagnation",
             $"{e.SettlementName} Reaches Equilibrium",
             $"{e.SettlementName}'s population has shown no meaningful attribute shift for several years.",
+            e.SettlementName, 0, 0, e.Tick, [], [], 4.5, e.SettlementId.Value.ToString());
+    }
+
+    private void OnNutrientPulseOccurred(NutrientPulseOccurredEvent e)
+    {
+        Archive(HistoryCategories.Nature, "NutrientPulseOccurred",
+            $"{e.SettlementName}'s Soil Rejuvenates",
+            $"{e.SettlementName}'s soil health has risen to {e.SoilHealth:F0} as organic matter decomposes.",
+            e.SettlementName, 0, 0, e.Tick, [], [], 4.5, e.SettlementId.Value.ToString());
+    }
+
+    private void OnOrganicMatterAccumulated(OrganicMatterAccumulatedEvent e)
+    {
+        Archive(HistoryCategories.Nature, "OrganicMatterAccumulated",
+            $"Waste Piles Up in {e.SettlementName}",
+            $"Organic matter is accumulating in {e.SettlementName} faster than it can decompose.",
+            e.SettlementName, 0, 0, e.Tick, [], [], 4.5, e.SettlementId.Value.ToString());
+    }
+
+    private void OnWasteFullyDecomposed(WasteFullyDecomposedEvent e)
+    {
+        Archive(HistoryCategories.Nature, "WasteFullyDecomposed",
+            $"{e.SettlementName}'s Waste Clears",
+            $"The accumulated organic matter in {e.SettlementName} has fully decomposed.",
+            e.SettlementName, 0, 0, e.Tick, [], [], 4.5, e.SettlementId.Value.ToString());
+    }
+
+    private void OnSpeciesExpanded(SpeciesExpandedEvent e)
+    {
+        Archive(HistoryCategories.Nature, "SpeciesExpanded",
+            $"Wildlife Flourishes Near {e.SettlementName}",
+            $"The wildlife population near {e.SettlementName} has grown to {e.WildlifePopulation:F0}.",
+            e.SettlementName, 0, 0, e.Tick, [], [], 4.5, e.SettlementId.Value.ToString());
+    }
+
+    private void OnAnimalDied(AnimalDiedEvent e)
+    {
+        Archive(HistoryCategories.Nature, "AnimalDied",
+            $"Wildlife Declines Near {e.SettlementName}",
+            $"The wildlife population near {e.SettlementName} has fallen to {e.WildlifePopulation:F0}.",
             e.SettlementName, 0, 0, e.Tick, [], [], 4.5, e.SettlementId.Value.ToString());
     }
 

@@ -264,3 +264,45 @@ public record EvolutionaryStagnationEvent : CivilizationEvent
     public GameEntityId SettlementId { get; init; }
     public string SettlementName { get; init; } = string.Empty;
 }
+
+// RFC-011: three of TG-220_Decomposers_Microbiology.md's 9 named events -
+// DecomposerSystem converts organic matter from existing CitizenDied/
+// ForestDeclined events into SoilHealth, which feeds back into
+// AgricultureSystem's yield.
+public record NutrientPulseOccurredEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+    public double SoilHealth { get; init; }
+}
+
+public record OrganicMatterAccumulatedEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+}
+
+public record WasteFullyDecomposedEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+}
+
+// RFC-012: two of TG-230_Fauna_Animal_Behavior.md's 10 named events -
+// FaunaSystem tracks an aggregate wildlife population per settlement,
+// driven by Forest-tile habitat within its territory. AnimalDied is
+// reinterpreted at the aggregate level (a meaningful population die-off),
+// not a single animal's death - documented in RFC-012.
+public record SpeciesExpandedEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+    public double WildlifePopulation { get; init; }
+}
+
+public record AnimalDiedEvent : CivilizationEvent
+{
+    public GameEntityId SettlementId { get; init; }
+    public string SettlementName { get; init; } = string.Empty;
+    public double WildlifePopulation { get; init; }
+}

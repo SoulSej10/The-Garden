@@ -166,6 +166,8 @@ public class SettlementsController : ControllerBase
                     Perception = Math.Round(aliveMembers.Average(c => c.Attributes.Perception), 2)
                 }
                 : null,
+            settlement.SoilHealth,
+            settlement.WildlifePopulation,
             // Not yet modeled in the simulation - surfaced as explicit
             // placeholders rather than omitted, so the UI can show them once
             // these systems exist instead of silently having no field.

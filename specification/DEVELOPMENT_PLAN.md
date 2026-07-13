@@ -121,7 +121,7 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 
 | Backlog item | Spec reference(s) | Why it's not day-planned yet |
 |---|---|---|
-| Life Sciences foundation (Fauna, Decomposers) | `TG-220`, `TG-230` | Flora shipped Week 10 (`RFC-006`), Population Ecology shipped Week 14 (`RFC-008`, unblocked by `ADR-002`), Disease & Health shipped Week 15 (`RFC-009`), Evolution & Adaptation shipped Week 16 (`RFC-010`) — all four applied their principle to `Citizen`, the one population that already exists. Fauna and Decomposers remain genuinely greenfield: they require an actual wildlife/microbe population that doesn't exist anywhere in this codebase, so predator-prey and decomposition concepts have nothing to apply to yet — these need their own species-modeling RFC, not a reuse-existing-fields increment. |
+| ~~Life Sciences foundation~~ | `TG-210`-`TG-260` (Volume IV) | **All six Volume IV foundational documents now have a shipped first increment**: Flora (Week 10, `RFC-006`), Population Ecology (Week 14, `RFC-008`, unblocked by `ADR-002`), Disease & Health (Week 15, `RFC-009`), Evolution & Adaptation (Week 16, `RFC-010`), Decomposers & Microbiology (Week 17, `RFC-011`), Fauna & Animal Behavior (Week 18, `RFC-012`). The first four applied their principle to `Citizen` (the one population that already existed); the last two introduced the minimum new aggregate state (`SoilHealth`, `WildlifePopulation`) needed since no wildlife/microbe population existed at all. Deeper Volume IV work (individual species, predator-prey, genetics) remains open-ended future scope, not tracked as a single backlog row anymore. |
 | `HistorySystem.Archive()`'s `LocationY` was always `LocationX + 1` | Week 10 Day 48 finding, **fixed 2026-07-10** | Affected all ~25 `Archive()` call sites (every historical event type), not just this week's new ones — every historical record's Y coordinate was silently wrong since Week 1. No prior test asserted on `LocationY`, which is why it went undetected. Fixed by giving `Archive()` separate `locationX`/`locationY` parameters and updating all 25 call sites; a new regression test locks in the correct behavior. Verified live: `locationY` now genuinely independent of `locationX`. |
 | ~~Borders & Territorial Dynamics~~ | `TG-620_Borders_Territorial_Dynamics.md` (scoped via `RFC-007`) | **Scoped for Week 11 (2026-07-10) via `RFC/RFC-007-borders-territorial-influence.md`** — a regional-influence field derived from existing Population/Legitimacy, replacing the flat ever-growing `TerritoryRadius` int with something that can also contract. |
 | Warfare & Military Organization | `TG-640_Warfare_Military_Organization.md` | Largest single unimplemented system in the whole library; spec gives no combat-resolution, morale, or logistics-attrition formulas at all. |
@@ -570,6 +570,92 @@ solution build clean (0 warnings/0 errors).
 
 ---
 
+## Week 17 (2026-07-13, complete) — Decomposers & Microbiology: Soil Health (Increment 5 of Volume IV)
+
+Scoped from `RFC/RFC-011-decomposers-soil-health.md` — feeds `Settlement.SoilHealth` from organic
+matter that already-existing `CitizenDied`/`ForestDeclined` events produce, depleted by the existing
+`FarmHarvestedEvent`, and writes the result back into `AgricultureSystem`'s yield — the first RFC in
+this series to feed back into an earlier system's formula rather than staying strictly read-only.
+
+| Day | Task | Status |
+|---|---|---|
+| 82 | Write `RFC/RFC-011-decomposers-soil-health.md` | Done |
+| 83 | `Settlement.SoilHealth` field (EF migration) + `DecomposerSystem` skeleton | Done |
+| 84 | Organic-matter accumulation/decomposition mechanic + `AgricultureSystem` feedback, `HistorySystem` wired at introduction time | Done |
+| 85 | Unit tests for `DecomposerSystem` | Done |
+| 86 | Observatory surfacing (settlement Ecology section) + close-out: live verification, changelog, commit/push | Done |
+
+### Days 82-86 actuals (2026-07-13)
+
+- **Day 82**: `RFC-011` written — the first RFC in this series to write into an earlier system's
+  formula (`AgricultureSystem`'s yield), justified because `TG-220` explicitly names Agriculture as
+  directly influenced by decomposition.
+- **Day 83**: `Settlement.SoilHealth` added (default `100.0`) with EF migration
+  `AddSettlementSoilHealthAndWildlife` (shared with Week 18's `WildlifePopulation` field). **A real
+  migration-scaffolding bug was caught before applying it**: `dotnet ef migrations add` generated
+  `defaultValue: 0.0` for the new column despite the C# property defaulting to `100.0` — EF Core
+  scaffolds the CLR zero-value, not the property initializer. Applying it as-generated would have
+  silently reset every existing settlement's soil to "fully depleted." Fixed to `defaultValue: 100.0`
+  before running `database update`.
+- **Day 84**: `DecomposerSystem` subscribes to `CitizenDied`/`ForestDeclined` (organic matter in) and
+  `FarmHarvested` (soil depletion); monthly decomposition converts pending matter into `SoilHealth`
+  gain; `AgricultureSystem.ProcessFarm` now multiplies yield by `SoilHealth / 100.0` (a no-op at the
+  default). 3 events (`NutrientPulseOccurred`, `OrganicMatterAccumulated`, `WasteFullyDecomposed`)
+  subscribed to `HistorySystem` at introduction time.
+- **Day 85**: 6 new `DecomposerSystemTests`. **A second real bug was caught by these tests, not live
+  verification**: the first `Execute()` draft captured the "previous" `SoilHealth` baseline *after*
+  that same evaluation's own decomposition had already changed it, making a real rise on a
+  settlement's first evaluation undetectable. Fixed by capturing the baseline before decomposition —
+  a test confirming existing `AgricultureSystemTests` are unaffected by the default `SoilHealth`
+  passed unchanged.
+- **Day 86**: Added an "Ecology" section (Soil Health progress bar + Wildlife number, shared with
+  Week 18) to the Observatory. Verified live: all 8 real settlements correctly retained `SoilHealth =
+  100` after the migration fix.
+
+---
+
+## Week 18 (2026-07-13, complete) — Fauna & Animal Behavior: Aggregate Wildlife Population (Increment 6 of Volume IV)
+
+Scoped from `RFC/RFC-012-fauna-aggregate-wildlife.md` — the first RFC in the Life Sciences series that
+cannot reuse `Citizen`; introduces a single aggregate `Settlement.WildlifePopulation`, driven by real
+`Forest`-terrain habitat within the territory, per `TG-230`'s own Performance Considerations
+("aggregate ecological models," not individual animal agents).
+
+| Day | Task | Status |
+|---|---|---|
+| 87 | Write `RFC/RFC-012-fauna-aggregate-wildlife.md` | Done |
+| 88 | `Settlement.WildlifePopulation` field (shared EF migration) + `FaunaSystem` skeleton | Done |
+| 89 | Habitat-capacity mechanic + `SpeciesExpanded`/`AnimalDied` detection, `HistorySystem` wired at introduction time | Done |
+| 90 | Unit tests for `FaunaSystem` | Done |
+| 91 | Observatory surfacing (shared Ecology section) + close-out: live verification, changelog, commit/push | Done |
+
+### Days 87-91 actuals (2026-07-13)
+
+- **Day 87**: `RFC-012` written — explicitly scoped to `TG-230`'s own Performance Considerations
+  sentence ("Most animal populations should be simulated using aggregate ecological models"), not the
+  document's vivid individual-animal prose.
+- **Day 88**: `Settlement.WildlifePopulation` added (default `0.0`); `FaunaSystem` skeleton (monthly
+  cadence) computing habitat capacity from `Forest`-tile count within `TerritoryRadius`.
+- **Day 89**: Population moves a fraction toward habitat capacity each month; `SpeciesExpandedEvent`
+  fires on meaningful growth while under capacity, `AnimalDiedEvent` fires on a meaningful die-off
+  (reinterpreted at the aggregate level, documented in `RFC-012`). Both subscribed to `HistorySystem`
+  at introduction time.
+- **Day 90**: 4 new `FaunaSystemTests`, including a dedicated test confirming deforesting an entire
+  territory collapses habitat capacity and triggers a real `AnimalDiedEvent`.
+- **Day 91**: Verified live against a resumed simulation run to Year 1: `WildlifePopulation` diverged
+  meaningfully across all 8 real settlements by real forest cover (0 to 56), 37 organic
+  `SpeciesExpandedEvent` records archived. Observatory's "Ecology" section rendered correctly with no
+  console errors. Full verification: build clean, 208/208 unit tests, 3/3 fast integration tests,
+  `tsc --noEmit` clean. Both `RFC-011` and `RFC-012` marked Implemented. **Volume IV (Biological
+  Sciences) now has a first increment shipped for all six of its foundational documents** (Flora,
+  Population Ecology, Disease & Health, Evolution & Adaptation, Decomposers & Microbiology, Fauna &
+  Animal Behavior) — the Backlog table's "Life Sciences foundation" row is retired.
+
+**Week 17-18 combined final tally:** 208 unit tests (up from 193), 3 fast integration tests, full
+solution build clean (0 warnings/0 errors).
+
+---
+
 ## Project-Wide Timeline Estimate (as of 2026-07-13)
 
 Asked directly: *how many weeks to finish everything?* Answered honestly, with the same
@@ -583,8 +669,7 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 
 | Weeks | Scope | Basis for the estimate |
 |---|---|---|
-| 1-16 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4) | Actuals |
-| 17-18 | Fauna & Decomposers (Volume IV, remaining) | Genuinely greenfield - no species other than `Citizen` exists anywhere in this codebase, so these need an actual wildlife/microbe population designed from scratch via their own RFC, unlike Disease/Evolution/Population Ecology which could reuse `Citizen` directly — budgeted 2 weeks |
+| 1-18 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4), Decomposers & Microbiology (Volume IV increment 5), Fauna & Animal Behavior (Volume IV increment 6) | Actuals — Volume IV's six foundational documents all have a shipped first increment as of Week 18 |
 | 19-20 | Warfare & Military Organization | Explicitly "the largest single unimplemented system in the whole library" — budgeted 2 weeks |
 | 21-22 | Infrastructure-as-network | Needs an ADR first (philosophy conflict with current `ConstructionSystem`), then whatever that ADR decides — budgeted 2 weeks |
 | 23 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
@@ -593,8 +678,8 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 | 26 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
 | 27 | Real LLM-backed AI narrator + API rate limiting/versioning + `TradeCompletedEvent` cleanup + `History/search` `totalRecords` bug + final pass | Consolidating the smaller remaining items into a final week, same rationale as prior anomaly-cleanup weeks |
 
-**Total projection: ~27 weeks end-to-end (about 6.5 months), of which 16 are done —
-roughly 11 more weeks from here.** Treat this as a planning band, not a
+**Total projection: ~27 weeks end-to-end (about 6.5 months), of which 18 are done —
+roughly 9 more weeks from here.** Treat this as a planning band, not a
 commitment: past estimate accuracy on the *already-completed* weeks has been good (every
 week landed in its planned 5 days), but every week has also found something the plan didn't
 predict — including a whole extra cleanup week (12) added mid-course for this exact reason —

@@ -657,4 +657,95 @@ public class HistorySystemCivilizationEventTests
         Assert.Equal("EvolutionaryStagnation", record.EventType);
         Assert.Equal(HistoryCategories.Nature, record.Category);
     }
+
+    [Fact]
+    public void NutrientPulseOccurred_IsArchived()
+    {
+        // Regression test per RFC-011: subscribed at introduction time,
+        // continuing the practice reinforced Week 12 Day 61.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new NutrientPulseOccurredEvent
+        {
+            Tick = 7600,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot",
+            SoilHealth = 65.0
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("NutrientPulseOccurred", record.EventType);
+        Assert.Equal(HistoryCategories.Nature, record.Category);
+    }
+
+    [Fact]
+    public void OrganicMatterAccumulated_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new OrganicMatterAccumulatedEvent
+        {
+            Tick = 7700,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("OrganicMatterAccumulated", record.EventType);
+        Assert.Equal(HistoryCategories.Nature, record.Category);
+    }
+
+    [Fact]
+    public void WasteFullyDecomposed_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new WasteFullyDecomposedEvent
+        {
+            Tick = 7800,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("WasteFullyDecomposed", record.EventType);
+        Assert.Equal(HistoryCategories.Nature, record.Category);
+    }
+
+    [Fact]
+    public void SpeciesExpanded_IsArchived()
+    {
+        // Regression test per RFC-012.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new SpeciesExpandedEvent
+        {
+            Tick = 7900,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot",
+            WildlifePopulation = 42.0
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("SpeciesExpanded", record.EventType);
+        Assert.Equal(HistoryCategories.Nature, record.Category);
+    }
+
+    [Fact]
+    public void AnimalDied_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new AnimalDiedEvent
+        {
+            Tick = 8000,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot",
+            WildlifePopulation = 10.0
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("AnimalDied", record.EventType);
+        Assert.Equal(HistoryCategories.Nature, record.Category);
+    }
 }

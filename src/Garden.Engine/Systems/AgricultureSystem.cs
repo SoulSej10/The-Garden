@@ -64,7 +64,11 @@ public class AgricultureSystem : IScheduledSystem
             plantedCrops *= 0.5;
         }
 
-        var yield = plantedCrops * growthModifier * 2.0;
+        // RFC-011 (specification/RFC/RFC-011-decomposers-soil-health.md):
+        // SoilHealth defaults to 100, making this a no-op until repeated
+        // harvests actually deplete it - DecomposerSystem owns all updates
+        // to this field.
+        var yield = plantedCrops * growthModifier * 2.0 * (settlement.SoilHealth / 100.0);
         if (yield > 0.5)
         {
             settlement.Storage.Add("Food", yield);
