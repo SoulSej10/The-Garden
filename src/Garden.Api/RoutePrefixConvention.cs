@@ -22,6 +22,14 @@ public class RoutePrefixConvention : IApplicationModelConvention
     {
         foreach (var controller in application.Controllers)
         {
+            // Health/readiness endpoints are deliberately excluded from
+            // versioning - infrastructure tooling (load balancers, platform
+            // health checks) conventionally assumes a stable, unversioned
+            // path here. A production incident (Northflank's health check
+            // 404ing against the new /v1 prefix, taking the service out of
+            // rotation) confirmed this the hard way.
+            if (controller.ControllerName == "Health") continue;
+
             foreach (var selector in controller.Selectors)
             {
                 selector.AttributeRouteModel = selector.AttributeRouteModel != null
