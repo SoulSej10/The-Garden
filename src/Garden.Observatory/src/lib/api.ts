@@ -888,6 +888,16 @@ export interface TechnologyProgress {
   currentProgress: number
 }
 
+export interface LegendEntry {
+  id: string
+  title: string
+  distortedNarrative: string
+  legendaryStatus: number
+  formedTick: number
+  originalTitle?: string
+  originalDescription?: string
+}
+
 export interface CultureEntry {
   id: string
   name: string
@@ -952,6 +962,11 @@ export async function fetchTradeRoutes(): Promise<TradeRouteEntry[]> {
 
 export async function fetchTechnology(): Promise<{ discovered: TechnologyEntry[]; inProgress: TechnologyProgress[] }> {
   const { data } = await api.get('/civilization/technology')
+  return data
+}
+
+export async function fetchLegends(): Promise<LegendEntry[]> {
+  const { data } = await api.get('/civilization/legends')
   return data
 }
 

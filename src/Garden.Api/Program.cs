@@ -80,6 +80,7 @@ using (var scope = app.Services.CreateScope())
     scheduler.Register(scope.ServiceProvider.GetRequiredService<AgricultureSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<EconomySystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<HistorySystem>());
+    scheduler.Register(scope.ServiceProvider.GetRequiredService<LegendSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<CivilizationSystem>());
 
     initializer.Initialize(width: 100, height: 100, seed: 42);

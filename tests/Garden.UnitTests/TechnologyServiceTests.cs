@@ -68,7 +68,7 @@ public class TechnologyServiceTests
             technology.EvaluateTechnology(tick: year * SimulationTime.TicksPerYear);
 
         var discovered = Assert.Single(technology.GetDiscoveredTechnologies().Take(1));
-        Assert.Equal(smartest.Id, discovered.DiscoveredByCitizenId);
+        Assert.Equal("Smart One", discovered.DiscoveredByCitizenName);
     }
 
     [Fact]
@@ -81,5 +81,44 @@ public class TechnologyServiceTests
             technology.EvaluateTechnology(tick: year * SimulationTime.TicksPerYear);
 
         Assert.Empty(technology.GetDiscoveredTechnologies());
+    }
+
+    [Fact]
+    public void OneSettlementDiscovering_DoesNotLockOutAnother()
+    {
+        // RFC-015 (ADR-004): the old shared Technology.CurrentProgress/
+        // IsDiscovered pair meant the first settlement to cross a threshold
+        // permanently locked every other settlement out of that technology.
+        // Confirms independent discovery is now real: settlement A racing
+        // ahead does not prevent settlement B from later discovering the
+        // exact same technology on its own.
+        var (world, technology) = CreateHarness();
+        var fast = AddSettlement(world, memberCount: 26);
+        var slow = AddSettlement(world, memberCount: 26);
+
+        for (var year = 1; year <= 60; year++)
+            technology.EvaluateTechnology(tick: year * SimulationTime.TicksPerYear);
+
+        Assert.NotEmpty(technology.GetDiscoveredTechnologies(fast.Id));
+        Assert.NotEmpty(technology.GetDiscoveredTechnologies(slow.Id));
+    }
+
+    [Fact]
+    public void TechnologicalDivergenceEvent_FiresOncePairsDivergeEnough()
+    {
+        var world = new WorldState();
+        var eventBus = new EventBus();
+        var technology = new TechnologyService(world, eventBus, NullLogger<TechnologyService>.Instance);
+
+        var advanced = AddSettlement(world, memberCount: 40);
+        var stagnant = AddSettlement(world, memberCount: 2);
+
+        var divergenceCount = 0;
+        eventBus.Subscribe<Garden.Core.Events.TechnologicalDivergenceEvent>(_ => divergenceCount++);
+
+        for (var year = 1; year <= 80; year++)
+            technology.EvaluateTechnology(tick: year * SimulationTime.TicksPerYear);
+
+        Assert.True(divergenceCount > 0);
     }
 }

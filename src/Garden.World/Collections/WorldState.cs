@@ -18,7 +18,12 @@ public class WorldState
     public List<LegalCase> LegalCases { get; } = [];
     public List<Infection> Infections { get; } = [];
     public List<War> Wars { get; } = [];
-    public List<Technology> Technologies { get; } = [];
+    // RFC-015: replaced by SettlementTechnology (ADR-004 - a single shared
+    // Technology.CurrentProgress/IsDiscovered per named technology made
+    // independent per-settlement discovery structurally impossible).
+    // Technology.AllTechnologies (static) remains the read-only catalog.
+    public List<SettlementTechnology> SettlementTechnologies { get; } = [];
+    public List<Legend> Legends { get; } = [];
     public List<Religion> Religions { get; } = [];
     public WorldMap Map { get; set; } = new();
     public WeatherStateData Weather { get; set; } = new();

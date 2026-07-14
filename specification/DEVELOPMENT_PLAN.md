@@ -126,7 +126,8 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 | ~~Borders & Territorial Dynamics~~ | `TG-620_Borders_Territorial_Dynamics.md` (scoped via `RFC-007`) | **Scoped for Week 11 (2026-07-10) via `RFC/RFC-007-borders-territorial-influence.md`** — a regional-influence field derived from existing Population/Legitimacy, replacing the flat ever-growing `TerritoryRadius` int with something that can also contract. |
 | Warfare & Military Organization | `TG-640_Warfare_Military_Organization.md` | Largest single unimplemented system in the whole library; spec gives no combat-resolution, morale, or logistics-attrition formulas at all. |
 | ~~Infrastructure-as-network~~ | `TG-660_Infrastructure.md` (scoped via `ADR-003`/`RFC-014`) | **Shipped Weeks 21-22 (2026-07-14)** — `ADR-003` resolved the philosophy conflict by extending the already-existing `TradeRoute` entity (route-level `InfrastructureQuality`, growing with sustained trade and decaying with neglect) rather than rewriting `Building`/`ConstructionSystem`. `Building.cs`/`ConstructionSystem` left untouched. |
-| Science & Technology redesign | `TG-670_Science_Technology.md` | Spec explicitly disclaims "a predefined technology tree"; current `Technology.cs` is exactly that. Needs an ADR: change the doc to match reality, or redesign the system to match the doc. |
+| ~~Science & Technology redesign~~ | `TG-670_Science_Technology.md` (scoped via `ADR-004`/`RFC-015`) | **Shipped Week 23 (2026-07-14)** — `ADR-004` identified the real defect underneath the "predefined technology tree" framing: `Technology.CurrentProgress`/`IsDiscovered` were shared across every settlement, making Independent Discovery/Parallel Inventions/Technological Divergence structurally impossible. `RFC-015` fixed this with a new per-settlement `SettlementTechnology` entity plus an Intelligence-driven research-contribution factor. |
+| ~~Legends & Myths generation~~ | `TG-STRY-040_Legends_Myths.md` (scoped via `RFC-016`) | **Shipped Week 24 (2026-07-14)** — a new `Legend` entity + `LegendSystem` distorts already-High-importance `HistoricalRecord`s once they age past a 3-year Historical Distance threshold, via category-keyed templates matching `TG-STRY-040`'s named transformations. 46 organic legends confirmed live within a Year-5 verification window. |
 | ~~Communication~~ / ~~Language~~ / ~~Education~~ / ~~Law & Justice~~ | `TG-500` (scoped, shipped), `TG-510` (scoped, shipped), `TG-550` (scoped, shipped), `TG-590` (scoped, shipped) | **Communication shipped Week 5, Language shipped Week 6, Education shipped Week 8, Law & Justice shipped Week 9 — see `RFC/RFC-002` through `RFC/RFC-005`.** All four Volume VI items originally grouped together are now shipped. |
 | ~~`RelationshipSystem` has too narrow a trigger set~~ | Week 8 Day 39 + Week 9 Day 44 findings, **fixed Week 12 Days 56-57 (2026-07-13)** | Two related gaps found back-to-back: (1) `RelationshipSystem`'s only live trigger (`CitizenBornEvent`) bonded a newborn's two *parents*, never the parent and the child — making `EducationSystem`'s mentor/student pairing structurally unreachable; (2) both of `RelationshipSystem`'s triggers applied only *positive* Trust deltas — nothing ever lowered Trust, making `LawSystem`'s dispute detection (`Trust < 20`) equally unreachable. Fixed by also bonding each parent with the newborn (Day 56), and by adding `OnCitizenDied` — a close mourner's Trust drops in their *other* existing relationships (Day 57). 3 new tests. **Live re-verification (Day 59) ran ~3 in-game years and saw neither mechanic fire organically** — no citizen died in that window — consistent with this project's precedent of not fabricating false positives; both mechanisms are directly unit-tested. |
 | ~~`TechnologyService` progress-scaling bug~~ | Week 5 Day 22 finding, **fixed 2026-07-10** | `EvaluateTechnology()` accumulated each individual `Technology.CurrentProgress` at `settlementProgress * 0.1`, but nothing else in the codebase treated `settlement.TechnologyProgress` as 10x the per-tech scale — confirmed live, zero technologies discovered after 55+ simulated years. Fixed by removing the scale-down (category multipliers for Agriculture/Construction retained). Verified: 3 new unit tests, and live — a fresh run discovered 10 technologies across 2 settlements within Year 1 alone. |
@@ -753,6 +754,56 @@ warnings/0 errors), `tsc --noEmit` clean.
 
 ---
 
+## Week 23 (2026-07-14, complete) — Leftover Sweep + Science & Technology: Independent Discovery
+
+Per direct user request to proceed with Weeks 23-24 while consolidating leftovers from prior weeks.
+Opens with a full leftover-consolidation sweep (the same audit shape Week 12 Day 61/Week 19 Day 92
+established, this time comparing *every* `DomainEvent`-derived record type across all four event
+files, not just `CivilizationEvents.cs`), then resolves the Week 10 Backlog item on Science &
+Technology via `ADR-004`/`RFC-015`.
+
+| Day | Task | Status |
+|---|---|---|
+| 112 | Leftover sweep: audit every event type (all four event files) against `HistorySystem` subscriptions | Done |
+| 113 | Write `ADR-004-science-technology-disposition.md` + `RFC/RFC-015-technology-independent-discovery.md` | Done |
+| 114 | `SettlementTechnology` entity + rewrite `TechnologyService.EvaluateTechnology` around per-settlement rows | Done |
+| 115 | Intelligence-driven research contribution + `TechnologicalDivergenceEvent`, `HistorySystem` wired at introduction time | Done |
+| 116 | Unit tests + Observatory/controller updates for the new per-settlement shape | Done |
+
+### Days 112-116 actuals (2026-07-14)
+
+- **Day 112**: Full sweep across `CitizenEvents.cs`/`CivilizationEvents.cs`/`EnvironmentalEvents.cs`/`SettlementEvents.cs` (68 total event types, vs. the prior sweeps' `CivilizationEvents.cs`-only scope of 37) found one real, active, previously-unnoticed gap: `BuildingPlannedEvent` has been published by `ConstructionSystem.PlanBuilding` since before this development cycle began, and `"BuildingPlanned"` already sat in `SignificanceEvaluator`'s always-Medium whitelist (implying it was always meant to be archived) — but nothing had ever subscribed it in `HistorySystem`. The tenth instance of this exact TG-001 Law IV violation. Fixed with a new `OnBuildingPlanned` handler + 1 regression test. Every other unsubscribed event confirmed to match established precedent: deliberately excluded for tick-level frequency (`CitizenAte`/`Drank`/`Rested`/`Moved`, `ResourceRegenerated`) or genuinely dead code (`Drought`/`Rain`/`River`/`Lake` events, all 0 publish sites confirmed via grep).
+- **Day 113**: `ADR-004` identified the real defect underneath `TG-670`'s "predefined technology tree" disclaimer: `WorldState.Technologies` held one shared `Technology.CurrentProgress`/`IsDiscovered` pair per named technology across *every* settlement, making Independent Discovery/Parallel Inventions/Technological Divergence (all named in `TG-670`'s Edge Cases) structurally impossible, not just unmodeled — the first settlement to cross a threshold permanently locked every other settlement out. `RFC-015` scopes the fix: per-settlement state via a new `SettlementTechnology` join entity, plus an Intelligence-driven research-contribution factor implementing `TG-670`'s previously-ignored "Education increases research capacity" rule.
+- **Day 114**: `SettlementTechnology` (new pure in-memory entity) replaces the shared `Technology.CurrentProgress`/`IsDiscovered` fields; `Technology.AllTechnologies` remains the static read-only catalog. `TechnologyService.EvaluateTechnology` rewritten around `GetOrCreate(settlementId, technologyName)`.
+- **Day 115**: Research contribution now multiplies by `1.0 + (averageIntelligence - 5.0) / 20.0`, reusing the same average-`Intelligence` aggregate `EvolutionSystem` (Week 16) already computes. `TechnologicalDivergenceEvent` fires once per settlement pair whose discovered-technology sets first differ by 3+, subscribed to `HistorySystem` at introduction time.
+- **Day 116**: 2 new `TechnologyServiceTests` (independent discovery doesn't lock out another settlement; divergence event fires) plus 1 `HistorySystem` regression test. `CivilizationController.GetTechnology` gained an optional `settlementId` query parameter with a real aggregate fallback for the no-argument case — **a real bug caught before shipping**: the first draft returned `InProgress: null` when no settlement was specified, which would have thrown on the existing Observatory frontend's `data?.inProgress.length` call; fixed with `GetUndiscoveredTechnologiesAggregate()` (furthest-along settlement's progress per technology). 242 unit tests total (up from 235 — includes the Day 112 fix's test).
+
+---
+
+## Week 24 (2026-07-14, complete) — Legends & Myths: First Increment
+
+| Day | Task | Status |
+|---|---|---|
+| 117 | Write `RFC/RFC-016-legends-myth-formation.md` | Done |
+| 118 | `Legend` entity + `LegendSystem` skeleton (Historical Distance gating) | Done |
+| 119 | Category-keyed distortion templates + `LegendaryStatus` growth + `LegendFormedEvent`, `HistorySystem` wired at introduction time | Done |
+| 120 | Unit tests + Observatory surfacing (`CivilizationPage` Legends tab) | Done |
+| 121 | Close-out: live verification, `DEVELOPMENT_PLAN.md`/`SPEC_INDEX.md` updates, commit/push | Done |
+
+### Days 117-121 actuals (2026-07-14)
+
+- **Day 117**: `RFC-016` scopes myth formation as age-gated distortion of already-High-importance `HistoricalRecord`s — reusing `HistoricalArchive`'s existing `Importance`/`Tick` fields as the trigger (the "reuse an existing field" discipline every RFC since RFC-004 has used) rather than inventing a new significance model for what "deserves" a legend.
+- **Day 118**: `Legend` (new pure in-memory entity, following `Story`'s own shape) + `LegendSystem` (yearly cadence): a record becomes eligible once `Importance == "High"` and at least 3 in-game years old (invented Historical Distance threshold).
+- **Day 119**: Category-keyed `GenerateDistortion` templates directly implement `TG-STRY-040`'s named transformations (a death becomes "passed into legend," a disaster becomes "the will of unseen forces," a discovery becomes "whispered by the world itself"). `LegendaryStatus` grows +4/year, capped at 100. `LegendFormedEvent` subscribed to `HistorySystem` at introduction time (`HistoryCategories.Culture`).
+- **Day 120**: 6 new `LegendSystemTests` (age-gating in both directions, importance-gating, no-duplicate-per-record, event publication, status growth/cap) plus 1 `HistorySystem` regression test. `CivilizationController` gained `GET /civilization/legends` (joining each `Legend` with its source record via `HistoricalArchive.GetById`); `CivilizationPage.tsx` gained a "Legends" tab.
+- **Day 121**: Live-verified against a resumed Year-4, 8-settlement world (the same one Week 23 verified against). **46 organic `LegendFormedEvent` records had archived by Year 5**, with real category-appropriate distortions confirmed via `/civilization/legends` — e.g. "The Legend of Ulric Fernwood Has Passed" ("They say Ulric Fernwood did not truly die, but passed into legend...") generated from a real `CitizenDied` record, correctly paired with its source record's original title/description via the join. **A minor phrasing bug was caught and fixed during this check, not by a unit test**: the `Building`-category template originally interpolated the record's raw title directly, producing "people came to believe house completed was raised overnight" — fixed to drop the redundant title interpolation. No organic `TechnologicalDivergenceEvent` occurred in the same window — a legitimate non-finding, since this world's population had collapsed to 1 living citizen from a pre-existing, unrelated famine bug (first observed Week 21-22), leaving `technologiesDiscovered` at 0 throughout. Full verification: build clean, 242/242 unit tests, 3/3 fast integration tests, `tsc --noEmit` clean. Both `RFC-015` and `RFC-016` marked Implemented.
+
+**Week 23-24 combined final tally:** 242 unit tests (up from 231 — 3 leftover-sweep/`TechnologyService`
+tests + 6 `LegendSystemTests` + 2 `HistorySystem` regression tests), 3 fast integration tests, full
+solution build clean (0 warnings/0 errors), `tsc --noEmit` clean.
+
+---
+
 ## Project-Wide Timeline Estimate (as of 2026-07-13)
 
 Asked directly: *how many weeks to finish everything?* Answered honestly, with the same
@@ -766,15 +817,13 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 
 | Weeks | Scope | Basis for the estimate |
 |---|---|---|
-| 1-22 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4), Decomposers & Microbiology (Volume IV increment 5), Fauna & Animal Behavior (Volume IV increment 6), Anomaly Cleanup 3 (Week 19 Day 92), Warfare & Military Organization (dispute escalation), Infrastructure-as-network (route quality) | Actuals |
-| 23 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
-| 24 | Legends & Myths generation | Its own dependencies (Character/Civilization Stories, Historical Narrative) already exist, so this is closer to Communication/Language in size |
+| 1-24 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4), Decomposers & Microbiology (Volume IV increment 5), Fauna & Animal Behavior (Volume IV increment 6), Anomaly Cleanup 3 (Week 19 Day 92), Warfare & Military Organization (dispute escalation), Infrastructure-as-network (route quality), Anomaly Cleanup 4 (Week 23 Day 112), Science & Technology (independent per-settlement discovery), Legends & Myths (first increment) | Actuals |
 | 25 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
 | 26 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
 | 27 | Real LLM-backed AI narrator + API rate limiting/versioning + `TradeCompletedEvent` cleanup + `History/search` `totalRecords` bug + final pass | Consolidating the smaller remaining items into a final week, same rationale as prior anomaly-cleanup weeks |
 
-**Total projection: ~27 weeks end-to-end (about 6.5 months), of which 22 are done —
-roughly 5 more weeks from here.** Treat this as a planning band, not a
+**Total projection: ~27 weeks end-to-end (about 6.5 months), of which 24 are done —
+roughly 3 more weeks from here.** Treat this as a planning band, not a
 commitment: past estimate accuracy on the *already-completed* weeks has been good (every
 week landed in its planned 5 days), but every week has also found something the plan didn't
 predict — including a whole extra cleanup week (12) added mid-course for this exact reason —

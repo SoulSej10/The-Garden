@@ -98,7 +98,7 @@ public class SystemController : ControllerBase
                 ActiveKingdoms = _worldState.Kingdoms.Count(k => k.IsActive),
                 TotalBuildings = _worldState.Settlements.Sum(s => s.CompletedBuildings),
                 ActiveTradeRoutes = _worldState.TradeRoutes.Count(r => r.IsActive),
-                TechnologiesDiscovered = _worldState.Technologies.Count(t => t.IsDiscovered),
+                TechnologiesDiscovered = _worldState.SettlementTechnologies.Count(t => t.IsDiscovered),
                 Religions = _worldState.Religions.Count,
                 HistoryRecords = _historyManager.Archive.Count
             },
@@ -220,7 +220,7 @@ public class SystemController : ControllerBase
             _worldState.Kingdoms.Clear();
             _worldState.DiplomaticRelations.Clear();
             _worldState.TradeRoutes.Clear();
-            _worldState.Technologies.Clear();
+            _worldState.SettlementTechnologies.Clear();
             _worldState.Religions.Clear();
             _worldState.EnvironmentEvents.Clear();
 

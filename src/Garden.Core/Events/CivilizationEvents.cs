@@ -355,3 +355,28 @@ public record InfrastructureFailureEvent : CivilizationEvent
     public GameEntityId ToSettlementId { get; init; }
     public string ToSettlementName { get; init; } = string.Empty;
 }
+
+// RFC-015 (specification/RFC/RFC-015-technology-independent-discovery.md):
+// 1 of TG-670_Science_Technology.md's 10 named events - only observable
+// now that technology discovery is per-settlement (ADR-004), since under
+// the old shared-state model no two settlements could ever hold different
+// technology sets to diverge in the first place.
+public record TechnologicalDivergenceEvent : CivilizationEvent
+{
+    public GameEntityId SettlementAId { get; init; }
+    public string SettlementAName { get; init; } = string.Empty;
+    public GameEntityId SettlementBId { get; init; }
+    public string SettlementBName { get; init; } = string.Empty;
+    public int DivergentTechnologyCount { get; init; }
+}
+
+// RFC-016 (specification/RFC/RFC-016-legends-myth-formation.md): first
+// increment of TG-STRY-040_Legends_Myths.md - a High-importance
+// HistoricalRecord, once old enough, grows a distorted narrative alongside
+// (never overwriting) the original record. LegendSystem owns this.
+public record LegendFormedEvent : CivilizationEvent
+{
+    public GameEntityId LegendId { get; init; }
+    public GameEntityId SourceRecordId { get; init; }
+    public string Title { get; init; } = string.Empty;
+}

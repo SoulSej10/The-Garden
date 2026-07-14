@@ -12,15 +12,18 @@ public class CivilizationController : ControllerBase
     private readonly WorldState _worldState;
     private readonly TechnologyService _technologyService;
     private readonly KingdomService _kingdomService;
+    private readonly HistoricalArchive _archive;
 
     public CivilizationController(
         WorldState worldState,
         TechnologyService technologyService,
-        KingdomService kingdomService)
+        KingdomService kingdomService,
+        HistoricalArchive archive)
     {
         _worldState = worldState;
         _technologyService = technologyService;
         _kingdomService = kingdomService;
+        _archive = archive;
     }
 
     [HttpGet("summary")]
@@ -33,7 +36,7 @@ public class CivilizationController : ControllerBase
                 .GroupBy(s => s.GovernmentType)
                 .ToDictionary(g => g.Key, g => g.Count()),
             TradeRouteCount = _worldState.TradeRoutes.Count(r => r.IsActive),
-            TechnologiesDiscovered = _worldState.Technologies.Count(t => t.IsDiscovered),
+            TechnologiesDiscovered = _worldState.SettlementTechnologies.Count(t => t.IsDiscovered),
             CultureCount = _worldState.Settlements.Sum(s => s.CulturalTraits.Count),
             ReligionCount = _worldState.Religions.Count
         });
@@ -169,27 +172,65 @@ public class CivilizationController : ControllerBase
         return Ok(result);
     }
 
+    // RFC-015: discovery is now per-settlement (ADR-004), so this endpoint
+    // takes an optional settlementId - omitted, it returns the aggregate
+    // world-wide discovered list (every settlement's discoveries combined,
+    // for the world-summary Civilization dashboard); provided, it also
+    // returns that one settlement's own in-progress technologies, which
+    // only make sense scoped to a single settlement.
     [HttpGet("technology")]
-    public IActionResult GetTechnology()
+    public IActionResult GetTechnology(Guid? settlementId = null)
     {
-        var discovered = _technologyService.GetDiscoveredTechnologies()
+        var scopedId = settlementId.HasValue
+            ? new Garden.Core.Identifiers.GameEntityId(settlementId.Value)
+            : (Garden.Core.Identifiers.GameEntityId?)null;
+
+        var discovered = _technologyService.GetDiscoveredTechnologies(scopedId)
             .Select(t => new
             {
-                Id = t.Id.ToString(), t.Name, t.Category, t.Description,
-                DiscoveredTick = t.DiscoveredTick,
-                SettlementName = t.DiscoveredBySettlementName,
+                t.Id, t.Name, t.Category, t.Description,
+                t.DiscoveredTick,
+                t.SettlementId, t.SettlementName,
                 CitizenName = t.DiscoveredByCitizenName
             }).ToList();
 
-        var inProgress = _technologyService.GetUndiscoveredTechnologies()
+        var inProgressSource = scopedId.HasValue
+            ? _technologyService.GetUndiscoveredTechnologies(scopedId.Value)
+            : _technologyService.GetUndiscoveredTechnologiesAggregate();
+
+        var inProgress = inProgressSource
             .Select(t => new
             {
-                Id = t.Id.ToString(), t.Name, t.Category, t.Description,
+                t.Id, t.Name, t.Category, t.Description,
                 Progress = Math.Round(t.CurrentProgress / t.ProgressRequired * 100, 1),
                 t.ProgressRequired, t.CurrentProgress
             }).ToList();
 
         return Ok(new { Discovered = discovered, InProgress = inProgress });
+    }
+
+    // RFC-016: minimal read-only surfacing of formed Legends, each paired
+    // with the original HistoricalRecord it distorted (so the Observatory
+    // can show fact and myth side by side, per TG-STRY-040's "Legends
+    // never overwrite objective history. They exist alongside it.").
+    [HttpGet("legends")]
+    public IActionResult GetLegends()
+    {
+        var result = _worldState.Legends
+            .OrderByDescending(l => l.FormedTick)
+            .Select(l =>
+            {
+                var source = _archive.GetById(l.SourceRecordId.Value);
+                return new
+                {
+                    Id = l.Id.ToString(), l.Title, l.DistortedNarrative,
+                    LegendaryStatus = Math.Round(l.LegendaryStatus, 1),
+                    l.FormedTick,
+                    OriginalTitle = source?.Title,
+                    OriginalDescription = source?.Description
+                };
+            }).ToList();
+        return Ok(result);
     }
 
     [HttpGet("culture")]

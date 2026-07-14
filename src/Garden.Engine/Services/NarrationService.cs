@@ -48,7 +48,7 @@ public class NarrationService
                 TotalKingdoms = kingdoms.Count,
                 TotalBuildings = settlements.Sum(s => s.CompletedBuildings),
                 TotalTradeRoutes = _worldState.TradeRoutes.Count(r => r.IsActive),
-                TechnologiesDiscovered = _worldState.Technologies.Count(t => t.IsDiscovered),
+                TechnologiesDiscovered = _worldState.SettlementTechnologies.Count(t => t.IsDiscovered),
                 HistoryRecordCount = records.Count
             },
             Insights = BuildInsights(time, alive, settlements, kingdoms, records)
@@ -136,7 +136,7 @@ public class NarrationService
         var discoveries = records.Count(r => r.Category == HistoryCategories.Discovery);
         insights.Add(new WorldInsight("Exploration & Discoveries",
             $"{discoveries} discovery/discoveries recorded in history " +
-            $"and {_worldState.Technologies.Count(t => t.IsDiscovered)} technologies discovered."));
+            $"and {_worldState.SettlementTechnologies.Count(t => t.IsDiscovered)} technologies discovered."));
 
         // Recommendation for investigation
         var recommendation = risks.Count > 0
@@ -211,9 +211,17 @@ public class NarrationService
 
         if (q.Contains("tech") || q.Contains("discover") || q.Contains("invent"))
         {
-            var discovered = _worldState.Technologies.Where(t => t.IsDiscovered).ToList();
-            return discovered.Count > 0
-                ? $"{discovered.Count} technologies have been discovered. They include {string.Join(", ", discovered.Select(t => t.Name))}."
+            // RFC-015: discovery is per-settlement now, so a technology name
+            // discovered by more than one settlement is de-duplicated here -
+            // this narration cares about which technologies exist in the
+            // world, not how many settlements independently found each one.
+            var discoveredNames = _worldState.SettlementTechnologies
+                .Where(t => t.IsDiscovered)
+                .Select(t => t.TechnologyName)
+                .Distinct()
+                .ToList();
+            return discoveredNames.Count > 0
+                ? $"{discoveredNames.Count} technologies have been discovered. They include {string.Join(", ", discoveredNames)}."
                 : "No technologies have been discovered yet. Technology advances as settlements accumulate experience.";
         }
 

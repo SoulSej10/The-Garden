@@ -3,13 +3,14 @@ import { useState } from 'react'
 import {
   fetchCivilizationSummary, fetchKingdoms, fetchGovernments, fetchLeaders,
   fetchDiplomacy, fetchTradeRoutes, fetchTechnology, fetchCulture,
-  fetchReligion, fetchMigration,
+  fetchReligion, fetchMigration, fetchLegends,
   type KingdomSummary, type GovernmentEntry, type LeaderEntry,
   type DiplomacyEntry, type TradeRouteEntry, type TechnologyEntry,
-  type TechnologyProgress, type CultureEntry, type ReligionEntry
+  type TechnologyProgress, type CultureEntry, type ReligionEntry,
+  type LegendEntry
 } from '../lib/api'
 
-type Tab = 'kingdoms' | 'governments' | 'leaders' | 'diplomacy' | 'trade' | 'technology' | 'culture' | 'religion' | 'migration'
+type Tab = 'kingdoms' | 'governments' | 'leaders' | 'diplomacy' | 'trade' | 'technology' | 'culture' | 'religion' | 'migration' | 'legends'
 
 export default function CivilizationPage() {
   const [tab, setTab] = useState<Tab>('kingdoms')
@@ -68,6 +69,12 @@ export default function CivilizationPage() {
     refetchInterval: 5000
   })
 
+  const { data: legends } = useQuery({
+    queryKey: ['legends'],
+    queryFn: fetchLegends,
+    refetchInterval: 5000
+  })
+
   const tabs: { key: Tab; label: string }[] = [
     { key: 'kingdoms', label: `Kingdoms (${summary?.kingdomCount ?? '...'})` },
     { key: 'governments', label: 'Governments' },
@@ -78,6 +85,7 @@ export default function CivilizationPage() {
     { key: 'culture', label: 'Culture' },
     { key: 'religion', label: 'Religion' },
     { key: 'migration', label: 'Migration' },
+    { key: 'legends', label: `Legends (${legends?.length ?? '...'})` },
   ]
 
   return (
@@ -142,7 +150,41 @@ export default function CivilizationPage() {
         {tab === 'culture' && <CultureTab data={culture ?? []} />}
         {tab === 'religion' && <ReligionTab data={religion ?? []} />}
         {tab === 'migration' && <MigrationTab />}
+        {tab === 'legends' && <LegendsTab data={legends ?? []} />}
       </div>
+    </div>
+  )
+}
+
+function LegendsTab({ data }: { data: LegendEntry[] }) {
+  return (
+    <div>
+      <h3 className="font-semibold mb-2">Legends ({data.length})</h3>
+      <p className="text-sm text-muted-foreground mb-4">
+        Memory changes faster than history. These are distorted retellings of real, high-importance
+        events that have aged long enough for the truth to blur - the original record is never
+        overwritten, only accompanied.
+      </p>
+      {data.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No legends have formed yet. They emerge from significant events once enough time has passed.</p>
+      ) : (
+        <div className="space-y-3">
+          {data.map(l => (
+            <div key={l.id} className="rounded border p-3">
+              <div className="flex items-center justify-between">
+                <div className="font-medium">{l.title}</div>
+                <div className="text-xs text-muted-foreground">Legendary Status: {l.legendaryStatus.toFixed(0)}</div>
+              </div>
+              <div className="text-sm mt-1 italic">{l.distortedNarrative}</div>
+              {l.originalTitle && (
+                <div className="text-xs text-muted-foreground mt-2 border-t pt-2">
+                  What actually happened: {l.originalTitle}{l.originalDescription ? ` — ${l.originalDescription}` : ''}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

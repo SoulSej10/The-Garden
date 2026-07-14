@@ -79,6 +79,7 @@ public static class DependencyInjection
         services.AddSingleton<StoryEngine>();
         services.AddSingleton<HistoryManager>();
         services.AddSingleton<HistorySystem>();
+        services.AddSingleton<LegendSystem>();
 
         services.AddSingleton<LeadershipService>();
         services.AddSingleton<GovernanceService>();

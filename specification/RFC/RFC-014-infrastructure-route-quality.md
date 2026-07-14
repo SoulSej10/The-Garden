@@ -1,6 +1,6 @@
 # RFC-014: Infrastructure — Route Quality (First Increment)
 
-**Status:** Accepted (shipped Weeks 21-22)
+**Status:** Implemented (Weeks 21-22, 2026-07-14 - see DEVELOPMENT_PLAN.md Days 102-111)
 **Date:** 2026-07-13
 **Author:** `DEVELOPMENT_PLAN.md` Weeks 21-22
 **Governing spec:** `03_Sciences/05_Civilization/TG-660_Infrastructure.md`

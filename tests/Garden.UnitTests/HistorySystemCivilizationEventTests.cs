@@ -936,4 +936,71 @@ public class HistorySystemCivilizationEventTests
         Assert.Equal("InfrastructureFailure", record.EventType);
         Assert.Equal(HistoryCategories.Trade, record.Category);
     }
+
+    [Fact]
+    public void BuildingPlanned_IsArchived()
+    {
+        // Regression test, Week 23 leftover-consolidation sweep:
+        // ConstructionSystem.PlanBuilding has published this event since
+        // before this development cycle began, and "BuildingPlanned" already
+        // sat in SignificanceEvaluator's always-Medium whitelist, but nothing
+        // had ever subscribed it here.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new BuildingPlannedEvent
+        {
+            Tick = 9000,
+            SettlementId = GameEntityId.New(),
+            SettlementName = "Rivermoot",
+            BuildingId = GameEntityId.New(),
+            BuildingType = "Farm"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("BuildingPlanned", record.EventType);
+        Assert.Equal("Medium", record.Importance);
+        Assert.Equal(HistoryCategories.Building, record.Category);
+    }
+
+    [Fact]
+    public void TechnologicalDivergence_IsArchived()
+    {
+        // Regression test per RFC-015: subscribed at introduction time,
+        // continuing the practice reinforced Week 12 Day 61.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new TechnologicalDivergenceEvent
+        {
+            Tick = 9100,
+            SettlementAId = GameEntityId.New(),
+            SettlementAName = "Rivermoot",
+            SettlementBId = GameEntityId.New(),
+            SettlementBName = "Upperridge",
+            DivergentTechnologyCount = 4
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("TechnologicalDivergence", record.EventType);
+        Assert.Equal(HistoryCategories.Discovery, record.Category);
+    }
+
+    [Fact]
+    public void LegendFormed_IsArchived()
+    {
+        // Regression test per RFC-016: subscribed at introduction time,
+        // continuing the practice reinforced Week 12 Day 61.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new LegendFormedEvent
+        {
+            Tick = 9200,
+            LegendId = GameEntityId.New(),
+            SourceRecordId = GameEntityId.New(),
+            Title = "The Legend of the Great Founder"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("LegendFormed", record.EventType);
+        Assert.Equal(HistoryCategories.Culture, record.Category);
+    }
 }

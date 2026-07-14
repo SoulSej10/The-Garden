@@ -170,6 +170,25 @@ public class HistorySystem : IScheduledSystem
         // reinforced Week 12 Day 61.
         _eventBus.Subscribe<RoadConstructedEvent>(OnRoadConstructed);
         _eventBus.Subscribe<InfrastructureFailureEvent>(OnInfrastructureFailure);
+
+        // Week 23 leftover-consolidation sweep: BuildingPlannedEvent has been
+        // published by ConstructionSystem.PlanBuilding since before this
+        // development cycle began, and "BuildingPlanned" already sat in
+        // SignificanceEvaluator's always-Medium whitelist (implying it was
+        // always meant to be archived) - but nothing ever subscribed it here.
+        // The same TG-001 Law IV violation found and fixed nine times before
+        // now (Week 1, Week 7, Week 10, Week 12 Day 61, Week 19 Day 92 x4).
+        _eventBus.Subscribe<BuildingPlannedEvent>(OnBuildingPlanned);
+
+        // RFC-015 (specification/RFC/RFC-015-technology-independent-discovery.md):
+        // subscribed at introduction time, continuing the practice
+        // reinforced Week 12 Day 61.
+        _eventBus.Subscribe<TechnologicalDivergenceEvent>(OnTechnologicalDivergence);
+
+        // RFC-016 (specification/RFC/RFC-016-legends-myth-formation.md):
+        // subscribed at introduction time, continuing the practice
+        // reinforced Week 12 Day 61.
+        _eventBus.Subscribe<LegendFormedEvent>(OnLegendFormed);
     }
 
     private void OnCitizenBorn(CitizenBornEvent e)
@@ -255,6 +274,33 @@ public class HistorySystem : IScheduledSystem
             $"A {e.BuildingType} was completed in {e.SettlementName}.",
             e.SettlementName, 0, 0, e.Tick,
             [], [], 4.0, e.SettlementId.Value.ToString());
+    }
+
+    private void OnBuildingPlanned(BuildingPlannedEvent e)
+    {
+        Archive(HistoryCategories.Building, "BuildingPlanned",
+            $"{e.BuildingType} Planned",
+            $"Construction of a {e.BuildingType} was planned in {e.SettlementName}.",
+            e.SettlementName, 0, 0, e.Tick,
+            [e.BuildingId.Value.ToString()], [], 5.0, e.SettlementId.Value.ToString());
+    }
+
+    private void OnTechnologicalDivergence(TechnologicalDivergenceEvent e)
+    {
+        Archive(HistoryCategories.Discovery, "TechnologicalDivergence",
+            $"{e.SettlementAName} and {e.SettlementBName} Diverge Technologically",
+            $"{e.SettlementAName} and {e.SettlementBName} have followed different paths of discovery, now differing by {e.DivergentTechnologyCount} technologies.",
+            e.SettlementAName, 0, 0, e.Tick,
+            [e.SettlementAId.Value.ToString(), e.SettlementBId.Value.ToString()],
+            [e.SettlementAName, e.SettlementBName], 5.0);
+    }
+
+    private void OnLegendFormed(LegendFormedEvent e)
+    {
+        Archive(HistoryCategories.Culture, "LegendFormed", e.Title,
+            $"{e.Title} has begun to take root in memory, distinct from the historical record it grew from.",
+            string.Empty, 0, 0, e.Tick,
+            [e.SourceRecordId.Value.ToString()], [], 5.0);
     }
 
     private void OnFarmHarvested(FarmHarvestedEvent e)
