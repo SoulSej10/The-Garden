@@ -47,7 +47,7 @@ public class EmotionRelationshipIntegrationTests
         var reproductionSystem = new ReproductionSystem(worldState, eventBus, NullLogger<ReproductionSystem>.Instance, populationManager);
         var resourceSystem = new ResourceSystem(worldState, eventBus, NullLogger<ResourceSystem>.Instance);
         var agricultureSystem = new AgricultureSystem(worldState, eventBus, NullLogger<AgricultureSystem>.Instance);
-        var economySystem = new EconomySystem(worldState, NullLogger<EconomySystem>.Instance);
+        var economySystem = new EconomySystem(worldState, eventBus, NullLogger<EconomySystem>.Instance);
 
         var spawnSystem = new SpawnSystem(worldState, eventBus, NullLogger<SpawnSystem>.Instance);
         spawnSystem.SpawnInitialPopulation(50);

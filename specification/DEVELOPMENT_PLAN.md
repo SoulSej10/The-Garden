@@ -139,8 +139,8 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 | ~~`EmotionalState` never surfaced in the Observatory~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 32** | `Citizen.Emotions` (6 emotions, Week 3 Days 11-12) is returned by `CitizensController.GetCitizen` but `CitizenDetail`/`CitizensPage.tsx` never expose or render it — confirmed via grep, zero references anywhere in `Garden.Observatory`. Week 4 Day 16 surfaced Settlement tier/Governance but nothing ever covered surfacing Emotion on the Citizen page itself. |
 | ~~`Relationship` data never surfaced in the Observatory~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 33** | `CitizensController` has a dedicated `GET /citizens/{id}/relationships` endpoint (Trust/Affection/SocialDistance per pair, Week 3 Day 13) that the frontend never calls — confirmed via grep, no "relationship" reference in `CitizensPage.tsx` or anywhere else in the Observatory beyond an unrelated `tradeRelationships: unknown` placeholder field. |
 | Legends & Myths generation | `TG-STRY-040_Legends_Myths.md` | Needs Character Stories + Civilization Stories + Historical Narrative all functioning first; currently the deepest dependency chain in `04_Story`. |
-| Replay & Timeline Branching | `TG-OBS-007_Save_Load_Replay.md` | TG-DEV-009 shipped save/load/backup, but not branching timelines or playback controls — a real architecture addition, not a UI feature. |
-| Modding & Extensibility | `TG-OBS-009_Modding_Extensibility.md` | Explicitly deferred by its own spec until core Observatory work is done. |
+| ~~Replay & Timeline Branching~~ | `TG-OBS-007_Save_Load_Replay.md` (scoped via `RFC-017`) | **Shipped Week 25 (2026-07-14)** — fixed two real save/load fidelity bugs (`LoadAsync` never restored `WorldState.CurrentTime` or most civilization-level collections) and added save lineage (`Id`/`ParentSaveId`) so the Observatory can show which save each world continued from. Full replay/scrubbing playback remains deferred. |
+| ~~Modding & Extensibility~~ | `TG-OBS-009_Modding_Extensibility.md` (disposition via `ADR-005`) | **Formally deferred Week 26 (2026-07-14)** — `TG-OBS-009` contains no concrete data model, formula, or named event to build against (unlike every other TG-### document this project has shipped an increment for), so `ADR-005` declines to invent scope prematurely rather than fabricating a placeholder feature. |
 | Real LLM-backed AI narrator | `TG-DEV-009` Known Limitations | Current AI is template/pattern-matched. Needs a provider-integration ADR (cost, latency, determinism-safety — the AI must never be allowed to invent facts per `TG-001`). |
 | API rate limiting & versioning | `TG-DEV-009` Known Limitations | Small, well-understood scope — could be pulled forward into a future week without an RFC if prioritized. |
 | `TradeCompletedEvent` is dead code | Week 3 Day 13, Week 4 Day 18 findings | Defined and even whitelisted as always-High significance, but never published anywhere. Not urgent (nothing currently depends on it firing), but worth either wiring a real trade trigger or removing the unused event type so it stops looking implemented. |
@@ -804,6 +804,92 @@ solution build clean (0 warnings/0 errors), `tsc --noEmit` clean.
 
 ---
 
+## Week 25 (2026-07-14, complete) — Save/Load Fidelity + Timeline Branching
+
+Per direct user request to proceed with Weeks 25-26 while consolidating leftovers. The leftover sweep
+(comparing every event type across all four event files against `HistorySystem`'s subscriptions, same
+audit shape as Week 23) found **zero new gaps** this time — every event introduced since Week 23
+(`TechnologicalDivergenceEvent`, `LegendFormedEvent`) was already wired at introduction time, and the
+remaining unsubscribed events all match established precedent (deliberately excluded for frequency, or
+genuinely dead code).
+
+| Day | Task | Status |
+|---|---|---|
+| 122 | Leftover sweep (zero new gaps found) + write `RFC/RFC-017-save-load-timeline-branching.md` | Done |
+| 123 | Fix `SaveLoadService.LoadAsync`: restore `WorldState.CurrentTime` + every missing civilization-level collection | Done |
+| 124 | `WorldSnapshot.Id`/`ParentSaveId` + lineage tracking (`GetTimeline()`) | Done |
+| 125 | Unit tests for `SaveLoadService` (previously zero) | Done |
+| 126 | Observatory Timeline surfacing + close-out: live verification, `DEVELOPMENT_PLAN.md`/`SPEC_INDEX.md` updates | Done |
+
+### Days 122-126 actuals (2026-07-14)
+
+- **Day 122**: The leftover sweep found nothing new to fix — a first for this recurring audit, since
+  every RFC since Week 19 has subscribed its own events at introduction time. `RFC-017` scopes two real
+  defects found while reading `SaveLoadService.cs` in full: `LoadAsync` never restored
+  `WorldState.CurrentTime`, and only `Citizens`/`Settlements`/`HistoryRecords` round-tripped through a
+  save — every other civilization-level collection (`Kingdoms`, `TradeRoutes`, `Wars`, etc.) was
+  silently left at whatever the live world state was, contradicting `TG-OBS-007`'s "the restored world
+  should behave exactly as it did."
+- **Day 123**: Both defects fixed — `LoadAsync` now sets `WorldState.CurrentTime` from the snapshot's
+  tick and clears+repopulates every civilization-level collection.
+- **Day 124**: `WorldSnapshot` gained `Id`/`ParentSaveId`; `SaveLoadService` tracks the most recently
+  loaded save in-process and stamps it as the next save's parent — the exact "load an earlier save,
+  continue, and it becomes a new branch" mechanic `TG-OBS-007`'s own example describes. A naming
+  collision with an existing unrelated `TimelineEntry` type was caught immediately at build time and
+  resolved by renaming to `SaveTimelineEntry`.
+- **Day 125**: 6 new `SaveLoadServiceTests` — the first direct test coverage this service has ever had,
+  despite existing since Week 1.
+- **Day 126**: `GET /system/timeline` + `ProductionDashboardPage.tsx`'s new Timeline section (rendering
+  the branch tree client-side from `parentSaveId` pointers). Live-verified via direct REST calls against
+  a resumed 8-settlement world: confirmed a branch save's `parentSaveId` correctly pointed to its root
+  save, and confirmed the `CurrentTime` fix specifically by advancing the sim, saving, advancing
+  further, then loading and observing the clock reset to the saved tick rather than whatever was live.
+  Full verification: build clean, 248/248 unit tests, 3/3 fast integration tests, `tsc --noEmit` clean.
+  `RFC-017` marked Implemented.
+
+---
+
+## Week 26 (2026-07-14, complete) — Modding & Extensibility Disposition + Leftover Cleanup
+
+| Day | Task | Status |
+|---|---|---|
+| 127 | Read `TG-OBS-009` in full; write `ADR/ADR-005-modding-extensibility-disposition.md` | Done |
+| 128 | Fix `EconomySystem`: wire the never-published `GoodsCraftedEvent` | Done |
+| 129 | Unit tests for the `GoodsCraftedEvent` fix | Done |
+| 130 | Fix stale `DEVELOPMENT_PLAN.md` Week 27 backlog line (already-fixed `totalRecords` bug still listed) | Done |
+| 131 | Close-out: full verification, `SPEC_INDEX.md` updates, commit/push | Done |
+
+### Days 127-131 actuals (2026-07-14)
+
+- **Day 127**: `TG-OBS-009`, read in full, contains no concrete data model, formula, or named event —
+  unlike every other TG-### document this project has built an increment against, it is exclusively
+  phrased as *"Future modules may include..."*. `ADR-005` formally defers it (the same disposition
+  `ADR-001` gave three genuinely-empty placeholder projects), confirming its one testable claim ("no
+  duplicate world states") is already satisfied by the existing single-`WorldState`-singleton
+  architecture.
+- **Day 128**: `EconomySystem.ProcessProduction` had tracked `_totalGoodsCrafted` since before this
+  cycle began, and `"GoodsCrafted"` already sat in `SignificanceEvaluator`'s always-Medium whitelist,
+  but `GoodsCraftedEvent` was never actually published anywhere — `HistorySystem`'s `OnGoodsCrafted`
+  subscriber existed with nothing to ever call it. Fixed by publishing the event from
+  `ProcessProduction`, the same "tracked but never connected" bug class as Week 23's `BuildingPlanned`
+  fix.
+- **Day 129**: 2 new `EconomySystemTests` (publishes on successful production, does not publish when
+  wood is insufficient). `TradeCompletedEvent` (dead code since Week 3 Day 13) was deliberately **not**
+  wired up alongside it — it models a different mechanic (citizen-to-citizen barter) this codebase has
+  never built, and inventing that mechanic just to give the event a publisher would be scope creep, not
+  a genuine leftover fix (documented in `ADR-005`).
+- **Day 130**: `DEVELOPMENT_PLAN.md`'s Week 27 timeline row still listed *"`History/search`
+  `totalRecords` bug"* as outstanding, but that bug was fixed Week 12 Day 61 — a stale planning-document
+  leftover, corrected.
+- **Day 131**: Full verification: build clean, 250/250 unit tests (up from 248 with Days 128-129's
+  `EconomySystemTests`), 3/3 fast integration tests, `tsc --noEmit` clean.
+
+**Week 25-26 combined final tally:** 250 unit tests (up from 242 — 6 `SaveLoadServiceTests` + 2
+`EconomySystemTests`), 3 fast integration tests, full solution build clean (0 warnings/0 errors),
+`tsc --noEmit` clean.
+
+---
+
 ## Project-Wide Timeline Estimate (as of 2026-07-13)
 
 Asked directly: *how many weeks to finish everything?* Answered honestly, with the same
@@ -817,13 +903,11 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 
 | Weeks | Scope | Basis for the estimate |
 |---|---|---|
-| 1-24 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4), Decomposers & Microbiology (Volume IV increment 5), Fauna & Animal Behavior (Volume IV increment 6), Anomaly Cleanup 3 (Week 19 Day 92), Warfare & Military Organization (dispute escalation), Infrastructure-as-network (route quality), Anomaly Cleanup 4 (Week 23 Day 112), Science & Technology (independent per-settlement discovery), Legends & Myths (first increment) | Actuals |
-| 25 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
-| 26 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
-| 27 | Real LLM-backed AI narrator + API rate limiting/versioning + `TradeCompletedEvent` cleanup + `History/search` `totalRecords` bug + final pass | Consolidating the smaller remaining items into a final week, same rationale as prior anomaly-cleanup weeks |
+| 1-26 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4), Decomposers & Microbiology (Volume IV increment 5), Fauna & Animal Behavior (Volume IV increment 6), Anomaly Cleanup 3 (Week 19 Day 92), Warfare & Military Organization (dispute escalation), Infrastructure-as-network (route quality), Anomaly Cleanup 4 (Week 23 Day 112), Science & Technology (independent per-settlement discovery), Legends & Myths (first increment), Save/Load Fidelity + Timeline Branching, Modding & Extensibility disposition + Anomaly Cleanup 5 | Actuals |
+| 27 | Real LLM-backed AI narrator + API rate limiting/versioning + final pass | Consolidating the smaller remaining items into a final week, same rationale as prior anomaly-cleanup weeks — `TradeCompletedEvent` cleanup and the `History/search` `totalRecords` bug were resolved in Weeks 12 and 26 respectively, so this row is now scoped to just the AI narrator and API hardening |
 
-**Total projection: ~27 weeks end-to-end (about 6.5 months), of which 24 are done —
-roughly 3 more weeks from here.** Treat this as a planning band, not a
+**Total projection: ~27 weeks end-to-end (about 6.5 months), of which 26 are done —
+1 more week from here.** Treat this as a planning band, not a
 commitment: past estimate accuracy on the *already-completed* weeks has been good (every
 week landed in its planned 5 days), but every week has also found something the plan didn't
 predict — including a whole extra cleanup week (12) added mid-course for this exact reason —

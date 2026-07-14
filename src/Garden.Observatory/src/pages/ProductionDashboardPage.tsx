@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchSystemHealth, fetchSystemStatistics, fetchSystemSaves, fetchSystemBackups,
-  fetchAssistantSummary, saveWorld, loadWorld, deleteSave, askQuestion } from '../lib/api'
+  fetchAssistantSummary, fetchTimeline, saveWorld, loadWorld, deleteSave, askQuestion,
+  type TimelineSaveEntry } from '../lib/api'
 import { useState } from 'react'
 
 export default function ProductionDashboardPage() {
@@ -33,6 +34,12 @@ export default function ProductionDashboardPage() {
     refetchInterval: 60000
   })
 
+  const { data: timeline, refetch: refetchTimeline } = useQuery({
+    queryKey: ['timeline'],
+    queryFn: fetchTimeline,
+    refetchInterval: 30000
+  })
+
   const { data: summary } = useQuery({
     queryKey: ['assistant-summary'],
     queryFn: fetchAssistantSummary,
@@ -44,13 +51,20 @@ export default function ProductionDashboardPage() {
       await saveWorld(saveName || undefined)
       setSaveName('')
       refetchSaves()
+      refetchTimeline()
     } catch (e) {
       console.error('Save failed', e)
     }
   }
 
   const handleLoad = async () => {
-    try { await loadWorld(loadName); setLoadName('') } catch (e) { console.error('Load failed', e) }
+    try {
+      await loadWorld(loadName)
+      setLoadName('')
+      refetchTimeline()
+    } catch (e) {
+      console.error('Load failed', e)
+    }
   }
 
   const handleDelete = async (name: string) => {
@@ -245,6 +259,20 @@ export default function ProductionDashboardPage() {
         </section>
       </div>
 
+      {timeline && (
+        <section className="rounded-lg border p-4 space-y-3">
+          <h2 className="font-semibold">Timeline ({timeline.length})</h2>
+          <p className="text-xs text-muted-foreground">
+            Loading an earlier save and continuing creates a new branch - no branch is the "correct" one, each is its own valid history.
+          </p>
+          {timeline.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No saves yet.</p>
+          ) : (
+            <TimelineTree entries={timeline} />
+          )}
+        </section>
+      )}
+
       {backups && (
         <section className="rounded-lg border p-4 space-y-3">
           <h2 className="font-semibold">Backups ({backups.count})</h2>
@@ -284,6 +312,27 @@ export default function ProductionDashboardPage() {
       )}
     </div>
   )
+}
+
+// RFC-017: renders the flat save list as a branch tree, client-side, from
+// each entry's parentSaveId - the same "server returns flat data, client
+// renders structure" pattern already used elsewhere in the Observatory.
+function TimelineTree({ entries }: { entries: TimelineSaveEntry[] }) {
+  const roots = entries.filter((e) => e.parentSaveId === null || !entries.some((p) => p.id === e.parentSaveId))
+  const childrenOf = (id: string) => entries.filter((e) => e.parentSaveId === id)
+
+  const renderNode = (entry: TimelineSaveEntry, depth: number) => (
+    <div key={entry.id}>
+      <div className="flex items-center gap-2 text-xs py-0.5" style={{ paddingLeft: `${depth * 16}px` }}>
+        <span className="font-medium">{entry.name}</span>
+        <span className="text-muted-foreground">tick {entry.tick}</span>
+        <span className="text-muted-foreground">{new Date(entry.savedAt).toLocaleString()}</span>
+      </div>
+      {childrenOf(entry.id).map((child) => renderNode(child, depth + 1))}
+    </div>
+  )
+
+  return <div className="space-y-0.5 max-h-48 overflow-y-auto">{roots.map((r) => renderNode(r, 0))}</div>
 }
 
 function formatDuration(seconds: number): string {

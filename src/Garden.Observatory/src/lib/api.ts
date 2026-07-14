@@ -718,6 +718,17 @@ export interface SystemBackups {
   count: number
 }
 
+// RFC-017: a flat lineage list - each entry's parentSaveId (if any) points
+// to the save that was loaded immediately before it was created, per
+// TG-OBS-007's Timeline Branching section.
+export interface TimelineSaveEntry {
+  id: string
+  parentSaveId: string | null
+  name: string
+  tick: number
+  savedAt: string
+}
+
 export interface AssistantSummary {
   tick: number
   year: number
@@ -755,6 +766,11 @@ export async function fetchSystemSaves(): Promise<SystemSaves> {
 
 export async function fetchSystemBackups(): Promise<SystemBackups> {
   const { data } = await api.get('/system/backups')
+  return data
+}
+
+export async function fetchTimeline(): Promise<TimelineSaveEntry[]> {
+  const { data } = await api.get('/system/timeline')
   return data
 }
 

@@ -1,3 +1,4 @@
+using Garden.Core.Events;
 using Garden.Core.Interfaces;
 using Garden.World.Collections;
 using Garden.World.Entities;
@@ -8,6 +9,7 @@ namespace Garden.Engine.Systems;
 public class EconomySystem : IScheduledSystem
 {
     private readonly WorldState _worldState;
+    private readonly IEventBus _eventBus;
     private readonly ILogger<EconomySystem> _logger;
     private long _nextExecutionTick;
 
@@ -21,9 +23,10 @@ public class EconomySystem : IScheduledSystem
     public double TotalGoodsCrafted => _totalGoodsCrafted;
     public int TotalTrades => _totalTrades;
 
-    public EconomySystem(WorldState worldState, ILogger<EconomySystem> logger)
+    public EconomySystem(WorldState worldState, IEventBus eventBus, ILogger<EconomySystem> logger)
     {
         _worldState = worldState;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -34,7 +37,7 @@ public class EconomySystem : IScheduledSystem
         foreach (var settlement in _worldState.Settlements)
         {
             ProcessConsumption(settlement);
-            ProcessProduction(settlement);
+            ProcessProduction(settlement, tick);
         }
 
         _nextExecutionTick = tick + IntervalTicks;
@@ -63,7 +66,7 @@ public class EconomySystem : IScheduledSystem
         }
     }
 
-    private void ProcessProduction(Settlement settlement)
+    private void ProcessProduction(Settlement settlement, long tick)
     {
         var workshops = settlement.Buildings
             .Where(b => b.BuildingType == "Workshop" && b.Status == World.Entities.BuildingStatus.Completed)
@@ -77,6 +80,22 @@ public class EconomySystem : IScheduledSystem
                 settlement.Storage.Remove("Wood", 5);
                 settlement.Storage.Add("Planks", 3);
                 _totalGoodsCrafted += 3;
+
+                // Week 26 leftover-consolidation sweep: _totalGoodsCrafted
+                // has been tracked here since before this development cycle
+                // began, and "GoodsCrafted" already sits in
+                // SignificanceEvaluator's always-Medium whitelist, but
+                // GoodsCraftedEvent was never actually published anywhere -
+                // HistorySystem's OnGoodsCrafted subscriber existed with
+                // nothing to ever call it.
+                _eventBus.Publish(new GoodsCraftedEvent
+                {
+                    Tick = tick,
+                    SettlementId = settlement.Id,
+                    SettlementName = settlement.Name,
+                    Product = "Planks",
+                    Quantity = 3
+                });
 
                 _logger.LogDebug("Workshop in {Settlement} produced planks", settlement.Name);
             }

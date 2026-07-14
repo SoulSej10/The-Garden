@@ -123,6 +123,19 @@ public class SystemController : ControllerBase
         return Ok(new { Saves = saves, Count = saves.Count });
     }
 
+    // RFC-017: flat lineage list - the Observatory builds the branch tree
+    // client-side from each entry's parentSaveId, per TG-OBS-007's Timeline
+    // Branching section.
+    [HttpGet("timeline")]
+    public IActionResult GetTimeline()
+    {
+        var timeline = _saveLoadService.GetTimeline().Select(e => new
+        {
+            e.Id, e.ParentSaveId, e.Name, e.Tick, SavedAt = e.SavedAt.ToString("o")
+        }).ToList();
+        return Ok(timeline);
+    }
+
     [HttpPost("save")]
     public async Task<IActionResult> Save([FromBody] SaveRequest request)
     {
@@ -226,6 +239,7 @@ public class SystemController : ControllerBase
 
             _historyManager.Archive.Clear();
             _populationManager.Reset();
+            _saveLoadService.ResetLineage();
 
             var seed = Random.Shared.Next();
             _worldInitializer.Reinitialize(width: 100, height: 100, seed: seed);
