@@ -124,7 +124,7 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 | ~~Life Sciences foundation~~ | `TG-210`-`TG-260` (Volume IV) | **All six Volume IV foundational documents now have a shipped first increment**: Flora (Week 10, `RFC-006`), Population Ecology (Week 14, `RFC-008`, unblocked by `ADR-002`), Disease & Health (Week 15, `RFC-009`), Evolution & Adaptation (Week 16, `RFC-010`), Decomposers & Microbiology (Week 17, `RFC-011`), Fauna & Animal Behavior (Week 18, `RFC-012`). The first four applied their principle to `Citizen` (the one population that already existed); the last two introduced the minimum new aggregate state (`SoilHealth`, `WildlifePopulation`) needed since no wildlife/microbe population existed at all. Deeper Volume IV work (individual species, predator-prey, genetics) remains open-ended future scope, not tracked as a single backlog row anymore. |
 | `HistorySystem.Archive()`'s `LocationY` was always `LocationX + 1` | Week 10 Day 48 finding, **fixed 2026-07-10** | Affected all ~25 `Archive()` call sites (every historical event type), not just this week's new ones — every historical record's Y coordinate was silently wrong since Week 1. No prior test asserted on `LocationY`, which is why it went undetected. Fixed by giving `Archive()` separate `locationX`/`locationY` parameters and updating all 25 call sites; a new regression test locks in the correct behavior. Verified live: `locationY` now genuinely independent of `locationX`. |
 | ~~Borders & Territorial Dynamics~~ | `TG-620_Borders_Territorial_Dynamics.md` (scoped via `RFC-007`) | **Scoped for Week 11 (2026-07-10) via `RFC/RFC-007-borders-territorial-influence.md`** — a regional-influence field derived from existing Population/Legitimacy, replacing the flat ever-growing `TerritoryRadius` int with something that can also contract. |
-| Warfare & Military Organization | `TG-640_Warfare_Military_Organization.md` | Largest single unimplemented system in the whole library; spec gives no combat-resolution, morale, or logistics-attrition formulas at all. |
+| ~~Warfare & Military Organization~~ | `TG-640_Warfare_Military_Organization.md` (scoped via `RFC-013`) | **Shipped Weeks 19-20 (2026-07-13)** — `Settlement.MilitaryStrength` + a pure in-memory `War` entity + `WarfareSystem` escalates active border disputes between Hostile settlements into declared war, resolves yearly battle attrition, and negotiates peace. Full army/logistics/command-structure organization remains deferred. |
 | ~~Infrastructure-as-network~~ | `TG-660_Infrastructure.md` (scoped via `ADR-003`/`RFC-014`) | **Shipped Weeks 21-22 (2026-07-14)** — `ADR-003` resolved the philosophy conflict by extending the already-existing `TradeRoute` entity (route-level `InfrastructureQuality`, growing with sustained trade and decaying with neglect) rather than rewriting `Building`/`ConstructionSystem`. `Building.cs`/`ConstructionSystem` left untouched. |
 | ~~Science & Technology redesign~~ | `TG-670_Science_Technology.md` (scoped via `ADR-004`/`RFC-015`) | **Shipped Week 23 (2026-07-14)** — `ADR-004` identified the real defect underneath the "predefined technology tree" framing: `Technology.CurrentProgress`/`IsDiscovered` were shared across every settlement, making Independent Discovery/Parallel Inventions/Technological Divergence structurally impossible. `RFC-015` fixed this with a new per-settlement `SettlementTechnology` entity plus an Intelligence-driven research-contribution factor. |
 | ~~Legends & Myths generation~~ | `TG-STRY-040_Legends_Myths.md` (scoped via `RFC-016`) | **Shipped Week 24 (2026-07-14)** — a new `Legend` entity + `LegendSystem` distorts already-High-importance `HistoricalRecord`s once they age past a 3-year Historical Distance threshold, via category-keyed templates matching `TG-STRY-040`'s named transformations. 46 organic legends confirmed live within a Year-5 verification window. |
@@ -138,11 +138,10 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 | ~~`DialectFormedEvent` never archived by `HistorySystem`~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 31** | `HistorySystem` subscribes to all 12 of Week 1's original `CivilizationEvent` types, but `DialectFormedEvent` (added Week 6) was never added alongside them — reproducing the exact TG-001 Law IV ("History Is Permanent") violation Week 1 Day 1 was created to close, this time on new code rather than old. |
 | ~~`EmotionalState` never surfaced in the Observatory~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 32** | `Citizen.Emotions` (6 emotions, Week 3 Days 11-12) is returned by `CitizensController.GetCitizen` but `CitizenDetail`/`CitizensPage.tsx` never expose or render it — confirmed via grep, zero references anywhere in `Garden.Observatory`. Week 4 Day 16 surfaced Settlement tier/Governance but nothing ever covered surfacing Emotion on the Citizen page itself. |
 | ~~`Relationship` data never surfaced in the Observatory~~ | 2026-07-10 audit finding, **scheduled Week 7 Day 33** | `CitizensController` has a dedicated `GET /citizens/{id}/relationships` endpoint (Trust/Affection/SocialDistance per pair, Week 3 Day 13) that the frontend never calls — confirmed via grep, no "relationship" reference in `CitizensPage.tsx` or anywhere else in the Observatory beyond an unrelated `tradeRelationships: unknown` placeholder field. |
-| Legends & Myths generation | `TG-STRY-040_Legends_Myths.md` | Needs Character Stories + Civilization Stories + Historical Narrative all functioning first; currently the deepest dependency chain in `04_Story`. |
 | ~~Replay & Timeline Branching~~ | `TG-OBS-007_Save_Load_Replay.md` (scoped via `RFC-017`) | **Shipped Week 25 (2026-07-14)** — fixed two real save/load fidelity bugs (`LoadAsync` never restored `WorldState.CurrentTime` or most civilization-level collections) and added save lineage (`Id`/`ParentSaveId`) so the Observatory can show which save each world continued from. Full replay/scrubbing playback remains deferred. |
 | ~~Modding & Extensibility~~ | `TG-OBS-009_Modding_Extensibility.md` (disposition via `ADR-005`) | **Formally deferred Week 26 (2026-07-14)** — `TG-OBS-009` contains no concrete data model, formula, or named event to build against (unlike every other TG-### document this project has shipped an increment for), so `ADR-005` declines to invent scope prematurely rather than fabricating a placeholder feature. |
-| Real LLM-backed AI narrator | `TG-DEV-009` Known Limitations | Current AI is template/pattern-matched. Needs a provider-integration ADR (cost, latency, determinism-safety — the AI must never be allowed to invent facts per `TG-001`). |
-| API rate limiting & versioning | `TG-DEV-009` Known Limitations | Small, well-understood scope — could be pulled forward into a future week without an RFC if prioritized. |
+| ~~Real LLM-backed AI narrator~~ | `TG-DEV-009` Known Limitations (scoped via `RFC-018`) | **Shipped Week 27 (2026-07-14)** — `IAiNarrator`/`AnthropicNarrator` grounded strictly in facts `NarrationService` already computes, falling back to the unchanged template narrative whenever no `AI:ApiKey` is configured or the request fails. |
+| ~~API rate limiting & versioning~~ | `TG-DEV-009` Known Limitations (scoped via `RFC-018`) | **Shipped Week 27 (2026-07-14)** — a global per-IP rate limiter and a `v1` route-prefix convention, plus two real production-routing bugs found and fixed alongside it (`nginx.conf`'s `/api/`/`VITE_API_URL` mismatch, missing `/simulationHub` proxy). |
 | `TradeCompletedEvent` is dead code | Week 3 Day 13, Week 4 Day 18 findings | Defined and even whitelisted as always-High significance, but never published anywhere. Not urgent (nothing currently depends on it firing), but worth either wiring a real trade trigger or removing the unused event type so it stops looking implemented. |
 
 ## Week 5 (2026-07-10, complete) — Communication: Knowledge Diffusion
@@ -890,6 +889,84 @@ genuinely dead code).
 
 ---
 
+## Week 27 (2026-07-14, complete) — Real AI Narrator + API Hardening (Final Pass)
+
+The leftover sweep found zero new gaps this time (every event since Week 19 has been wired at
+introduction time; the remaining unsubscribed events all match established precedent). This week
+closes `TG-DEV-009`'s own "Known Technical Debt" list, which already named exactly these three items:
+AI narration being template-only, no rate limiting, no API versioning.
+
+| Day | Task | Status |
+|---|---|---|
+| 132 | Leftover sweep (zero new gaps) + write `RFC/RFC-018-ai-narrator-api-hardening.md` | Done |
+| 133 | `IAiNarrator`/`NullAiNarrator`/`AnthropicNarrator` + `NarrationService.GenerateSummaryAsync` | Done |
+| 134 | Rate limiting (`Microsoft.AspNetCore.RateLimiting`, per-IP fixed window) | Done |
+| 135 | API versioning (`RoutePrefixConvention`) + `nginx.conf`/`Garden.Observatory` production-routing fixes | Done |
+| 136 | Unit tests + live verification + close-out: `DEVELOPMENT_PLAN.md`/`SPEC_INDEX.md`/`TG-DEV-009.md` updates | Done |
+
+### Days 132-136 actuals (2026-07-14)
+
+- **Day 132**: The leftover sweep (all four event files vs. `HistorySystem`) found nothing new — every
+  event introduced since Week 19 has been wired at introduction time, and this sweep double-checked
+  every remaining unsubscribed event is still either genuinely dead code (0 publish sites, confirmed
+  via grep) or deliberately excluded for tick-level frequency, matching every prior sweep's findings
+  exactly. `RFC-018` scopes the three `TG-DEV-009` Known Technical Debt items into one final week.
+- **Day 133**: `IAiNarrator` (the "pluggable AI provider" seam `TG-DEV-009` asked for) + `NullAiNarrator`
+  (default, used in every environment without a configured `AI:ApiKey`) + `AnthropicNarrator` (real HTTP
+  call to Anthropic's Messages API, grounded strictly in the same facts `NarrationService` already
+  computes deterministically, per `TG-DEV-009`'s "AI shall never... generate simulation logic"). Falls
+  back to the unchanged template narrative on any failure or absence of a key.
+- **Day 134**: A global per-IP `FixedWindowLimiter` (300 req/min, invented threshold) via ASP.NET Core's
+  built-in `RateLimiting` middleware — no new NuGet package needed.
+- **Day 135**: `RoutePrefixConvention` (a single `IApplicationModelConvention`) applies a `v1` route
+  prefix globally, rather than editing all 16 controllers. **Two real production bugs were found and
+  fixed alongside this, not deferred**: `nginx.conf`'s `/api/` proxy strips its prefix before
+  forwarding, but `Garden.Observatory`'s production build had no `VITE_API_URL` configured anywhere in
+  `docker-compose.yml`, so API calls would have hit the SPA fallback instead of the backend in a real
+  dockerized deployment; and `nginx.conf` had no proxy location at all for `/simulationHub`, the one
+  SignalR hub the frontend actually connects to. Both fixed.
+- **Day 136**: 3 new `NarrationServiceTests` + 4 new `AnthropicNarratorTests` (stubbed `HttpMessageHandler`,
+  no real network calls) — required adding a `Garden.Infrastructure` project reference to
+  `Garden.UnitTests` for the first time (257 total, up from 250). Live-verified: the versioned route
+  works and the old bare route 404s; the rate limiter rejected 22 of 310 rapid requests with `429`;
+  `/v1/assistant/summary` returned the correct template narrative (no AI key configured, as expected);
+  the Observatory Dashboard and Civilization pages still render real data through the new `/v1` routes
+  with no console errors. `TG-DEV-009`'s Known Technical Debt list updated with resolution notes for
+  all three items, following the same annotation convention already used there. Full verification:
+  build clean, 257/257 unit tests, 3/3 fast integration tests, `tsc --noEmit` clean. `RFC-018` marked
+  Implemented.
+
+**Week 27 final tally:** 257 unit tests (up from 250 — 3 `NarrationServiceTests` + 4
+`AnthropicNarratorTests`), 3 fast integration tests, full solution build clean (0 warnings/0 errors),
+`tsc --noEmit` clean.
+
+---
+
+## Project Complete (as of 2026-07-14)
+
+All 27 weeks of this development cycle are shipped. Every Backlog item that was ever scoped now has
+either a shipped first increment (with its own RFC) or a formal, documented deferral (with its own
+ADR) — nothing was silently dropped. The leftover-consolidation discipline this plan adopted from
+Week 1 onward held for the entire cycle: every week's sweep either found and fixed a real,
+previously-unnoticed gap, or confirmed zero new gaps, right through to the final week.
+
+Total unit tests grew from 50 (at `TG-DEV-009`'s original "Version 1.0" completion) to 257 across this
+cycle's 27 weeks — every single new mechanic shipped with direct test coverage, and every leftover fix
+found along the way (ten separate instances of "event published but never archived," among others) got
+its own regression test. Fast integration tests held steady at 3/3 the entire cycle once split from the
+slow suite (Week 1 Day 7).
+
+Remaining known future work (deliberately deferred, not forgotten):
+
+- Deeper Volume IV work (individual species, predator-prey, genetics) — Life Sciences foundation.
+- Military organization proper (armies, logistics, command structure) beyond dispute-escalation warfare.
+- Scientific Institutions, Knowledge Base/Research Capacity as distinct tracked state — Science & Tech.
+- Lost/suppressed/monopolized knowledge, per-settlement divergent legends, folklore merging/fading.
+- Full Replay/scrubbing playback, Comparative Replay, bookmarks/annotations — Save/Load & Replay.
+- Modding & Extensibility's entire feature set — formally deferred (`ADR-005`) until a genuine
+  extension point exists to build against.
+- Multiple simultaneous AI providers, tiered/authenticated rate limiting, a full versioning framework.
+
 ## Project-Wide Timeline Estimate (as of 2026-07-13)
 
 Asked directly: *how many weeks to finish everything?* Answered honestly, with the same
@@ -903,17 +980,15 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 
 | Weeks | Scope | Basis for the estimate |
 |---|---|---|
-| 1-26 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4), Decomposers & Microbiology (Volume IV increment 5), Fauna & Animal Behavior (Volume IV increment 6), Anomaly Cleanup 3 (Week 19 Day 92), Warfare & Military Organization (dispute escalation), Infrastructure-as-network (route quality), Anomaly Cleanup 4 (Week 23 Day 112), Science & Technology (independent per-settlement discovery), Legends & Myths (first increment), Save/Load Fidelity + Timeline Branching, Modding & Extensibility disposition + Anomaly Cleanup 5 | Actuals |
-| 27 | Real LLM-backed AI narrator + API rate limiting/versioning + final pass | Consolidating the smaller remaining items into a final week, same rationale as prior anomaly-cleanup weeks — `TradeCompletedEvent` cleanup and the `History/search` `totalRecords` bug were resolved in Weeks 12 and 26 respectively, so this row is now scoped to just the AI narrator and API hardening |
+| 1-27 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4), Decomposers & Microbiology (Volume IV increment 5), Fauna & Animal Behavior (Volume IV increment 6), Anomaly Cleanup 3 (Week 19 Day 92), Warfare & Military Organization (dispute escalation), Infrastructure-as-network (route quality), Anomaly Cleanup 4 (Week 23 Day 112), Science & Technology (independent per-settlement discovery), Legends & Myths (first increment), Save/Load Fidelity + Timeline Branching, Modding & Extensibility disposition, Real AI Narrator + API Hardening (rate limiting, versioning) | Actuals |
 
-**Total projection: ~27 weeks end-to-end (about 6.5 months), of which 26 are done —
-1 more week from here.** Treat this as a planning band, not a
-commitment: past estimate accuracy on the *already-completed* weeks has been good (every
-week landed in its planned 5 days), but every week has also found something the plan didn't
-predict — including a whole extra cleanup week (12) added mid-course for this exact reason —
-so the true number is more likely 15-20 remaining weeks than exactly 15. This section should
-be re-forecast at the end of each week, the same way `SPEC_INDEX.md`'s Change Log gets
-updated after every day.
+**Total projection: ~27 weeks end-to-end (about 6.5 months) — all 27 are done.** Every week
+landed within its planned window; the true final count matched the original estimate exactly,
+though (as this section warned throughout) the *content* of several weeks shifted from what was
+originally sketched — Week 12 was an unplanned extra cleanup week inserted mid-course, and Weeks
+19-27 each opened with a leftover-consolidation sweep that occasionally found and fixed a real bug
+before that week's headline feature even started. See "Project Complete" above for the final
+summary and remaining deliberately-deferred future work.
 
 ---
 

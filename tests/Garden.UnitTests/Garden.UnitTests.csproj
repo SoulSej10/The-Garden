@@ -14,5 +14,6 @@
     <ProjectReference Include="..\..\src\Garden.Core\Garden.Core.csproj" />
     <ProjectReference Include="..\..\src\Garden.Engine\Garden.Engine.csproj" />
     <ProjectReference Include="..\..\src\Garden.World\Garden.World.csproj" />
+    <ProjectReference Include="..\..\src\Garden.Infrastructure\Garden.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

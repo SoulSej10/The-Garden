@@ -577,9 +577,9 @@ The Garden/
 * **Migration is instant** — Citizens teleport to destination (travel time with pathfinding deferred)
 * **Kingdom leadership** — Leader is capital's leader, no distinct kingdom election mechanism
 * **Technology tree** — All undiscovered techs progress simultaneously, no unlocking dependencies
-* **AI is template-based** — Uses pattern-matched responses from historical data, not an actual LLM. Designed for pluggable AI provider in future.
-* **No rate limiting** — API has no throttling middleware yet
-* **No API versioning** — Controllers don't have version prefixes
+* ~~**AI is template-based** — Uses pattern-matched responses from historical data, not an actual LLM.~~ **Resolved 2026-07-14** (`DEVELOPMENT_PLAN.md` Week 27, `RFC-018`) — `IAiNarrator`/`AnthropicNarrator` added as the pluggable-provider seam this note asked for; falls back to the template narrative (still fully intact, unchanged) whenever no `AI:ApiKey` is configured or the request fails. Every environment this project runs in today (dev, CI) still uses the template path, by design.
+* ~~**No rate limiting** — API has no throttling middleware yet~~ **Resolved 2026-07-14** (`DEVELOPMENT_PLAN.md` Week 27, `RFC-018`) — a global per-IP fixed-window limiter (300 req/min) via ASP.NET Core's built-in `RateLimiting` middleware.
+* ~~**No API versioning** — Controllers don't have version prefixes~~ **Resolved 2026-07-14** (`DEVELOPMENT_PLAN.md` Week 27, `RFC-018`) — a `v1` route prefix applied globally via `RoutePrefixConvention`, no individual controller edited. `nginx.conf`/`Garden.Observatory` updated to match.
 * **Cached summaries** — 2-second TTL, no invalidation on underlying state changes
 * ~~**HistorySystem doesn't subscribe to civilization events** — Civilization events published but not archived~~ **Resolved 2026-07-09** (`DEVELOPMENT_PLAN.md` Week 1 Day 1) — see `SPEC_INDEX.md` Change Log.
 

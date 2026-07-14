@@ -14,10 +14,13 @@ public class AssistantController : ControllerBase
         _narrationService = narrationService;
     }
 
+    // RFC-018: tries AI-enhanced narration first, falling back to the
+    // deterministic template narrative when no AI provider is configured
+    // or the request fails - see NarrationService.GenerateSummaryAsync.
     [HttpGet("summary")]
-    public IActionResult GetSummary()
+    public async Task<IActionResult> GetSummary(CancellationToken ct)
     {
-        var summary = _narrationService.GenerateSummary();
+        var summary = await _narrationService.GenerateSummaryAsync(ct);
         return Ok(summary);
     }
 

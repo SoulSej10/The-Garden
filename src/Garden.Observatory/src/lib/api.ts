@@ -2,7 +2,11 @@ import axios from 'axios'
 
 const isDev = import.meta.env.DEV
 
-const apiUrl = import.meta.env.VITE_API_URL ?? (isDev ? 'http://localhost:5088' : '/')
+// RFC-018: the API now lives under a versioned /v1 route prefix. In
+// production, VITE_API_URL isn't set at build time, so this falls back to
+// /api/v1 - nginx.conf's /api/ location strips that segment before
+// forwarding to the backend, landing on the backend's own /v1/... routes.
+const apiUrl = import.meta.env.VITE_API_URL ?? (isDev ? 'http://localhost:5088/v1' : '/api/v1')
 
 const api = axios.create({
   baseURL: apiUrl,

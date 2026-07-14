@@ -29,6 +29,21 @@ public static class DependencyInjection
         services.AddSingleton<BackupService>();
         services.AddHostedService(sp => sp.GetRequiredService<BackupService>());
 
+        // RFC-018: AnthropicNarrator only registered when a real key is
+        // configured (Environment variables/user secrets - never hardcoded).
+        // Every environment without one (dev, CI, this project's own
+        // sandbox) gets NullAiNarrator, so NarrationService's template
+        // fallback is always what actually runs today.
+        if (!string.IsNullOrWhiteSpace(configuration["AI:ApiKey"]))
+        {
+            services.AddSingleton<HttpClient>();
+            services.AddSingleton<IAiNarrator, AnthropicNarrator>();
+        }
+        else
+        {
+            services.AddSingleton<IAiNarrator, NullAiNarrator>();
+        }
+
         return services;
     }
 

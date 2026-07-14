@@ -1,3 +1,5 @@
+using System.Threading.RateLimiting;
+using Garden.Api;
 using Garden.Api.Hubs;
 using Garden.Api.Services;
 using Garden.Engine.Generation;
@@ -6,15 +8,37 @@ using Garden.Engine.Systems;
 using Garden.Infrastructure.Configuration;
 using Garden.Infrastructure.Persistence;
 using Garden.World.Collections;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+// RFC-018: TG-DEV-009's "API versioning" - a single global route prefix
+// applied via convention rather than editing every controller.
+builder.Services.AddControllers(options =>
+    options.Conventions.Add(new RoutePrefixConvention("v1")));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSignalR();
 builder.Services.AddMemoryCache();
+
+// RFC-018: TG-DEV-009's "rate limiting" - one global fixed-window policy,
+// partitioned per client IP so one heavy Observatory session can't starve
+// every other client. 300/minute is generous enough for the Observatory's
+// own polling cadence (the busiest page polls every 5s across ~6 queries).
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 300,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
 
 builder.Services.AddGardenInfrastructure(builder.Configuration);
 builder.Services.AddGardenEngine();
@@ -130,6 +154,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors();
+app.UseRateLimiter();
 app.MapControllers();
 app.MapHub<SimulationHub>("/simulationHub");
 app.MapHub<EnvironmentHub>("/environmentHub");

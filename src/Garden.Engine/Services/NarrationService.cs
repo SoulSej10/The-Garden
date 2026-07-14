@@ -9,18 +9,24 @@ public class NarrationService
 {
     private readonly WorldState _worldState;
     private readonly HistoricalArchive _archive;
+    private readonly IAiNarrator _aiNarrator;
     private readonly ILogger<NarrationService> _logger;
 
     public NarrationService(
         WorldState worldState,
         HistoricalArchive archive,
+        IAiNarrator aiNarrator,
         ILogger<NarrationService> logger)
     {
         _worldState = worldState;
         _archive = archive;
+        _aiNarrator = aiNarrator;
         _logger = logger;
     }
 
+    // RFC-018: the deterministic template summary NarrationService has
+    // always produced - unchanged, and still the source of truth for every
+    // statistic/insight. Kept synchronous since existing callers expect it.
     public WorldSummary GenerateSummary()
     {
         var time = _worldState.CurrentTime;
@@ -53,6 +59,18 @@ public class NarrationService
             },
             Insights = BuildInsights(time, alive, settlements, kingdoms, records)
         };
+    }
+
+    // RFC-018: tries to enhance the template narrative via IAiNarrator - the
+    // computed facts/statistics/insights are identical to GenerateSummary(),
+    // only Narrative may change, and only when the AI narrator succeeds.
+    // A NullAiNarrator (the default with no AI:ApiKey configured) always
+    // returns null here, leaving the template narrative untouched.
+    public async Task<WorldSummary> GenerateSummaryAsync(CancellationToken ct = default)
+    {
+        var summary = GenerateSummary();
+        var enhanced = await _aiNarrator.EnhanceNarrativeAsync(summary, ct);
+        return enhanced == null ? summary : summary with { Narrative = enhanced };
     }
 
     /// <summary>
@@ -285,7 +303,10 @@ public class NarrationService
     }
 }
 
-public class WorldSummary
+// RFC-018: a record (not a plain class) so GenerateSummaryAsync can use a
+// `with` expression to swap in an AI-enhanced Narrative without duplicating
+// every other field.
+public record WorldSummary
 {
     public long Tick { get; init; }
     public int Year { get; init; }
@@ -298,7 +319,7 @@ public class WorldSummary
 
 public record WorldInsight(string Topic, string Summary);
 
-public class WorldStats
+public record WorldStats
 {
     public int TotalCitizens { get; init; }
     public int AliveCitizens { get; init; }
