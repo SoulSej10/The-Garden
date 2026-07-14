@@ -334,3 +334,24 @@ public record PeaceNegotiatedEvent : CivilizationEvent
     public GameEntityId SettlementBId { get; init; }
     public string SettlementBName { get; init; } = string.Empty;
 }
+
+// RFC-014: two of TG-660_Infrastructure.md's 10 named events -
+// InfrastructureSystem grows/decays an existing TradeRoute's
+// InfrastructureQuality based on sustained use or neglect (ADR-003).
+public record RoadConstructedEvent : CivilizationEvent
+{
+    public GameEntityId RouteId { get; init; }
+    public GameEntityId FromSettlementId { get; init; }
+    public string FromSettlementName { get; init; } = string.Empty;
+    public GameEntityId ToSettlementId { get; init; }
+    public string ToSettlementName { get; init; } = string.Empty;
+}
+
+public record InfrastructureFailureEvent : CivilizationEvent
+{
+    public GameEntityId RouteId { get; init; }
+    public GameEntityId FromSettlementId { get; init; }
+    public string FromSettlementName { get; init; } = string.Empty;
+    public GameEntityId ToSettlementId { get; init; }
+    public string ToSettlementName { get; init; } = string.Empty;
+}

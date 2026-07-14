@@ -387,9 +387,17 @@ export interface SettlementDetail {
     battlesFought: number
     intensity: number
   }>
+  tradeRoutes: Array<{
+    otherSettlementId: string
+    otherSettlementName: string
+    primaryGood: string
+    isActive: boolean
+    infrastructureQuality: number
+    tripCount: number
+    totalVolumeTransported: number
+  }>
   families: unknown
   security: unknown
-  tradeRelationships: unknown
 }
 
 export interface EconomyData {

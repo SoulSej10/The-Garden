@@ -170,7 +170,12 @@ public class TradeRouteService
         var available = from.Storage.GetQuantity(good);
         if (available < 5) return;
 
-        var amount = Math.Min(10, available);
+        // RFC-014 (specification/RFC/RFC-014-infrastructure-route-quality.md):
+        // a well-developed route moves up to 2x the base amount at maximum
+        // InfrastructureQuality - InfrastructureSystem owns that field,
+        // this is its one read of it.
+        var baseAmount = Math.Min(10, available);
+        var amount = Math.Min(available, baseAmount * (1.0 + route.InfrastructureQuality / 100.0));
         from.Storage.Remove(good, amount);
         to.Storage.Add(good, amount);
 

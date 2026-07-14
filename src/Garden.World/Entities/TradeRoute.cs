@@ -17,4 +17,10 @@ public class TradeRoute
     public bool IsActive { get; set; } = true;
     public long EstablishedTick { get; set; }
     public long LastTripTick { get; set; }
+    // RFC-014 (specification/RFC/RFC-014-infrastructure-route-quality.md):
+    // TG-660's network-connectivity concept, applied to this already-
+    // existing inter-settlement connection rather than a new Road/Network
+    // entity (ADR-003) - no formula given in the spec. InfrastructureSystem
+    // owns all updates.
+    public double InfrastructureQuality { get; set; }
 }

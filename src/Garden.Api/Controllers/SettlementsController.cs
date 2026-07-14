@@ -170,12 +170,12 @@ public class SettlementsController : ControllerBase
             settlement.WildlifePopulation,
             settlement.MilitaryStrength,
             ActiveWars = BuildActiveWars(settlement),
+            TradeRoutes = BuildTradeRoutes(settlement),
             // Not yet modeled in the simulation - surfaced as explicit
             // placeholders rather than omitted, so the UI can show them once
             // these systems exist instead of silently having no field.
             Families = (object?)null,
-            Security = (object?)null,
-            TradeRelationships = (object?)null
+            Security = (object?)null
         });
     }
 
@@ -283,6 +283,32 @@ public class SettlementsController : ControllerBase
                     OtherSettlementName = other?.Name ?? "Unknown",
                     w.BattlesFought,
                     w.Intensity
+                };
+            })
+            .ToList();
+    }
+
+    // RFC-014: this settlement's TradeRoute connections, including the
+    // InfrastructureQuality InfrastructureSystem grows/decays on each one -
+    // route-level data, not a settlement-level scalar, so surfaced as a
+    // list mirroring BuildActiveWars/BuildBorderDisputes' shape.
+    private object BuildTradeRoutes(Garden.World.Entities.Settlement settlement)
+    {
+        return _worldState.TradeRoutes
+            .Where(r => r.FromSettlementId == settlement.Id || r.ToSettlementId == settlement.Id)
+            .Select(r =>
+            {
+                var otherId = r.FromSettlementId == settlement.Id ? r.ToSettlementId : r.FromSettlementId;
+                var otherName = r.FromSettlementId == settlement.Id ? r.ToSettlementName : r.FromSettlementName;
+                return new
+                {
+                    OtherSettlementId = otherId.ToString(),
+                    OtherSettlementName = otherName,
+                    r.PrimaryGood,
+                    r.IsActive,
+                    InfrastructureQuality = Math.Round(r.InfrastructureQuality, 1),
+                    r.TripCount,
+                    r.TotalVolumeTransported
                 };
             })
             .ToList();

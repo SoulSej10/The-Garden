@@ -894,4 +894,46 @@ public class HistorySystemCivilizationEventTests
         Assert.Equal("PeaceNegotiated", record.EventType);
         Assert.Equal(HistoryCategories.War, record.Category);
     }
+
+    [Fact]
+    public void RoadConstructed_IsArchived()
+    {
+        // Regression test per RFC-014: subscribed at introduction time,
+        // continuing the practice reinforced Week 12 Day 61.
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new RoadConstructedEvent
+        {
+            Tick = 8800,
+            RouteId = GameEntityId.New(),
+            FromSettlementId = GameEntityId.New(),
+            FromSettlementName = "Rivermoot",
+            ToSettlementId = GameEntityId.New(),
+            ToSettlementName = "Upperridge"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("RoadConstructed", record.EventType);
+        Assert.Equal(HistoryCategories.Trade, record.Category);
+    }
+
+    [Fact]
+    public void InfrastructureFailure_IsArchived()
+    {
+        var (bus, archive, _) = CreateHarness();
+
+        bus.Publish(new InfrastructureFailureEvent
+        {
+            Tick = 8900,
+            RouteId = GameEntityId.New(),
+            FromSettlementId = GameEntityId.New(),
+            FromSettlementName = "Rivermoot",
+            ToSettlementId = GameEntityId.New(),
+            ToSettlementName = "Upperridge"
+        });
+
+        var record = Assert.Single(archive.Records);
+        Assert.Equal("InfrastructureFailure", record.EventType);
+        Assert.Equal(HistoryCategories.Trade, record.Category);
+    }
 }

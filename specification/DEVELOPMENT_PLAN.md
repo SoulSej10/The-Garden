@@ -125,7 +125,7 @@ it can get its own day-to-day plan. Listed roughly by dependency order, not prio
 | `HistorySystem.Archive()`'s `LocationY` was always `LocationX + 1` | Week 10 Day 48 finding, **fixed 2026-07-10** | Affected all ~25 `Archive()` call sites (every historical event type), not just this week's new ones — every historical record's Y coordinate was silently wrong since Week 1. No prior test asserted on `LocationY`, which is why it went undetected. Fixed by giving `Archive()` separate `locationX`/`locationY` parameters and updating all 25 call sites; a new regression test locks in the correct behavior. Verified live: `locationY` now genuinely independent of `locationX`. |
 | ~~Borders & Territorial Dynamics~~ | `TG-620_Borders_Territorial_Dynamics.md` (scoped via `RFC-007`) | **Scoped for Week 11 (2026-07-10) via `RFC/RFC-007-borders-territorial-influence.md`** — a regional-influence field derived from existing Population/Legitimacy, replacing the flat ever-growing `TerritoryRadius` int with something that can also contract. |
 | Warfare & Military Organization | `TG-640_Warfare_Military_Organization.md` | Largest single unimplemented system in the whole library; spec gives no combat-resolution, morale, or logistics-attrition formulas at all. |
-| Infrastructure-as-network | `TG-660_Infrastructure.md` | Spec explicitly rejects the building-centric model the current `ConstructionSystem`/`Building.cs` uses — this is a philosophy-vs-implementation conflict that needs a decision, not just new code. |
+| ~~Infrastructure-as-network~~ | `TG-660_Infrastructure.md` (scoped via `ADR-003`/`RFC-014`) | **Shipped Weeks 21-22 (2026-07-14)** — `ADR-003` resolved the philosophy conflict by extending the already-existing `TradeRoute` entity (route-level `InfrastructureQuality`, growing with sustained trade and decaying with neglect) rather than rewriting `Building`/`ConstructionSystem`. `Building.cs`/`ConstructionSystem` left untouched. |
 | Science & Technology redesign | `TG-670_Science_Technology.md` | Spec explicitly disclaims "a predefined technology tree"; current `Technology.cs` is exactly that. Needs an ADR: change the doc to match reality, or redesign the system to match the doc. |
 | ~~Communication~~ / ~~Language~~ / ~~Education~~ / ~~Law & Justice~~ | `TG-500` (scoped, shipped), `TG-510` (scoped, shipped), `TG-550` (scoped, shipped), `TG-590` (scoped, shipped) | **Communication shipped Week 5, Language shipped Week 6, Education shipped Week 8, Law & Justice shipped Week 9 — see `RFC/RFC-002` through `RFC/RFC-005`.** All four Volume VI items originally grouped together are now shipped. |
 | ~~`RelationshipSystem` has too narrow a trigger set~~ | Week 8 Day 39 + Week 9 Day 44 findings, **fixed Week 12 Days 56-57 (2026-07-13)** | Two related gaps found back-to-back: (1) `RelationshipSystem`'s only live trigger (`CitizenBornEvent`) bonded a newborn's two *parents*, never the parent and the child — making `EducationSystem`'s mentor/student pairing structurally unreachable; (2) both of `RelationshipSystem`'s triggers applied only *positive* Trust deltas — nothing ever lowered Trust, making `LawSystem`'s dispute detection (`Trust < 20`) equally unreachable. Fixed by also bonding each parent with the newborn (Day 56), and by adding `OnCitizenDied` — a close mourner's Trust drops in their *other* existing relationships (Day 57). 3 new tests. **Live re-verification (Day 59) ran ~3 in-game years and saw neither mechanic fire organically** — no citizen died in that window — consistent with this project's precedent of not fabricating false positives; both mechanisms are directly unit-tested. |
@@ -705,6 +705,54 @@ clean (0 warnings/0 errors).
 
 ---
 
+## Week 21 (2026-07-14, complete) — Infrastructure: ADR + Route Quality Mechanic
+
+Per direct user request to proceed with the Infrastructure-as-network Backlog item, which had sat
+unresolved since Week 10 pending a philosophy-vs-implementation decision (see the Backlog table
+above).
+
+| Day | Task | Status |
+|---|---|---|
+| 102 | Write `ADR-003-infrastructure-network-disposition.md` (resolve `TG-660` vs. `ConstructionSystem`/`Building.cs`) | Done |
+| 103 | Write `RFC/RFC-014-infrastructure-route-quality.md` | Done |
+| 104 | `TradeRoute.InfrastructureQuality`/`EstablishedTick`/`LastTripTick` fields + `InfrastructureSystem` skeleton | Done |
+| 105 | Quality growth/decay mechanic + `TradeRouteService.ExecuteTrip` feedback + `RoadConstructed`/`InfrastructureFailure` events, `HistorySystem` wired at introduction time | Done |
+| 106 | Unit tests for `InfrastructureSystem` | Done |
+
+### Days 102-106 actuals (2026-07-14)
+
+- **Day 102**: `ADR-003` decided to extend the already-existing `TradeRoute` entity rather than rewrite `Building`/`ConstructionSystem` into a graph, or invent a parallel `Road`/`Network` entity — `TG-660`'s "network, not isolated structures" framing is satisfied by treating the inter-settlement connection that already exists as the network, continuing this series' "reuse an existing field/entity" discipline (RFC-004 onward).
+- **Day 103**: `RFC-014` written, scoping route-level `InfrastructureQuality` growth/decay feeding back into `TradeRouteService.ExecuteTrip`'s transported volume — the third RFC in this series (after `RFC-011`, `RFC-013`) to write into an earlier system's mechanic, not just observe it.
+- **Day 104**: `TradeRoute` gained `InfrastructureQuality`/`EstablishedTick`/`LastTripTick`. Confirmed by reading `TradeRoute.cs` that the entity is pure in-memory (no EF mapping) before concluding no migration was needed — deliberately checked given the Week 17/Week 19-20 EF migration near-misses/incidents.
+- **Day 105**: `InfrastructureSystem` (monthly cadence) grows quality with trips gained since the last evaluation, decays it for inactive routes, and publishes `RoadConstructedEvent`/`InfrastructureFailureEvent` on threshold crossings with hysteresis (become road at quality ≥50, revert only below 10) to avoid flapping. A first-draft hysteresis implementation was caught as overly convoluted during self-review and rewritten before any test ran against it. Both events subscribed to `HistorySystem` at introduction time (`HistoryCategories.Trade`, severity 5.0 — avoiding the Week 15 "severity 4.0 silently dropped" bug class).
+- **Day 106**: 7 new `InfrastructureSystemTests` covering growth, decay, floor-at-zero, and event firing/non-refiring in both directions.
+
+---
+
+## Week 22 (2026-07-14, complete) — Infrastructure: Observatory Surfacing + Close-out
+
+| Day | Task | Status |
+|---|---|---|
+| 107 | Confirm `TradeRouteServiceTests` regression-free after the `ExecuteTrip` multiplier change | Done |
+| 108 | Observatory surfacing: `SettlementsController` `TradeRoutes` list (replacing the `TradeRelationships` placeholder), `SettlementsPage.tsx` Infrastructure section | Done |
+| 109 | Full verification: build, unit tests, fast integration tests, `tsc --noEmit` | Done |
+| 110 | Live verification via Browser pane preview servers | Done |
+| 111 | Close-out: `RFC-014` implementation notes, `DEVELOPMENT_PLAN.md`/`SPEC_INDEX.md`/Backlog/timeline updates, commit/push | Done |
+
+### Days 107-111 actuals (2026-07-14)
+
+- **Day 107**: Confirmed by running `TradeRouteServiceTests` directly — all 3 pre-existing tests pass unchanged, since `InfrastructureQuality` defaults to `0.0` and the multiplier is an exact no-op at that value.
+- **Day 108**: `SettlementsController.GetById` gained a `TradeRoutes` list (counterpart settlement, primary good, active status, `InfrastructureQuality`, trip count, total volume), replacing the `TradeRelationships: null` placeholder that had sat there since Week 19-20 — this is route-level data, not a settlement scalar, so it's a list rather than a single field, unlike every prior week's single-field settlement additions. `SettlementsPage.tsx` gained an "Infrastructure" section with a per-route quality progress bar.
+- **Day 109**: Full solution build clean (0 warnings/0 errors). Unit tests: 231 passing (up from 222 — 7 `InfrastructureSystemTests` + 2 `HistorySystem` regression tests). Fast integration tests: 3/3 passing. `tsc --noEmit` clean.
+- **Day 110**: Live-verified via the Browser pane at 1000x speed. **Legitimate non-finding**: this run's four settlements are all >25 tiles apart (closest pair 46 tiles, farthest 116) — `TradeRouteService`'s pre-existing (Week 6) distance cap — so no trade routes, and therefore no organic `InfrastructureQuality` growth, occurred. The mechanism itself is verified correct via the 7 unit tests; the end-to-end data path (API → Observatory detail fetch → empty-state render) was confirmed by inspecting the real `/settlements/{id}` response and the network request the UI made when opening a settlement's detail panel. No console errors.
+- **Day 111**: `RFC-014` marked Accepted with implementation notes filled in. Close-out documentation and commit.
+
+**Week 21-22 combined final tally:** 231 unit tests (up from 222 — 7 `InfrastructureSystemTests` + 2
+`HistorySystem` regression tests), 3 fast integration tests, full solution build clean (0
+warnings/0 errors), `tsc --noEmit` clean.
+
+---
+
 ## Project-Wide Timeline Estimate (as of 2026-07-13)
 
 Asked directly: *how many weeks to finish everything?* Answered honestly, with the same
@@ -718,16 +766,15 @@ parity (Language's own RFC defers Vocabulary/Grammar/Writing indefinitely, for e
 
 | Weeks | Scope | Basis for the estimate |
 |---|---|---|
-| 1-20 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4), Decomposers & Microbiology (Volume IV increment 5), Fauna & Animal Behavior (Volume IV increment 6), Anomaly Cleanup 3 (Week 19 Day 92), Warfare & Military Organization (dispute escalation) | Actuals |
-| 21-22 | Infrastructure-as-network | Needs an ADR first (philosophy conflict with current `ConstructionSystem`), then whatever that ADR decides — budgeted 2 weeks |
+| 1-22 (done) | Stabilization, Test/CI, Emotion+Relationships, Observatory polish, Communication, Language, Anomaly cleanup, Education, Law & Justice, Flora History (Volume IV increment 1), Borders & Territorial Dynamics, Anomaly Cleanup 2, the `AgricultureSystem` ADR, Population Ecology (Volume IV increment 2), Disease & Health (Volume IV increment 3), Evolution & Adaptation (Volume IV increment 4), Decomposers & Microbiology (Volume IV increment 5), Fauna & Animal Behavior (Volume IV increment 6), Anomaly Cleanup 3 (Week 19 Day 92), Warfare & Military Organization (dispute escalation), Infrastructure-as-network (route quality) | Actuals |
 | 23 | Science & Technology redesign | ADR-first, likely resolves to a doc/reality reconciliation rather than a full rebuild — budgeted 1 week, could shrink |
 | 24 | Legends & Myths generation | Its own dependencies (Character/Civilization Stories, Historical Narrative) already exist, so this is closer to Communication/Language in size |
 | 25 | Replay & Timeline Branching | A real architecture addition on top of existing save/load — budgeted 1 week, could grow once scoped |
 | 26 | Modding & Extensibility | Explicitly deferred by its own spec until core Observatory work is done — likely to move later, not sooner |
 | 27 | Real LLM-backed AI narrator + API rate limiting/versioning + `TradeCompletedEvent` cleanup + `History/search` `totalRecords` bug + final pass | Consolidating the smaller remaining items into a final week, same rationale as prior anomaly-cleanup weeks |
 
-**Total projection: ~27 weeks end-to-end (about 6.5 months), of which 20 are done —
-roughly 7 more weeks from here.** Treat this as a planning band, not a
+**Total projection: ~27 weeks end-to-end (about 6.5 months), of which 22 are done —
+roughly 5 more weeks from here.** Treat this as a planning band, not a
 commitment: past estimate accuracy on the *already-completed* weeks has been good (every
 week landed in its planned 5 days), but every week has also found something the plan didn't
 predict — including a whole extra cleanup week (12) added mid-course for this exact reason —

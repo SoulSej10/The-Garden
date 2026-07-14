@@ -164,6 +164,12 @@ public class HistorySystem : IScheduledSystem
         _eventBus.Subscribe<WarDeclaredEvent>(OnWarDeclared);
         _eventBus.Subscribe<BattleFoughtEvent>(OnBattleFought);
         _eventBus.Subscribe<PeaceNegotiatedEvent>(OnPeaceNegotiated);
+
+        // RFC-014 (specification/RFC/RFC-014-infrastructure-route-quality.md):
+        // subscribed at introduction time, continuing the practice
+        // reinforced Week 12 Day 61.
+        _eventBus.Subscribe<RoadConstructedEvent>(OnRoadConstructed);
+        _eventBus.Subscribe<InfrastructureFailureEvent>(OnInfrastructureFailure);
     }
 
     private void OnCitizenBorn(CitizenBornEvent e)
@@ -679,6 +685,26 @@ public class HistorySystem : IScheduledSystem
             e.SettlementAName, 0, 0, e.Tick,
             [e.SettlementAId.Value.ToString(), e.SettlementBId.Value.ToString()],
             [e.SettlementAName, e.SettlementBName], 7.0, e.SettlementAId.Value.ToString());
+    }
+
+    private void OnRoadConstructed(RoadConstructedEvent e)
+    {
+        Archive(HistoryCategories.Trade, "RoadConstructed",
+            $"A Road Forms Between {e.FromSettlementName} and {e.ToSettlementName}",
+            $"Sustained trade between {e.FromSettlementName} and {e.ToSettlementName} has built up a real road along their route.",
+            e.FromSettlementName, 0, 0, e.Tick,
+            [e.FromSettlementId.Value.ToString(), e.ToSettlementId.Value.ToString()],
+            [e.FromSettlementName, e.ToSettlementName], 5.0);
+    }
+
+    private void OnInfrastructureFailure(InfrastructureFailureEvent e)
+    {
+        Archive(HistoryCategories.Trade, "InfrastructureFailure",
+            $"The Road Between {e.FromSettlementName} and {e.ToSettlementName} Falls Into Disrepair",
+            $"Neglect has reduced the route between {e.FromSettlementName} and {e.ToSettlementName} back to a mere footpath.",
+            e.FromSettlementName, 0, 0, e.Tick,
+            [e.FromSettlementId.Value.ToString(), e.ToSettlementId.Value.ToString()],
+            [e.FromSettlementName, e.ToSettlementName], 5.0);
     }
 
     private void Archive(string category, string eventType, string title, string description,

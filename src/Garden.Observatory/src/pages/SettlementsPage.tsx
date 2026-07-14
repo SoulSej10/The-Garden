@@ -467,9 +467,33 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
       </div>
 
       <div>
+        <h3 className="mb-2 text-sm font-medium">Infrastructure</h3>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Route quality grows with sustained trade traffic and decays when a route falls idle. Routes reaching 50 quality become roads, moving up to twice the goods of a footpath.
+        </p>
+        {detail.tradeRoutes.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No trade routes</p>
+        ) : (
+          <div className="space-y-1">
+            {detail.tradeRoutes.map((r) => (
+              <div key={r.otherSettlementId} className="flex items-center justify-between rounded border px-3 py-1.5 text-sm">
+                <span>
+                  {r.otherSettlementName} ({r.primaryGood}){!r.isActive && ' — inactive'}
+                </span>
+                <span className="flex items-center gap-2">
+                  <Progress value={r.infrastructureQuality} className="w-20" />
+                  <span className="w-10 text-right text-xs">{r.infrastructureQuality.toFixed(0)}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
         <h3 className="mb-2 text-sm font-medium">Not Yet Tracked</h3>
         <p className="text-xs text-muted-foreground">
-          Families, security, and trade relationships aren't modeled in the simulation yet - this panel will show them here once those systems exist.
+          Families and security aren't modeled in the simulation yet - this panel will show them here once those systems exist.
         </p>
       </div>
 
