@@ -198,6 +198,24 @@ public class CitizenSystem : IScheduledSystem
             return;
         }
 
+        // RFC-019 (companion fix, found during the 100-year live test): every
+        // goal here is re-decided from scratch each tick with nothing to
+        // persist intent across ticks except the Last*Day throttles that
+        // gate re-triggering the SAME decision - "Relocate" was reachable
+        // and did get set, but the very next tick's farm-planting/gather
+        // checks (which have no such throttle) simply overwrote it before
+        // the citizen ever took a single step toward the target settlement.
+        // Sticky until arrival (MoveTowardGoal's Relocate handling clears
+        // the goal there) or until a genuine critical need pre-empts it above.
+        if (citizen.CurrentGoal == "Relocate" && citizen.HomeSettlementId != null)
+        {
+            var relocationSettlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+            if (relocationSettlement != null && FindBetterSettlement(citizen, relocationSettlement) != null)
+            {
+                return;
+            }
+        }
+
         // Audit finding 3c: a completed Farm with no one ever planting seeds
         // just sits idle forever, because the warning-level need checks
         // below used to return before this settlement-work was ever
@@ -337,6 +355,46 @@ public class CitizenSystem : IScheduledSystem
                     return;
                 }
 
+                // RFC-019: nothing previously let an already-settled citizen
+                // ever leave - only a homeless citizen could seek out or
+                // found a settlement. Live testing during the growth
+                // rebalancing pass found settlements sitting at excellent
+                // soil health with zero residents while others starved on
+                // poor land with real population, because there was no way
+                // for anyone to redistribute toward carrying capacity.
+                // Gated on sustained hardship (not a momentary dip), a real
+                // reachable alternative, and a small daily chance so a
+                // settlement doesn't empty out overnight.
+                //
+                // Placement note: this must be checked BEFORE needsPlanting
+                // below, not after - a 100-year live test found the reorder
+                // was necessary because "food-stressed enough to relocate"
+                // and "farm needs seeds" are almost perfectly correlated in
+                // a struggling settlement (a farm that can't keep its Seeds
+                // above the replant threshold *is* what hardship looks like
+                // here), so needsPlanting was true on nearly every tick a
+                // relocation-worthy citizen would otherwise have been
+                // evaluated, and FarmWork won every single time - the
+                // relocation check was live and reachable in code but
+                // functionally dead in practice.
+                var relocationDay = _worldState.CurrentTime.Tick / 24;
+                if (citizen.LastRelocationCheckDay != relocationDay)
+                {
+                    citizen.LastRelocationCheckDay = relocationDay;
+                    var homeFoodPerCapita = settlement.Storage.GetQuantity("Food") / Math.Max(1, settlement.MemberIds.Count);
+                    if (homeFoodPerCapita < HardshipFoodPerCapitaThreshold
+                        && System.Random.Shared.NextDouble() < DailyRelocationChance)
+                    {
+                        var betterSettlement = FindBetterSettlement(citizen, settlement);
+                        if (betterSettlement != null)
+                        {
+                            citizen.CurrentGoal = "Relocate";
+                            citizen.CurrentActivity = $"Relocating to {betterSettlement.Name}";
+                            return;
+                        }
+                    }
+                }
+
                 // A completed Farm building with no one ever planting seeds
                 // in it just sits idle forever - AgricultureSystem only
                 // turns Seeds into Food, it never creates Seeds. Without
@@ -456,6 +514,29 @@ public class CitizenSystem : IScheduledSystem
             }
         }
 
+        if (citizen.CurrentGoal == "Relocate" && citizen.HomeSettlementId != null)
+        {
+            var oldSettlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+            var target = oldSettlement != null ? FindBetterSettlement(citizen, oldSettlement) : null;
+            if (target != null && target.IsWithinTerritory(citizen.TileX, citizen.TileY))
+            {
+                // Mirrors CitizenSystem's own OnCitizenDied cleanup and
+                // SettlementManager.JoinSettlement - a relocation is a
+                // departure from the old settlement immediately followed by
+                // the same arrival logic a homeless citizen already gets.
+                oldSettlement?.MemberIds.Remove(citizen.Id);
+                if (oldSettlement != null) oldSettlement.Population = oldSettlement.MemberIds.Count;
+
+                _settlementManager.JoinSettlement(target, citizen);
+                citizen.CurrentActivity = $"Settled in {target.Name}";
+                citizen.CurrentGoal = "None";
+
+                _logger.LogInformation("{Name} relocated from {Old} to {New}",
+                    $"{citizen.FirstName} {citizen.LastName}", oldSettlement?.Name ?? "an abandoned settlement", target.Name);
+                return;
+            }
+        }
+
         if (citizen.CurrentGoal == "GatherResources" && citizen.HomeSettlementId != null)
         {
             var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
@@ -539,6 +620,18 @@ public class CitizenSystem : IScheduledSystem
             {
                 var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY,
                     t => nearest.IsWithinTerritory(t.X, t.Y), maxRadius: 70);
+                if (path.Count > 0) return path;
+            }
+        }
+
+        if (citizen.CurrentGoal == "Relocate" && citizen.HomeSettlementId != null)
+        {
+            var oldSettlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+            var target = oldSettlement != null ? FindBetterSettlement(citizen, oldSettlement) : null;
+            if (target != null)
+            {
+                var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY,
+                    t => target.IsWithinTerritory(t.X, t.Y), maxRadius: 70);
                 if (path.Count > 0) return path;
             }
         }
@@ -716,6 +809,13 @@ public class CitizenSystem : IScheduledSystem
     private const int MaxUnbuiltHousePlans = 2;
     private const int MaxUnbuiltFarmPlans = 1;
 
+    // RFC-019: invented thresholds (no design doc gives numbers) - order of
+    // magnitude matches ReproductionSystem's DailyConceptionChance (gradual,
+    // observable over weeks, not an instant reshuffle).
+    private const double HardshipFoodPerCapitaThreshold = 0.5;
+    private const double RelocationTargetFoodPerCapitaThreshold = 2.0;
+    private const double DailyRelocationChance = 0.03;
+
     private static string? GetNextNeededBuilding(Settlement settlement)
     {
         bool Has(string type) => settlement.Buildings
@@ -761,13 +861,24 @@ public class CitizenSystem : IScheduledSystem
         // House/Workshop rather than never being queued at all.
         if (!Has(BuildingTypes.Healer)) return BuildingTypes.Healer;
 
+        // Growth rebalancing finding (100-year live test): House's cost
+        // gained a Planks requirement in the economy fix (giving Workshop's
+        // output a consumer), but Workshop used to be queued strictly
+        // AFTER House - a genuine deadlock. A settlement could never
+        // satisfy House's Planks requirement because it would never build
+        // the one building that produces Planks until its (permanently
+        // unsatisfiable) housing need was already met first. Live-confirmed:
+        // a settlement sat with 0 buildings added for 5+ years, citizens
+        // endlessly "Gathering Materials" for a House that could never
+        // complete. Workshop now comes first, so Planks exist before
+        // anything ever needs them.
+        if (!Has(BuildingTypes.Workshop)) return BuildingTypes.Workshop;
+
         var unbuiltHouses = settlement.Buildings.Count(b =>
             b.BuildingType == BuildingTypes.House
             && b.Status is BuildingStatus.Planned or BuildingStatus.UnderConstruction);
         if (!settlement.HasAvailableHousing && unbuiltHouses < MaxUnbuiltHousePlans)
             return BuildingTypes.House;
-
-        if (!Has(BuildingTypes.Workshop)) return BuildingTypes.Workshop;
 
         return null;
     }
@@ -797,6 +908,19 @@ public class CitizenSystem : IScheduledSystem
             c.IsAlive && c.Id != citizen.Id && infectedIds.Contains(c.Id) && IsImmediateFamily(c));
     }
 
+    // RFC-019: the nearest reachable settlement whose food-per-capita clears
+    // RelocationTargetFoodPerCapitaThreshold and that has room to actually
+    // house a new arrival - a citizen fleeing hardship shouldn't just trade
+    // one hardship for another, or displace someone already there.
+    private Settlement? FindBetterSettlement(Citizen citizen, Settlement home)
+    {
+        return _worldState.Settlements
+            .Where(s => s.Id != home.Id && s.HasAvailableHousing)
+            .Where(s => s.Storage.GetQuantity("Food") / Math.Max(1, s.MemberIds.Count) >= RelocationTargetFoodPerCapitaThreshold)
+            .OrderBy(s => Math.Abs(s.TileX - citizen.TileX) + Math.Abs(s.TileY - citizen.TileY))
+            .FirstOrDefault();
+    }
+
     private static string? GetNeededMaterial(Settlement settlement)
     {
         var neededBuilding = GetNextNeededBuilding(settlement);
@@ -804,7 +928,16 @@ public class CitizenSystem : IScheduledSystem
 
         var costs = BuildingTypes.GetCost(neededBuilding);
 
+        // Growth rebalancing finding: this used to consider every cost
+        // line item, including crafted goods like Planks that have no
+        // gatherable ResourceType (see MaterialToResource) - a citizen
+        // told to "gather" Planks had no deposit to ever find, silently
+        // wandering instead of gathering anything, forever. Only
+        // raw materials an actual tile deposit can supply are candidates
+        // here; a crafted-good shortfall is resolved by building whatever
+        // produces it (Workshop), not by sending someone to gather it.
         return costs
+            .Where(c => MaterialToResource.ContainsKey(c.Material))
             .Select(c => (c.Material, Shortfall: c.Amount - settlement.Storage.GetQuantity(c.Material)))
             .Where(c => c.Shortfall > 0)
             .OrderByDescending(c => c.Shortfall)

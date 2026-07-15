@@ -51,6 +51,11 @@ public class Citizen
     // per citizen per day, mirroring LastFarmWorkDay's pattern.
     public long LastCareForFamilyDay { get; set; } = -1;
 
+    // RFC-019 (specification/RFC/RFC-019-settlement-migration-resettlement.md):
+    // throttles the settled-citizen relocation check to once per citizen per
+    // day, same pattern as the other Last*Day fields above.
+    public long LastRelocationCheckDay { get; set; } = -1;
+
     public GameEntityId? ParentAId { get; set; }
     public GameEntityId? ParentBId { get; set; }
 

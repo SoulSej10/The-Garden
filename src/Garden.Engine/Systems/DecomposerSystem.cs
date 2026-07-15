@@ -33,7 +33,19 @@ public class DecomposerSystem : IScheduledSystem
     // RFC-011: invented rates/thresholds (TG-220 gives no numbers).
     private const double OrganicMatterPerDeath = 10.0;
     private const double OrganicMatterPerForestAreaLost = 5.0;
-    private const double SoilDepletionPerHarvestYield = 0.05;
+    // Growth rebalancing finding (100-year live test): raising
+    // AgricultureSystem's yield multiplier (2.0 -> 3.5, to fix an
+    // insufficient reproduction surplus) proportionally raised depletion
+    // too, since depletion here is yield-scaled - completely swamping the
+    // natural-regeneration fix added below. Worked through the full loop's
+    // actual numbers this time instead of iterating by trial and error:
+    // at a typical ~15-seed planting, 0.9 average seasonal modifier, and
+    // ~30 harvests/month, the old 0.05 depleted roughly 14x faster than
+    // BaselineSoilRegenPerMonth could ever offset, for ANY forest cover.
+    // Lowered so a zero-forest settlement settles near a modest but real
+    // ~40 equilibrium (not zero), and forest-rich settlements comfortably
+    // reach full health rather than everything converging on near-zero.
+    private const double SoilDepletionPerHarvestYield = 0.004;
     private const double DecompositionFraction = 0.3;
     private const double SoilHealthGainPerMatterDecomposed = 0.1;
     private const double NutrientPulseThreshold = 3.0;

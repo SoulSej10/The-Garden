@@ -942,6 +942,168 @@ AI narration being template-only, no rate limiting, no API versioning.
 
 ---
 
+## Week 28 (2026-07-15, in progress) — Post-Completion Rebalancing: Making the World Actually Live
+
+Week 27 closed out the planned 27-week cycle, but closing the plan is not the same as the
+simulation actually behaving like a living world - live multi-year test runs after Week 27
+surfaced that population was structurally incapable of surviving, let alone growing, across
+several independent, previously-unnoticed bugs. This week (still open) is the response: found
+via direct observation of a running simulation, not code review alone, and each fix
+re-verified live rather than assumed correct from reading the diff. Unlike every prior week,
+this one wasn't scoped from `TG-###` spec gaps - it was scoped from the simulation itself
+refusing to cooperate with its own design intent (`TG-DEV-009`'s "a living, emergent world").
+
+**Round 1 - full-system rebalancing audit** (disease, economy, forest, AI priorities, UI):
+
+- **Disease/health**: `DiseaseSystem`'s "overcrowding" check read `Settlement.CarryingCapacity`
+  (`PopulationEcologySystem`'s `Min(HousingCapacity, Food / 3.0)`), which stayed near-zero
+  during any food shortage - making the "overcrowded" branch fire almost every day regardless of
+  real crowding. It was a disguised food-scarcity flag, not a density signal. Fixed to read
+  `HousingCapacity` directly, with food stress folded in as a separate, bounded multiplier. Added
+  `Citizen.DiseaseResistance` (grows on recovery - the "civilization adapts" mechanic that didn't
+  exist) and a `Healer` building (flat recovery-chance bonus) - the missing primitive-healthcare
+  lever `TG-260` never got past its first RFC increment.
+- **Economy**: `EconomySystem.ProcessConsumption` drained the same settlement Food/Water storage
+  independently of, and unaware of, `CitizenSystem.Eat()`/`Drink()` - two uncoordinated systems
+  taxing one resource, silently doubling consumption. Removed; `CitizenSystem`'s need-driven model
+  is now the sole consumption path. Added Planks as a real House-building cost so the
+  Wood → Workshop → Planks pipeline has a consumer instead of piling up goods with zero economic
+  activity.
+- **Forest ecosystem**: spread/conversion chances had no upper bound and no density feedback -
+  any eligible tile rolled the same flat chance regardless of total map coverage. Added a global
+  eligible-land forest-fraction damping term (a real carrying-capacity curve) and
+  `WorldTile.HarvestDepletedWeeks`-driven reversion, so sustained wood-harvesting pressure can
+  revert an over-logged Forest tile back to Grassland - closing the previously nonexistent
+  harvesting → density feedback loop.
+- **Responsive nav**: the Observatory sidebar was `hidden` below the `md` breakpoint with zero
+  mobile alternative - every route past the first became unreachable on a phone or narrow window.
+  Added a hamburger-triggered drawer.
+- **Map persistence**: view settings (layer toggles, viewport) moved from plain `useState` to a
+  `localStorage`-backed hook.
+- **Family relationships**: added real `Citizen.ParentAId`/`ParentBId` genealogy (set at birth)
+  and a `GET /citizens/{id}/family` endpoint labeling Father/Mother/Son/Daughter/Sibling/
+  Grandparent/Grandchild/Husband/Wife, replacing the undifferentiated interaction-strength
+  `Relationship` list for this specific purpose.
+- **AI priorities**: added a bounded `CareForFamily` goal - a citizen with a sick immediate
+  relative now travels to and tends them once/day, closing the "heal the sick" gap that had no
+  citizen behavior at all.
+
+Live-verified over a 10-year run (fresh 50-citizen spawn): population stabilized at 39/50 (78%)
+by Year 5 and held flat through Year 10 with zero further deaths - a fundamental change from
+every prior run's near-total collapse by Year 2-3. Disease became genuinely survivable (1394 of
+1403 infections recovered, 99.4%) instead of a death sentence.
+
+**Round 2 - chasing "why zero births after 10 years" to its actual root causes:**
+
+Population stabilized but never grew. Four further, deeper bugs were found by direct
+investigation of the running simulation's numbers, each one masking the next:
+
+1. **`DecomposerSystem`'s `SoilHealth` was a one-way ratchet to zero.** Its only income was
+   organic matter from `CitizenDied`/`ForestDeclined` events - both rare, one-off events - while
+   `FarmHarvested` (this same system's own subscription) depleted it on every single daily
+   harvest. Since `AgricultureSystem`'s yield is multiplied by `SoilHealth/100`, farms produced
+   almost nothing within a settlement's first year or two, forever. Fixing disease elsewhere
+   *reduced* deaths, ironically starving this income further. Fixed with a direct monthly
+   natural-regeneration term (baseline + forest-tile litter bonus), so soil recovers without
+   requiring something to die.
+2. **`CitizenSystem.GetNextNeededBuilding` capped every settlement at exactly one Farm, ever** -
+   a 22-person settlement had the identical food ceiling as a 7-person one. Farm count now scales
+   with population, gated on healthy soil so a struggling settlement can't compound its own
+   depletion by piling on simultaneous harvests before recovering.
+3. **`ReproductionSystem` required a 3-months-per-capita Food stockpile before any birth** -
+   unreachable at any realistic subsistence yield even with (1) and (2) fixed. Lowered to a real,
+   reachable bar; `AgricultureSystem`'s yield multiplier raised so restored soil health translates
+   into an actual surplus instead of merely matching consumption.
+4. **`Settlement.MemberIds` never removed a dead citizen.** `HousingCapacity`/
+   `HasAvailableHousing` and `ReproductionSystem`'s food-per-capita divisor both read
+   `MemberIds.Count` directly - any settlement with real mortality history (nearly all of them)
+   reported "housing at capacity" and a diluted food-per-capita forever, independent of actual
+   food or space. Live-confirmed severe: reconciling the dev database on load revealed **4 of 8
+   settlements had zero actually-living residents while still reporting 17-19 "population"** from
+   historical dead members never removed. `CitizenSystem` now subscribes to `CitizenDiedEvent`
+   centrally (covers every death path, not just its own); `Program.cs` reconciles existing saved
+   worlds once on load.
+
+Fixing all four surfaced the *actual* remaining bottleneck directly, not by inference: three
+settlements sat at excellent soil health (100, 100, 69) with zero living residents, while the
+settlements with real population (21 and 13 members) were stuck on genuinely poor soil with no
+way to migrate toward the fertile, empty land next door.
+
+**RFC-019 - Settlement Migration & Resettlement** (this round's fix): `CitizenSystem.MakeDecision`
+already had a full settlement-seeking path, but only for a citizen with `HomeSettlementId ==
+null` - an already-settled citizen had no way to ever leave, no matter how much better conditions
+were elsewhere. Added bounded, gradual relocation: a settled citizen whose home settlement is in
+chronic food hardship (`< 0.5` food-per-capita), with a real reachable alternative (`>= 2.0`
+food-per-capita and available housing) within 70 tiles, has a small daily chance (3%, matching
+`ReproductionSystem`'s `DailyConceptionChance` order of magnitude) to relocate - removed from the
+old settlement's `MemberIds`, joined to the new one on arrival via the same `JoinSettlement` logic
+a homeless citizen already uses. Full RFC at `RFC/RFC-019-settlement-migration-resettlement.md`.
+
+**Documentation discipline note**: Round 1 and Round 2's findings were originally reported only
+as chat-facing Artifact documents, not logged here or as their own RFC - a real process gap this
+week's entry (and `RFC-019`) exists specifically to correct. Going forward, any live-testing
+finding that changes simulation behavior gets an RFC (if it's a new mechanic) or a dated entry in
+this plan (if it's a bug fix to existing behavior) before or alongside the code, not instead of
+it, per this plan's own "How to use `ADR/`, `RFC/`, and `Archive/`" section above.
+
+**Status**: code changes for all of the above are shipped and unit-tested (`AgricultureSystemTests`
+updated for the new yield constants; `DiseaseSystemTests` updated for the `HousingCapacity`-based
+overcrowding gate). A live 100-year verification run with the migration mechanic in place is the
+open item closing this week.
+
+### Long-horizon live verification (2026-07-15) — three more bugs found and fixed by actually running it
+
+Per direct user instruction after Round 2 shipped: stop reporting findings only in chat, log them
+here, and actually run the simulation for a long horizon (aiming for a century) rather than
+stopping at the first clean-looking number. This surfaced three further real bugs, each one only
+visible by watching the simulation run for hours of real time, not from reading the code:
+
+1. **`RFC-019`'s relocation check was reachable in code but functionally dead in practice.** It
+   sat *after* the `needsPlanting`/FarmWork check in `MakeDecision`, but "food-stressed enough to
+   relocate" and "farm needs seeds" are almost perfectly correlated in a struggling settlement (a
+   farm that can't keep its Seeds above the replant threshold *is* what hardship looks like here)
+   - so `needsPlanting` was true on nearly every tick a relocation-worthy citizen would otherwise
+   be evaluated, and FarmWork won every time. Moved the relocation check before it.
+2. **Even after being reachable, "Relocate" didn't persist.** Every goal in `MakeDecision` is
+   re-decided from scratch each tick, with nothing to carry intent across ticks except the
+   `Last*Day` throttles that gate re-triggering the *same* decision. The relocation check's own
+   throttle meant it only fired once, but the very next tick's un-throttled FarmWork/Gather checks
+   simply overwrote "Relocate" before the citizen took a single step - confirmed live (a citizen
+   showed `CurrentGoal: "Relocate"` one query, back to `"FarmWork"` the next). Made "Relocate"
+   sticky: a citizen already mid-relocation now skips re-evaluation (short of a genuine critical
+   need) until arrival.
+3. **Raising `AgricultureSystem`'s yield multiplier (Round 2, item 3) proportionally raised soil
+   depletion too**, since `DecomposerSystem`'s depletion is yield-scaled - completely swamping the
+   natural-regeneration fix from Round 2, item 1. Live testing showed every real settlement's
+   `SoilHealth` crashing back to near-zero (0.07-2.3) despite that fix. Worked through the full
+   loop's actual numbers this time (typical planting size, average seasonal modifier, harvests per
+   month) instead of iterating by trial and error: the old depletion constant was roughly 14x too
+   aggressive for the new yield. Lowered so a zero-forest settlement settles near a modest but real
+   ~40 equilibrium instead of zero.
+4. **A genuine deadlock**: Round 1's economy fix added Planks to House's cost (giving Workshop's
+   output a consumer), but `GetNextNeededBuilding` still queued Workshop strictly *after* House -
+   a settlement could never satisfy House's Planks requirement because it would never build the
+   one building that produces Planks until its housing need (permanently unsatisfiable without
+   Planks) was already met. Live-confirmed severe: one settlement sat at exactly 5 completed
+   buildings for 5+ real-time-observed in-game years, citizens endlessly "Gathering Materials" for
+   a House that could never complete. Compounding this, `GetNeededMaterial` could select "Planks"
+   itself as the material to go gather, but Planks has no entry in `MaterialToResource` (it's a
+   crafted good, not a tile deposit) - a citizen sent to gather it found nothing, forever. Fixed
+   both: Workshop now queues before House, and `GetNeededMaterial` only ever returns genuinely
+   gatherable materials.
+
+**Result, confirmed live**: within 3 in-game years of the fourth fix, a settlement that had been
+structurally incapable of completing a single building beyond its starting five now had 8
+completed buildings and **the simulation's first real, organic birth** (`totalBirths: 1`),
+population rising from 5 to 6 in that same settlement. This is the first time in this project's
+history that population growth (not just survival) has been confirmed live rather than assumed
+from code review. A full multi-century run remains future verification work - this session's real-
+time budget reached a confirmed, working growth loop at the multi-year scale, not a full century -
+but every structural blocker identified through Round 1, Round 2, and this pass now has a shipped,
+live-tested fix.
+
+---
+
 ## Project Complete (as of 2026-07-14)
 
 All 27 weeks of this development cycle are shipped. Every Backlog item that was ever scoped now has
