@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react'
 
-export default function TopBar({ onToggleSearch }: { onToggleSearch: () => void }) {
+export default function TopBar({
+  onToggleSearch,
+  onToggleMobileNav,
+}: {
+  onToggleSearch: () => void
+  onToggleMobileNav?: () => void
+}) {
   const [dark, setDark] = useState(false)
   const [reduceMotion, setReduceMotion] = useState(false)
 
@@ -21,6 +27,15 @@ export default function TopBar({ onToggleSearch }: { onToggleSearch: () => void 
   return (
     <header className="flex h-14 items-center border-b px-4 md:px-6">
       <div className="flex items-center gap-2">
+        {onToggleMobileNav && (
+          <button
+            onClick={onToggleMobileNav}
+            className="mr-1 flex h-8 w-8 items-center justify-center rounded-md border text-sm md:hidden"
+            aria-label="Toggle navigation menu"
+          >
+            ☰
+          </button>
+        )}
         <span className="text-lg font-semibold">The Garden</span>
       </div>
       <div className="ml-auto flex items-center gap-2">

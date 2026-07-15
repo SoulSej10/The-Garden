@@ -36,35 +36,25 @@ public class EconomySystem : IScheduledSystem
 
         foreach (var settlement in _worldState.Settlements)
         {
-            ProcessConsumption(settlement);
             ProcessProduction(settlement, tick);
         }
 
         _nextExecutionTick = tick + IntervalTicks;
     }
 
-    private void ProcessConsumption(Settlement settlement)
-    {
-        foreach (var memberId in settlement.MemberIds.ToList())
-        {
-            var citizen = _worldState.Citizens.FirstOrDefault(c => c.Id == memberId && c.IsAlive);
-            if (citizen == null) continue;
-
-            var foodAvailable = settlement.Storage.GetQuantity("Food");
-            if (foodAvailable >= 1)
-            {
-                settlement.Storage.Remove("Food", 1);
-                citizen.Needs.Hunger = System.Math.Max(0, citizen.Needs.Hunger - 15);
-                citizen.Needs.Energy = System.Math.Min(100, citizen.Needs.Energy + 5);
-            }
-
-            if (foodAvailable >= 0.5)
-            {
-                settlement.Storage.Remove("Water", 0.5);
-                citizen.Needs.Thirst = System.Math.Max(0, citizen.Needs.Thirst - 20);
-            }
-        }
-    }
+    // Rebalancing audit finding 6: this used to also run ProcessConsumption
+    // here, independently removing 1 Food + 0.5 Water per citizen per day
+    // directly from Storage - entirely separate from, and unaware of,
+    // CitizenSystem.Eat()/Drink(), which drains the exact same Storage
+    // whenever a hungry/thirsty citizen actually eats or drinks. Two
+    // uncoordinated systems taxing one shared resource meant a settlement's
+    // real food burn rate was never "whatever CitizenSystem models" - it
+    // was both, stacked, silently doubling consumption. CitizenSystem's
+    // need-driven model is the sole consumption path now; it already
+    // accounts for who's actually hungry/thirsty and by how much, which a
+    // flat per-capita daily tax never did. (The removed method also had an
+    // independent bug: its Water branch was gated on the Food quantity,
+    // not Water - moot now that the whole method is gone.)
 
     private void ProcessProduction(Settlement settlement, long tick)
     {

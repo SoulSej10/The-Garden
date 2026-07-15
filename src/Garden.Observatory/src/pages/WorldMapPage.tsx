@@ -8,6 +8,7 @@ import { fetchMap, fetchTile, fetchWorldStatus, fetchCitizens, fetchSettlements 
 import type { TileData } from '@/lib/api'
 import { WorldMapCanvas, type MapOverlay } from '@/components/WorldMapCanvas'
 import { TERRAIN_ORDER, TERRAIN_PALETTE } from '@/lib/terrainColors'
+import { useLocalStorageState } from '@/lib/useLocalStorageState'
 
 const BASE_VIEW_SIZES = [10, 20, 30, 50] as const
 
@@ -16,13 +17,13 @@ function clamp(value: number, min: number, max: number) {
 }
 
 export default function WorldMapPage() {
-  const [viewSize, setViewSize] = useState<number>(20)
-  const [offsetX, setOffsetX] = useState(0)
-  const [offsetY, setOffsetY] = useState(0)
+  const [viewSize, setViewSize] = useLocalStorageState<number>('garden.map.viewSize', 20)
+  const [offsetX, setOffsetX] = useLocalStorageState<number>('garden.map.offsetX', 0)
+  const [offsetY, setOffsetY] = useLocalStorageState<number>('garden.map.offsetY', 0)
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null)
-  const [showLabels, setShowLabels] = useState(false)
-  const [showCitizens, setShowCitizens] = useState(false)
-  const [showSettlements, setShowSettlements] = useState(true)
+  const [showLabels, setShowLabels] = useLocalStorageState<boolean>('garden.map.showLabels', false)
+  const [showCitizens, setShowCitizens] = useLocalStorageState<boolean>('garden.map.showCitizens', false)
+  const [showSettlements, setShowSettlements] = useLocalStorageState<boolean>('garden.map.showSettlements', true)
 
   const { data: worldStatus } = useQuery({
     queryKey: ['world-status-bounds'],

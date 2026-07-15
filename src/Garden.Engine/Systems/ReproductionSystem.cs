@@ -134,6 +134,8 @@ public class ReproductionSystem : IScheduledSystem
             IsAlive = true,
             BirthTick = tick,
             HomeSettlementId = settlement.Id,
+            ParentAId = mother.Id,
+            ParentBId = father.Id,
             Needs = new CitizenNeeds
             {
                 Hunger = 10,

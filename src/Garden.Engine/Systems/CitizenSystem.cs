@@ -330,6 +330,25 @@ public class CitizenSystem : IScheduledSystem
                     return;
                 }
 
+                // Rebalancing audit finding 7: "care for family" and "heal
+                // the sick" didn't exist as citizen behaviors at all - a
+                // critically-ill citizen relied entirely on their own
+                // MakeDecision, with no one else ever acting on their
+                // behalf. Bounded to once per citizen per day, same pattern
+                // as farm-planting, so it can't crowd out a caregiver's own
+                // needs for the rest of the day.
+                var careDay = _worldState.CurrentTime.Tick / 24;
+                if (citizen.LastCareForFamilyDay != careDay)
+                {
+                    var sickRelative = GetSickFamilyMember(citizen);
+                    if (sickRelative != null)
+                    {
+                        citizen.CurrentGoal = "CareForFamily";
+                        citizen.CurrentActivity = $"Caring for {sickRelative.FirstName}";
+                        return;
+                    }
+                }
+
                 if (GetNeededMaterial(settlement) != null)
                 {
                     citizen.CurrentGoal = "GatherResources";
@@ -397,6 +416,19 @@ public class CitizenSystem : IScheduledSystem
         {
             Eat(citizen);
             return;
+        }
+
+        if (citizen.CurrentGoal == "CareForFamily")
+        {
+            var sickRelative = GetSickFamilyMember(citizen);
+            if (sickRelative != null && sickRelative.TileX == citizen.TileX && sickRelative.TileY == citizen.TileY)
+            {
+                sickRelative.Needs.Health = Math.Min(CitizenNeeds.MaxHealth, sickRelative.Needs.Health + 5.0);
+                citizen.Needs.Energy = Math.Max(0, citizen.Needs.Energy - 1.0);
+                citizen.LastCareForFamilyDay = _worldState.CurrentTime.Tick / 24;
+                citizen.CurrentActivity = $"Caring for {sickRelative.FirstName}";
+                return;
+            }
         }
 
         if (citizen.CurrentGoal == "GatherResources" && citizen.HomeSettlementId != null)
@@ -482,6 +514,17 @@ public class CitizenSystem : IScheduledSystem
             {
                 var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY,
                     t => nearest.IsWithinTerritory(t.X, t.Y), maxRadius: 70);
+                if (path.Count > 0) return path;
+            }
+        }
+
+        if (citizen.CurrentGoal == "CareForFamily")
+        {
+            var sickRelative = GetSickFamilyMember(citizen);
+            if (sickRelative != null)
+            {
+                var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY,
+                    t => t.X == sickRelative.TileX && t.Y == sickRelative.TileY, maxRadius: 60);
                 if (path.Count > 0) return path;
             }
         }
@@ -660,6 +703,11 @@ public class CitizenSystem : IScheduledSystem
         // budget went to buildings that don't feed anyone.
         if (!Has(BuildingTypes.Farm)) return BuildingTypes.Farm;
         if (!Has(BuildingTypes.Well)) return BuildingTypes.Well;
+        // Rebalancing audit finding 4/5/8: a Healer is now a core-infra
+        // building (DiseaseSystem reads its presence as a real recovery
+        // bonus), so it belongs alongside Storage/Farm/Well ahead of
+        // House/Workshop rather than never being queued at all.
+        if (!Has(BuildingTypes.Healer)) return BuildingTypes.Healer;
 
         var unbuiltHouses = settlement.Buildings.Count(b =>
             b.BuildingType == BuildingTypes.House
@@ -670,6 +718,31 @@ public class CitizenSystem : IScheduledSystem
         if (!Has(BuildingTypes.Workshop)) return BuildingTypes.Workshop;
 
         return null;
+    }
+
+    // Rebalancing audit finding 7: immediate family only (parents, children,
+    // siblings via shared parent) - walked directly off ParentAId/ParentBId
+    // rather than the Relationship/Affection graph, since that graph tracks
+    // interaction strength, not who's actually kin.
+    private Citizen? GetSickFamilyMember(Citizen citizen)
+    {
+        var infectedIds = _worldState.Infections
+            .Where(i => i.IsActive)
+            .Select(i => i.CitizenId)
+            .ToHashSet();
+        if (infectedIds.Count == 0) return null;
+
+        bool IsImmediateFamily(Citizen other)
+        {
+            if (other.Id == citizen.ParentAId || other.Id == citizen.ParentBId) return true;
+            if (other.ParentAId == citizen.Id || other.ParentBId == citizen.Id) return true;
+            if (citizen.ParentAId != null && (other.ParentAId == citizen.ParentAId || other.ParentBId == citizen.ParentAId)) return true;
+            if (citizen.ParentBId != null && (other.ParentAId == citizen.ParentBId || other.ParentBId == citizen.ParentBId)) return true;
+            return false;
+        }
+
+        return _worldState.Citizens.FirstOrDefault(c =>
+            c.IsAlive && c.Id != citizen.Id && infectedIds.Contains(c.Id) && IsImmediateFamily(c));
     }
 
     private static string? GetNeededMaterial(Settlement settlement)

@@ -123,6 +123,88 @@ public class CitizensController : ControllerBase
         return Ok(relationships);
     }
 
+    // Rebalancing audit finding 1: the only relational data previously
+    // exposed was the interaction-strength Relationship graph (Trust/
+    // Affection/SocialDistance), which looks identical for a spouse, a
+    // best friend, or a parent. This walks the real Citizen.ParentAId/
+    // ParentBId family graph (added this pass) and returns labeled
+    // relations instead, so the Observatory can render Father/Mother/Son/
+    // Daughter/Sibling/Grandparent/Grandchild/Husband/Wife directly rather
+    // than an undifferentiated list of "close" citizens.
+    [HttpGet("{id}/family")]
+    public IActionResult GetFamily(string id)
+    {
+        var citizen = _worldState.Citizens.FirstOrDefault(c => c.Id.ToString() == id);
+        if (citizen == null) return NotFound(new { Error = "Citizen not found" });
+
+        var all = _worldState.Citizens;
+        string Label(string relation, Garden.World.Entities.Citizen c) => c.BiologicalSex switch
+        {
+            "Male" when relation == "Parent" => "Father",
+            "Female" when relation == "Parent" => "Mother",
+            "Male" when relation == "Child" => "Son",
+            "Female" when relation == "Child" => "Daughter",
+            "Male" when relation == "Sibling" => "Brother",
+            "Female" when relation == "Sibling" => "Sister",
+            "Male" when relation == "Spouse" => "Husband",
+            "Female" when relation == "Spouse" => "Wife",
+            "Male" when relation == "Grandparent" => "Grandfather",
+            "Female" when relation == "Grandparent" => "Grandmother",
+            "Male" when relation == "Grandchild" => "Grandson",
+            "Female" when relation == "Grandchild" => "Granddaughter",
+            _ => relation
+        };
+
+        object ToDto(string relation, Garden.World.Entities.Citizen c) => new
+        {
+            CitizenId = c.Id.ToString(),
+            Name = $"{c.FirstName} {c.LastName}",
+            Relation = Label(relation, c),
+            c.IsAlive,
+            c.Age
+        };
+
+        var result = new List<object>();
+
+        var parents = all.Where(c => c.Id == citizen.ParentAId || c.Id == citizen.ParentBId).ToList();
+        result.AddRange(parents.Select(p => ToDto("Parent", p)));
+
+        var children = all.Where(c => c.ParentAId == citizen.Id || c.ParentBId == citizen.Id).ToList();
+        result.AddRange(children.Select(c => ToDto("Child", c)));
+
+        var parentIds = new[] { citizen.ParentAId, citizen.ParentBId }.Where(p => p != null).ToList();
+        var siblings = all.Where(c => c.Id != citizen.Id
+                && (parentIds.Contains(c.ParentAId) || parentIds.Contains(c.ParentBId)))
+            .ToList();
+        result.AddRange(siblings.Select(s => ToDto("Sibling", s)));
+
+        // Spouse: no separate marriage entity exists - the co-parent of any
+        // shared child is the closest available proxy for "married to."
+        var spouses = children
+            .Select(c => c.ParentAId == citizen.Id ? c.ParentBId : c.ParentAId)
+            .Where(id => id != null)
+            .Distinct()
+            .Select(id => all.FirstOrDefault(c => c.Id == id))
+            .Where(c => c != null)
+            .Select(c => c!)
+            .ToList();
+        result.AddRange(spouses.Select(s => ToDto("Spouse", s)));
+
+        var grandparents = parents
+            .SelectMany(p => all.Where(c => c.Id == p.ParentAId || c.Id == p.ParentBId))
+            .Distinct()
+            .ToList();
+        result.AddRange(grandparents.Select(g => ToDto("Grandparent", g)));
+
+        var grandchildren = children
+            .SelectMany(c => all.Where(gc => gc.ParentAId == c.Id || gc.ParentBId == c.Id))
+            .Distinct()
+            .ToList();
+        result.AddRange(grandchildren.Select(gc => ToDto("Grandchild", gc)));
+
+        return Ok(result);
+    }
+
     [HttpGet("statistics")]
     public IActionResult GetStatistics()
     {

@@ -39,6 +39,21 @@ public class Citizen
     // hunger/thirst for the rest of the day once seeds dropped back below 20.
     public long LastFarmWorkDay { get; set; } = -1;
 
+    // Rebalancing audit finding 4/5/8: nothing previously distinguished a
+    // citizen who survived a prior infection from one who never got sick -
+    // every generation faced the exact same unmodified risk forever, with
+    // no way for a population to "learn" to survive recurring disease.
+    // Incremented by DiseaseSystem on recovery; read as a dampener on both
+    // future infection chance and severity growth.
+    public double DiseaseResistance { get; set; }
+
+    // Same finding: throttles CitizenSystem's family sick-care goal to once
+    // per citizen per day, mirroring LastFarmWorkDay's pattern.
+    public long LastCareForFamilyDay { get; set; } = -1;
+
+    public GameEntityId? ParentAId { get; set; }
+    public GameEntityId? ParentBId { get; set; }
+
     public double ContributionScore { get; set; }
     public double Reputation { get; set; } = 50.0;
     public GameEntityId? ReligionId { get; set; }

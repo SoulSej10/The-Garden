@@ -13,9 +13,11 @@ import {
   fetchPopulation,
   fetchCitizenDetail,
   fetchCitizenRelationships,
+  fetchCitizenFamily,
   type CitizenSummary,
   type CitizenDetail,
   type CitizenRelationship,
+  type CitizenFamilyMember,
 } from '@/lib/api'
 
 function getInitials(name: string) {
@@ -64,6 +66,12 @@ export default function CitizensPage() {
   const { data: relationships } = useQuery({
     queryKey: ['citizen-relationships', selectedId],
     queryFn: () => fetchCitizenRelationships(selectedId!),
+    enabled: selectedId !== null,
+  })
+
+  const { data: family } = useQuery({
+    queryKey: ['citizen-family', selectedId],
+    queryFn: () => fetchCitizenFamily(selectedId!),
     enabled: selectedId !== null,
   })
 
@@ -274,7 +282,7 @@ export default function CitizensPage() {
             <Skeleton className="h-48 w-full" />
           </div>
         ) : citizenDetail?.citizen ? (
-          <CitizenDetailPanel data={citizenDetail.citizen} relationships={relationships ?? []} />
+          <CitizenDetailPanel data={citizenDetail.citizen} relationships={relationships ?? []} family={family ?? []} />
         ) : (
           <p className="text-sm text-muted-foreground">Citizen not found.</p>
         )}
@@ -283,7 +291,27 @@ export default function CitizensPage() {
   )
 }
 
-function CitizenDetailPanel({ data, relationships }: { data: CitizenDetail; relationships: CitizenRelationship[] }) {
+// Rebalancing audit finding 1: relations render in a fixed, natural order
+// (immediate family first, then extended) rather than an undifferentiated
+// list, so a citizen's family tree reads the way a person would describe
+// it - "my mother, my daughter, my brother" - not sorted by a numeric score.
+const FAMILY_RELATION_ORDER = [
+  'Father', 'Mother', 'Husband', 'Wife', 'Son', 'Daughter',
+  'Brother', 'Sister', 'Grandfather', 'Grandmother', 'Grandson', 'Granddaughter',
+]
+
+function CitizenDetailPanel({
+  data,
+  relationships,
+  family,
+}: {
+  data: CitizenDetail
+  relationships: CitizenRelationship[]
+  family: CitizenFamilyMember[]
+}) {
+  const sortedFamily = [...family].sort(
+    (a, b) => FAMILY_RELATION_ORDER.indexOf(a.relation) - FAMILY_RELATION_ORDER.indexOf(b.relation)
+  )
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -392,6 +420,22 @@ function CitizenDetailPanel({ data, relationships }: { data: CitizenDetail; rela
             {data.apprenticeship.role === 'Mentor'
               ? `Mentoring ${data.apprenticeship.otherCitizenName}`
               : `Learning from ${data.apprenticeship.otherCitizenName}`}
+          </div>
+        </div>
+      )}
+
+      {sortedFamily.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Family</p>
+          <div className="space-y-1">
+            {sortedFamily.map((f) => (
+              <div key={f.citizenId} className="flex items-center justify-between rounded border px-2 py-1.5 text-sm">
+                <span className={f.isAlive ? 'font-medium' : 'font-medium text-muted-foreground line-through'}>
+                  {f.name}
+                </span>
+                <Badge variant="outline">{f.relation}</Badge>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -32,8 +32,14 @@ public static class BuildingTypes
     public const string Farm = "Farm";
     public const string Well = "Well";
     public const string Workshop = "Workshop";
+    // Rebalancing audit finding 4/5/8: the minimum viable "primitive
+    // healthcare" lever - DiseaseSystem reads its presence as a flat
+    // recovery-chance bonus for the settlement. Cost comparable to Well
+    // (a core-infra building, not a luxury) since disease is now a
+    // survival-critical system, not an optional one.
+    public const string Healer = "Healer";
 
-    public static string[] All => [Shelter, House, Storage, Farm, Well, Workshop];
+    public static string[] All => [Shelter, House, Storage, Farm, Well, Workshop, Healer];
 
     public static int GetBuildTime(string type) => type switch
     {
@@ -43,17 +49,24 @@ public static class BuildingTypes
         Farm => 30,
         Well => 24,
         Workshop => 60,
+        Healer => 30,
         _ => 48
     };
 
     public static (string Material, int Amount)[] GetCost(string type) => type switch
     {
         Shelter => [("Wood", 10), ("Stone", 5)],
-        House => [("Wood", 25), ("Stone", 15), ("Clay", 10)],
+        // Rebalancing audit finding 6: Planks (Workshop output) previously
+        // had no consumer anywhere, so crafted goods piled up with zero
+        // economic activity. Houses are the most frequently (re)built
+        // structure, so giving them a real Planks requirement is what
+        // makes the Wood -> Workshop -> Planks pipeline matter.
+        House => [("Wood", 15), ("Planks", 10), ("Stone", 15), ("Clay", 10)],
         Storage => [("Wood", 20), ("Stone", 10)],
         Farm => [("Wood", 15)],
         Well => [("Stone", 20), ("Clay", 10)],
         Workshop => [("Wood", 30), ("Stone", 20), ("Clay", 15)],
+        Healer => [("Wood", 15), ("Clay", 10), ("Stone", 10)],
         _ => [("Wood", 10)]
     };
 

@@ -291,6 +291,19 @@ export async function fetchCitizenRelationships(id: string): Promise<CitizenRela
   return data
 }
 
+export interface CitizenFamilyMember {
+  citizenId: string
+  name: string
+  relation: string
+  isAlive: boolean
+  age: number
+}
+
+export async function fetchCitizenFamily(id: string): Promise<CitizenFamilyMember[]> {
+  const { data } = await api.get(`/citizens/${id}/family`)
+  return data
+}
+
 export interface SettlementSummary {
   id: string
   name: string

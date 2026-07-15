@@ -41,16 +41,32 @@ public class DiseaseSystemTests
 
     private static Settlement AddSettlement(WorldState world, double carryingCapacity)
     {
+        // Rebalancing audit finding 4/5/8: DiseaseSystem's overcrowding
+        // check now reads Settlement.HousingCapacity (derived from real
+        // completed Shelter/House buildings) instead of the food-blended
+        // CarryingCapacity, so CarryingCapacity is set here only for tests
+        // that don't exercise the onset/overcrowding path at all.
         var settlement = new Settlement { Name = "Rivermoot", TileX = 0, TileY = 0, CarryingCapacity = carryingCapacity };
         world.Settlements.Add(settlement);
         return settlement;
+    }
+
+    private static void AddCompletedShelter(Settlement settlement)
+    {
+        settlement.Buildings.Add(new Building
+        {
+            BuildingType = BuildingTypes.Shelter,
+            Status = BuildingStatus.Completed,
+            BuildProgress = 100
+        });
     }
 
     [Fact]
     public void NoInfection_OccursByDefault_WhenSettlementIsNotOvercrowded()
     {
         var (world, bus, system) = CreateHarness();
-        var settlement = AddSettlement(world, carryingCapacity: 100); // way under capacity
+        var settlement = AddSettlement(world, carryingCapacity: 100);
+        AddCompletedShelter(settlement); // capacity 2, well above the 1 member added below
         AddCitizen(world, settlement);
 
         var infected = false;
@@ -66,7 +82,8 @@ public class DiseaseSystemTests
     public void CanInfect_WhenSettlementIsOvercrowded()
     {
         var (world, bus, system) = CreateHarness();
-        var settlement = AddSettlement(world, carryingCapacity: 1); // 1 member >= capacity 1 -> overcrowded
+        // No housing at all -> HousingCapacity 0 -> maximally overcrowded.
+        var settlement = AddSettlement(world, carryingCapacity: 1);
         AddCitizen(world, settlement);
 
         var infected = false;

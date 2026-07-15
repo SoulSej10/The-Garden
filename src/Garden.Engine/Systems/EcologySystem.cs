@@ -2,6 +2,7 @@ using Garden.Core.Events;
 using Garden.Core.Interfaces;
 using Garden.Core.World;
 using Garden.World.Collections;
+using Garden.World.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace Garden.Engine.Systems;
@@ -53,9 +54,25 @@ public class EcologySystem : IScheduledSystem
         var declinedLastX = 0;
         var declinedLastY = 0;
 
-        foreach (var tile in _worldState.Map.GetAllTiles())
+        // Rebalancing audit finding 2: spread/conversion previously had no
+        // upper bound and no density feedback at all - any eligible tile
+        // rolled the same flat chance regardless of how much of the map was
+        // already forested, so coverage only ever climbed. A global
+        // eligible-land forest fraction (Plains/Grassland/Forest only - the
+        // only terrain types this system touches) dampens both
+        // probabilities as coverage approaches ForestCarryingCapacity,
+        // giving forest cover a real equilibrium instead of a monotonic
+        // ceiling of "every eligible tile eventually converts."
+        const double ForestCarryingCapacity = 0.5;
+        var allTiles = _worldState.Map.GetAllTiles().ToList();
+        var eligibleTiles = allTiles.Count(t => t.Terrain is TerrainType.Plains or TerrainType.Grassland or TerrainType.Forest);
+        var forestTiles = allTiles.Count(t => t.Terrain == TerrainType.Forest);
+        var forestFraction = eligibleTiles > 0 ? forestTiles / (double)eligibleTiles : 0.0;
+        var densityDamping = Math.Max(0.0, 1.0 - forestFraction / ForestCarryingCapacity);
+
+        foreach (var tile in allTiles)
         {
-            ProcessVegetationGrowth(tile, growthModifier, tick,
+            ProcessVegetationGrowth(tile, growthModifier, densityDamping, tick,
                 ref expandedCount, ref expandedLastX, ref expandedLastY,
                 ref declinedCount, ref declinedLastX, ref declinedLastY);
         }
@@ -85,8 +102,18 @@ public class EcologySystem : IScheduledSystem
         _nextExecutionTick = tick + IntervalTicks;
     }
 
+    // Rebalancing audit finding 2: harvesting used to only ever deplete a
+    // tile's Trees resource deposit (which regenerates independently via
+    // ResourceSystem) with zero effect on the tile's Terrain - a fully
+    // logged-out forest tile stayed TerrainType.Forest forever and could
+    // still spread to its neighbors. Sustained depletion now gives a real
+    // chance of the tile reverting, so wood-gathering has an actual
+    // ecological consequence instead of being cosmetic to the terrain layer.
+    private const int SustainedDepletionWeeksForReversion = 4;
+    private const double DepletedReversionChance = 0.1;
+
     private void ProcessVegetationGrowth(
-        World.Entities.WorldTile tile, double growthModifier, long tick,
+        World.Entities.WorldTile tile, double growthModifier, double densityDamping, long tick,
         ref int expandedCount, ref int expandedLastX, ref int expandedLastY,
         ref int declinedCount, ref int declinedLastX, ref int declinedLastY)
     {
@@ -100,7 +127,7 @@ public class EcologySystem : IScheduledSystem
 
         if (tile.Terrain == TerrainType.Forest && growthPotential > 0.5)
         {
-            if (new System.Random((int)(tick + tile.X * 1000 + tile.Y)).NextDouble() < 0.01)
+            if (new System.Random((int)(tick + tile.X * 1000 + tile.Y)).NextDouble() < 0.01 * densityDamping)
             {
                 var spread = SpreadForest(tile, tick);
                 if (spread != null)
@@ -114,7 +141,7 @@ public class EcologySystem : IScheduledSystem
 
         if (tile.Terrain is TerrainType.Plains or TerrainType.Grassland && growthPotential > 0.6)
         {
-            if (new System.Random((int)(tick + tile.X * 1000 + tile.Y)).NextDouble() < 0.005 * growthPotential)
+            if (new System.Random((int)(tick + tile.X * 1000 + tile.Y)).NextDouble() < 0.005 * growthPotential * densityDamping)
             {
                 tile.Terrain = TerrainType.Forest;
                 expandedCount++;
@@ -126,9 +153,30 @@ public class EcologySystem : IScheduledSystem
         if (tile.Terrain == TerrainType.Forest && tile.Moisture < 0.15 && tile.Temperature > 30)
         {
             tile.Terrain = TerrainType.Grassland;
+            tile.HarvestDepletedWeeks = 0;
             declinedCount++;
             declinedLastX = tile.X;
             declinedLastY = tile.Y;
+            return;
+        }
+
+        if (tile.Terrain == TerrainType.Forest)
+        {
+            var treeDeposit = tile.Resources.FirstOrDefault(r => r.Type == ResourceType.Trees);
+            var depleted = treeDeposit != null && treeDeposit.MaxCapacity > 0
+                && treeDeposit.Quantity / treeDeposit.MaxCapacity < 0.1;
+
+            tile.HarvestDepletedWeeks = depleted ? tile.HarvestDepletedWeeks + 1 : 0;
+
+            if (tile.HarvestDepletedWeeks >= SustainedDepletionWeeksForReversion
+                && new System.Random((int)(tick + tile.X * 500 + tile.Y * 7)).NextDouble() < DepletedReversionChance)
+            {
+                tile.Terrain = TerrainType.Grassland;
+                tile.HarvestDepletedWeeks = 0;
+                declinedCount++;
+                declinedLastX = tile.X;
+                declinedLastY = tile.Y;
+            }
         }
     }
 
