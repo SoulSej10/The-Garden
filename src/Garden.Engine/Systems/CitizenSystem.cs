@@ -149,9 +149,29 @@ public class CitizenSystem : IScheduledSystem
             return;
         }
 
-        if (citizen.Age > 70 && System.Random.Shared.NextDouble() < 0.001 * (citizen.Age - 70))
+        // Live-test finding (user-reported, ~50-year run): this check runs
+        // every tick (CitizenSystem.IntervalTicks = 1, called from
+        // Execute() for every living citizen each tick), but the constant
+        // was sized as if it ran once. At age 71 that's a 0.001 chance
+        // rolled ~8640 times/year (24 ticks/day * 360 days), giving an
+        // actual annual survival probability of 0.999^8640 ~ 0.02% - age 71
+        // was never a soft cutoff, it was a near-guaranteed death sentence
+        // the tick someone turned 71, regardless of health/food/anything
+        // else. Rewritten as a real annual-risk curve (gentle past 70,
+        // accelerating with age, letting most people commonly reach the
+        // 80s and genuinely rare centenarians reach 100+, matching real
+        // human demographics rather than a flat per-tick roll), evaluated
+        // once per day (the cadence the original constant was actually
+        // meant for) instead of 24 times.
+        if (citizen.Age > 70 && tick % 24 == 0)
         {
-            Die(citizen, tick, "Old Age");
+            var yearsOverSeventy = citizen.Age - 70;
+            var annualRisk = Math.Min(0.9, 0.00015 * yearsOverSeventy * yearsOverSeventy);
+            var dailyRisk = 1 - Math.Pow(1 - annualRisk, 1.0 / 360.0);
+            if (System.Random.Shared.NextDouble() < dailyRisk)
+            {
+                Die(citizen, tick, "Old Age");
+            }
         }
     }
 

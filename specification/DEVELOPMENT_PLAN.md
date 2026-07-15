@@ -1102,6 +1102,40 @@ time budget reached a confirmed, working growth loop at the multi-year scale, no
 but every structural blocker identified through Round 1, Round 2, and this pass now has a shipped,
 live-tested fix.
 
+### Round 3 (2026-07-15) - user-run ~50-year test: 0 births, and a fatal mortality bug
+
+The user ran their own long-horizon test independently (not this session's shorter live checks)
+and reported, at ~Year 50: 9 citizens alive across 3 settlements, 0 births ever recorded, food
+that "sometimes appears, then is consumed right away," 0 kingdoms/trade/technology, and every
+death clustering around age 71 - well short of the "people should be able to survive to 100+"
+expectation. Investigating both symptoms together found one severe bug and one compounding
+demographic trap, neither visible from the shorter verification windows Round 1/2 used:
+
+1. **`CitizenSystem.CheckHealth`'s old-age death check ran every tick, not once a day, with a
+   constant sized for the latter.** `CitizenSystem.IntervalTicks = 1`, so `Execute()` calls
+   `CheckHealth` for every living citizen every tick - `0.001 * (age - 70)` was therefore rolled
+   ~8640 times/year (24 ticks/day * 360 days), not once. At exactly age 71 the real annual
+   survival probability worked out to `0.999^8640 ≈ 0.02%` - age 71 was never a soft actuarial
+   curve, it was a near-certain death sentence within days of the birthday, regardless of health,
+   food, or anything else a citizen was actually doing right. This alone fully explains the
+   user's "why does everyone die at 71" observation. Rewritten as a real age-dependent annual-risk
+   curve (`0.00015 * (age-70)^2`, capped at 90%), converted to a daily probability and evaluated
+   once per day (`tick % 24 == 0`) instead of 24 times.
+2. **The reproductive age window (18-45) excluded some citizens from the moment of spawn.**
+   `SpawnSystem` spawns the initial population at ages 16-50 - anyone spawned at 46-50 could never
+   reproduce even on tick 0, and everyone else had only `45 - theirStartingAge` years before
+   permanently aging out. There is no immigration mechanic, only birth, so once every founding
+   citizen crosses 45 (or dies via bug #1) without a single birth ever having occurred, that
+   settlement has no possible path back - which is exactly the dead end the user's 50-year run
+   had reached. `MaxParentAge` raised to 50 to match `SpawnSystem`'s own maximum starting age, so
+   no one starts already excluded.
+
+**Confirmed live** (fresh spawn, run to Year 23): a birth occurred within the first 3 years
+(`totalBirths: 1`, 50 -> 51 total citizens); population then held perfectly stable at 42/51 alive
+from Year 12 through Year 23 with zero further deaths; five citizens reached exactly age 71 and
+one reached 72 in that same window, all remaining alive - the fix directly verified against the
+specific age this bug used to guarantee death at. Full solution build clean, 257/257 unit tests.
+
 ---
 
 ## Project Complete (as of 2026-07-14)

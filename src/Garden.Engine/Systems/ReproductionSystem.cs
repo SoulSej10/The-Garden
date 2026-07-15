@@ -11,7 +11,19 @@ namespace Garden.Engine.Systems;
 public class ReproductionSystem : IScheduledSystem
 {
     private const int MinParentAge = 18;
-    private const int MaxParentAge = 45;
+    // Live-test finding (user-reported, ~50-year run, 0 births): SpawnSystem
+    // spawns the initial population at ages 16-50 - with the old 45 cutoff,
+    // citizens spawned at 46-50 were ineligible from tick 0, and everyone
+    // else had only (45 - theirStartingAge) years before permanently aging
+    // out, a window easily consumed entirely by however long it takes a
+    // settlement's food/housing to stabilize. Once every founding citizen
+    // ages past this with zero births ever having occurred, the settlement
+    // has no possible path to recovery - there is no immigration mechanic,
+    // only birth, so a population that misses this window once is
+    // permanently doomed regardless of how good conditions get afterward.
+    // Raised to match SpawnSystem's own max starting age, so no one starts
+    // the simulation already excluded.
+    private const int MaxParentAge = 50;
 
     // Deliberately conservative: population growth needs to stay well behind
     // a settlement's ability to build housing and gather food, or growth
