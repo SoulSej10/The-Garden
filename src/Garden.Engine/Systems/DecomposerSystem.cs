@@ -1,6 +1,7 @@
 using Garden.Core.Events;
 using Garden.Core.Identifiers;
 using Garden.Core.Interfaces;
+using Garden.Core.World;
 using Garden.World.Collections;
 using Garden.World.Entities;
 
@@ -37,6 +38,27 @@ public class DecomposerSystem : IScheduledSystem
     private const double SoilHealthGainPerMatterDecomposed = 0.1;
     private const double NutrientPulseThreshold = 3.0;
     private const double BacklogAccumulationThreshold = 50.0;
+
+    // Growth rebalancing finding: SoilHealth's only income was the
+    // organic-matter-pending pipeline below, fed exclusively by
+    // CitizenDied and ForestDeclined events - both rare, one-off events.
+    // FarmHarvested (this system's own subscription) depletes SoilHealth
+    // on every single harvest (daily, via AgricultureSystem), which
+    // structurally outpaces that income - SoilHealth is a one-way ratchet
+    // to near-zero within the first year or two of any settlement that
+    // farms at all, and since AgricultureSystem's yield is itself
+    // multiplied by SoilHealth/100, the farm then produces almost nothing
+    // forever. Worse, fixing disease elsewhere in this project *reduced*
+    // deaths, which starved this the only income source further. Real
+    // soil doesn't need something to die every month to stay fertile -
+    // fallow recovery, nitrogen fixation, and leaf litter from nearby
+    // forest cover replenish it continuously. This adds that as a direct,
+    // renewable monthly income independent of the death-triggered pipeline,
+    // scaled by the settlement's actual forest cover so a well-balanced
+    // forest (see EcologySystem's carrying-capacity fix) sustains
+    // agriculture instead of only ever being depleted by it.
+    private const double BaselineSoilRegenPerMonth = 2.5;
+    private const double SoilRegenPerForestTile = 0.08;
 
     private readonly Dictionary<GameEntityId, double> _organicMatterPending = new();
     private readonly Dictionary<GameEntityId, double> _previousSoilHealth = new();
@@ -101,6 +123,9 @@ public class DecomposerSystem : IScheduledSystem
                 settlement.SoilHealth = Math.Min(100.0, settlement.SoilHealth + decomposed * SoilHealthGainPerMatterDecomposed);
             }
 
+            var naturalRegen = BaselineSoilRegenPerMonth + CountForestTiles(settlement) * SoilRegenPerForestTile;
+            settlement.SoilHealth = Math.Min(100.0, settlement.SoilHealth + naturalRegen);
+
             if (settlement.SoilHealth - previousSoilHealth >= NutrientPulseThreshold)
             {
                 _eventBus.Publish(new NutrientPulseOccurredEvent
@@ -139,5 +164,19 @@ public class DecomposerSystem : IScheduledSystem
         }
 
         _nextExecutionTick = tick + IntervalTicks;
+    }
+
+    private int CountForestTiles(Settlement settlement)
+    {
+        var count = 0;
+        for (var x = settlement.TileX - settlement.TerritoryRadius; x <= settlement.TileX + settlement.TerritoryRadius; x++)
+        {
+            for (var y = settlement.TileY - settlement.TerritoryRadius; y <= settlement.TileY + settlement.TerritoryRadius; y++)
+            {
+                if (x < 0 || x >= _worldState.Map.Width || y < 0 || y >= _worldState.Map.Height) continue;
+                if (_worldState.Map.GetTile(x, y).Terrain == TerrainType.Forest) count++;
+            }
+        }
+        return count;
     }
 }

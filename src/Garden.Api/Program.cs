@@ -132,6 +132,30 @@ using (var scope = app.Services.CreateScope())
         worldState.Settlements.Clear();
         worldState.Settlements.AddRange(existingSettlements);
 
+        // Growth rebalancing finding: worlds saved before CitizenSystem
+        // started removing dead members from Settlement.MemberIds (see its
+        // OnCitizenDied handler) still carry every citizen who ever died
+        // there as a phantom resident - HousingCapacity/HasAvailableHousing
+        // and ReproductionSystem's food-per-capita divisor both read
+        // MemberIds.Count directly, so a settlement with real mortality
+        // history reported "housing at capacity" and a diluted food-per-
+        // capita forever, blocking reproduction independent of actual
+        // food or space. One-time reconciliation on load, not a recurring
+        // cost - going forward the event handler keeps this correct.
+        var aliveIds = existingCitizens.Where(c => c.IsAlive).Select(c => c.Id).ToHashSet();
+        foreach (var settlement in existingSettlements)
+        {
+            var before = settlement.MemberIds.Count;
+            settlement.MemberIds.RemoveAll(id => !aliveIds.Contains(id));
+            settlement.Population = settlement.MemberIds.Count;
+            if (settlement.MemberIds.Count != before)
+            {
+                progLog.LogInformation(
+                    "Reconciled {Settlement}: removed {Removed} deceased members from MemberIds ({Before} -> {After})",
+                    settlement.Name, before - settlement.MemberIds.Count, before, settlement.MemberIds.Count);
+            }
+        }
+
         progLog.LogInformation(
             "Loaded {CitizenCount} citizens and {SettlementCount} settlements from database",
             existingCitizens.Count, existingSettlements.Count);

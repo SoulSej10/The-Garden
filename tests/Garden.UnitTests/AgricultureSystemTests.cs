@@ -72,7 +72,7 @@ public class AgricultureSystemTests
 
         system.Execute();
 
-        var expectedYield = 10 * expectedModifier * 2.0;
+        var expectedYield = 10 * expectedModifier * 3.5;
         Assert.Equal(expectedYield, world.Settlements[0].Storage.GetQuantity("Food"), precision: 3);
     }
 
@@ -84,8 +84,8 @@ public class AgricultureSystemTests
 
         system.Execute();
 
-        // 10 seeds * 0.5 (low moisture) * 1.5 (Spring) * 2.0 = 15
-        Assert.Equal(15.0, world.Settlements[0].Storage.GetQuantity("Food"), precision: 3);
+        // 10 seeds * 0.5 (low moisture) * 1.5 (Spring) * 3.5 = 26.25
+        Assert.Equal(26.25, world.Settlements[0].Storage.GetQuantity("Food"), precision: 3);
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public class AgricultureSystemTests
 
         Assert.NotNull(published);
         Assert.Equal("Rivermoot", published!.SettlementName);
-        Assert.Equal(30.0, published.Yield, precision: 3); // 10 * 1.5 * 2.0
+        Assert.Equal(52.5, published.Yield, precision: 3); // 10 * 1.5 * 3.5
     }
 
     [Fact]

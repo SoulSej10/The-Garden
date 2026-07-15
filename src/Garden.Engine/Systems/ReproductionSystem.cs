@@ -19,6 +19,19 @@ public class ReproductionSystem : IScheduledSystem
     // overpopulation instead of via a missing survival mechanic.
     private const double DailyConceptionChance = 0.006;
 
+    // Growth rebalancing finding: 3.0 required a settlement to stockpile
+    // three months' worth of food per member before a single birth was
+    // permitted - unreachable in practice even after fixing the SoilHealth
+    // ratchet, the disease/economy double-consumption bugs, and the
+    // single-Farm population cap, since citizens eat stored Food close to
+    // as fast as it's produced (a realistic subsistence-farming margin,
+    // not a stockpile). Real subsistence societies don't sit on three
+    // months of buffer stock before having children either. Lowered to a
+    // still-real but reachable bar - a modest surplus, not a deep reserve -
+    // while DailyConceptionChance and the one-birth-per-settlement-per-day
+    // cap below keep growth gradual rather than a population boom.
+    private const double FoodPerCapitaThreshold = 1.0;
+
     private readonly WorldState _worldState;
     private readonly IEventBus _eventBus;
     private readonly ILogger<ReproductionSystem> _logger;
@@ -58,7 +71,7 @@ public class ReproductionSystem : IScheduledSystem
             // itself in a mass starvation collapse instead of a missing
             // survival mechanic.
             var foodPerCapita = settlement.Storage.GetQuantity("Food") / Math.Max(1, settlement.MemberIds.Count);
-            if (foodPerCapita < 3.0) continue;
+            if (foodPerCapita < FoodPerCapitaThreshold) continue;
 
             var members = settlement.MemberIds
                 .Select(id => _worldState.Citizens.FirstOrDefault(c => c.Id == id))

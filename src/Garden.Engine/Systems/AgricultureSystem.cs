@@ -68,7 +68,17 @@ public class AgricultureSystem : IScheduledSystem
         // SoilHealth defaults to 100, making this a no-op until repeated
         // harvests actually deplete it - DecomposerSystem owns all updates
         // to this field.
-        var yield = plantedCrops * growthModifier * 2.0 * (settlement.SoilHealth / 100.0);
+        //
+        // Growth rebalancing finding: this 2.0 multiplier was tuned back
+        // when SoilHealth was a one-way ratchet to near-zero (see
+        // DecomposerSystem) and farms were never expected to do much more
+        // than barely function - at genuinely healthy soil (now reachable
+        // after that fix), yield still barely kept pace with a settlement's
+        // own daily consumption, leaving no real surplus for
+        // ReproductionSystem's food-per-capita bar to ever clear. Raised so
+        // restored soil health translates into an actual surplus, not just
+        // subsistence.
+        var yield = plantedCrops * growthModifier * 3.5 * (settlement.SoilHealth / 100.0);
         if (yield > 0.5)
         {
             settlement.Storage.Add("Food", yield);

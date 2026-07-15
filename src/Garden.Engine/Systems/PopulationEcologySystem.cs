@@ -29,8 +29,10 @@ public class PopulationEcologySystem : IScheduledSystem
     public long NextExecutionTick => _nextExecutionTick;
 
     // RFC-008: invented thresholds (TG-240 gives no numbers). FoodPerCapita
-    // reuses ReproductionSystem's existing reproduction-safety bar verbatim.
-    private const double FoodPerCapitaThreshold = 3.0;
+    // reuses ReproductionSystem's existing reproduction-safety bar verbatim
+    // - lowered from 3.0 alongside it (growth rebalancing finding: 3.0 was
+    // an unreachable 3-months-per-capita stockpile requirement).
+    private const double FoodPerCapitaThreshold = 1.0;
     private const double BoomPressureThreshold = 0.5;
 
     private readonly Dictionary<GameEntityId, double> _previousPressure = new();

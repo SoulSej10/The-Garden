@@ -38,6 +38,31 @@ public class CitizenSystem : IScheduledSystem
         _populationManager = populationManager;
         _settlementManager = settlementManager;
         _constructionSystem = constructionSystem;
+
+        // Growth rebalancing finding: nothing anywhere removed a dead
+        // citizen's Id from their settlement's MemberIds - not this
+        // system's own Die() below, and not DiseaseSystem's separate death
+        // path. Settlement.MemberIds was a permanently-growing "everyone
+        // who ever lived here" count, not "current living population," and
+        // HousingCapacity/HasAvailableHousing and ReproductionSystem's
+        // food-per-capita divisor both read MemberIds.Count directly. Any
+        // settlement with real mortality history (i.e. nearly all of them)
+        // had its housing permanently reported "at capacity" and its real
+        // food-per-capita permanently diluted by corpses still counted as
+        // residents - a structural block on reproduction independent of
+        // actual food or housing. Subscribing here (not duplicating the
+        // cleanup in every death path) catches every CitizenDiedEvent
+        // regardless of which system published it.
+        eventBus.Subscribe<CitizenDiedEvent>(OnCitizenDied);
+    }
+
+    private void OnCitizenDied(CitizenDiedEvent e)
+    {
+        var settlement = _worldState.Settlements.FirstOrDefault(s => s.MemberIds.Contains(e.CitizenId));
+        if (settlement == null) return;
+
+        settlement.MemberIds.Remove(e.CitizenId);
+        settlement.Population = settlement.MemberIds.Count;
     }
 
     public void Execute()
@@ -689,6 +714,7 @@ public class CitizenSystem : IScheduledSystem
     // settlement in the audit's Year 2 run reached 164 total buildings
     // against 76 completed, starving Farm/Storage of the same materials.
     private const int MaxUnbuiltHousePlans = 2;
+    private const int MaxUnbuiltFarmPlans = 1;
 
     private static string? GetNextNeededBuilding(Settlement settlement)
     {
@@ -701,7 +727,33 @@ public class CitizenSystem : IScheduledSystem
         // produces food, but previously sat third in this queue behind
         // Storage and Well - a fresh settlement's entire early materials
         // budget went to buildings that don't feed anyone.
-        if (!Has(BuildingTypes.Farm)) return BuildingTypes.Farm;
+        //
+        // Growth rebalancing finding: this used to check `!Has(Farm)`,
+        // meaning exactly ONE Farm forever, regardless of population - a
+        // 22-person settlement had the identical single-Farm food ceiling
+        // as a 7-person one. Even after fixing the SoilHealth ratchet and
+        // the disease/economy double-consumption bugs, one Farm's daily
+        // yield is nowhere near enough to both feed a grown population AND
+        // accumulate the 3-Food-per-capita surplus ReproductionSystem
+        // requires - production was structurally incapable of scaling with
+        // population, which is why the world could stabilize but never
+        // grow. Scaling Farm count with population (capped like House
+        // plans, so it can't runaway) closes that ceiling.
+        var farmCount = settlement.Buildings.Count(b => b.BuildingType == BuildingTypes.Farm && b.Status != BuildingStatus.Ruined);
+        var targetFarms = Math.Max(1, (settlement.MemberIds.Count + 9) / 10);
+        var unbuiltFarms = settlement.Buildings.Count(b =>
+            b.BuildingType == BuildingTypes.Farm
+            && b.Status is BuildingStatus.Planned or BuildingStatus.UnderConstruction);
+        // Every settlement needs its first Farm regardless of soil - but
+        // adding a SECOND or THIRD one when SoilHealth is already
+        // critically depleted only piles more simultaneous harvests onto
+        // the same shared, barely-recovering settlement-level SoilHealth
+        // number, making the depletion worse rather than scaling
+        // production. Expansion beyond one Farm is gated on the existing
+        // farmland actually being healthy enough to support more.
+        var canExpandFarms = farmCount == 0 || settlement.SoilHealth >= 50.0;
+        if (farmCount < targetFarms && unbuiltFarms < MaxUnbuiltFarmPlans && canExpandFarms) return BuildingTypes.Farm;
+
         if (!Has(BuildingTypes.Well)) return BuildingTypes.Well;
         // Rebalancing audit finding 4/5/8: a Healer is now a core-infra
         // building (DiseaseSystem reads its presence as a real recovery
