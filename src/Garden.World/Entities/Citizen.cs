@@ -33,6 +33,12 @@ public class Citizen
     // what shape it took once it arrived (Information Fidelity is deferred).
     public List<string> KnownEventIds { get; init; } = [];
 
+    // Audit finding 3c: throttles the MakeDecision farm-planting pre-emption
+    // to once per citizen per day (absolute day = Tick / 24) - without this,
+    // a citizen would keep re-planting instead of ever addressing their own
+    // hunger/thirst for the rest of the day once seeds dropped back below 20.
+    public long LastFarmWorkDay { get; set; } = -1;
+
     public double ContributionScore { get; set; }
     public double Reputation { get; set; } = 50.0;
     public GameEntityId? ReligionId { get; set; }

@@ -173,6 +173,35 @@ public class CitizenSystem : IScheduledSystem
             return;
         }
 
+        // Audit finding 3c: a completed Farm with no one ever planting seeds
+        // just sits idle forever, because the warning-level need checks
+        // below used to return before this settlement-work was ever
+        // reached - any citizen under even mild hunger/thirst stress (which
+        // is most of them, most of the time, once a settlement is
+        // food-insecure) could never be steered toward planting, which is
+        // exactly the situation planting exists to fix. Bounded to once per
+        // citizen per day so it can't crowd out a citizen's own needs for
+        // the rest of the day once seeds fall back below the 20 threshold.
+        if (citizen.HomeSettlementId != null)
+        {
+            var day = _worldState.CurrentTime.Tick / 24;
+            if (citizen.LastFarmWorkDay != day)
+            {
+                var homeSettlement = _worldState.Settlements
+                    .FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+                var farmNeedingSeeds = homeSettlement?.Buildings
+                    .FirstOrDefault(b => b.BuildingType == BuildingTypes.Farm
+                        && b.Status == BuildingStatus.Completed
+                        && b.Storage.GetQuantity("Seeds") < 20);
+                if (farmNeedingSeeds != null)
+                {
+                    citizen.CurrentGoal = "FarmWork";
+                    citizen.CurrentActivity = "Planting Crops";
+                    return;
+                }
+            }
+        }
+
         // Below critical but past the warning line: top needs up before
         // returning to work. Without this, settled citizens gathering or
         // building never break away until a need is fully critical - by
@@ -269,7 +298,7 @@ public class CitizenSystem : IScheduledSystem
                 }
 
                 var neededBuilding = GetNextNeededBuilding(settlement);
-                if (_settlementManager.HasResourcesFor(
+                if (neededBuilding != null && _settlementManager.HasResourcesFor(
                     new Building { BuildingType = neededBuilding }, settlement))
                 {
                     _settlementManager.DeductResources(
@@ -397,6 +426,7 @@ public class CitizenSystem : IScheduledSystem
                 farm.Storage.Add("Seeds", 15);
                 citizen.Needs.Energy = Math.Max(0, citizen.Needs.Energy - 1.5);
                 citizen.CurrentActivity = "Planting Crops";
+                citizen.LastFarmWorkDay = _worldState.CurrentTime.Tick / 24;
                 return;
             }
         }
@@ -456,6 +486,26 @@ public class CitizenSystem : IScheduledSystem
             }
         }
 
+        if (citizen.CurrentGoal == "FarmWork" && citizen.HomeSettlementId != null)
+        {
+            // Audit finding 3c (companion fix): this case was previously
+            // missing entirely, so a citizen given the FarmWork goal had no
+            // way to actually travel to the farm - MoveTowardGoal's FarmWork
+            // handling only fires when the citizen is already standing on
+            // the farm's exact tile, and every other path fell through to
+            // the random-wander fallback below, making a real planting trip
+            // pure chance.
+            var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+            var farm = settlement?.Buildings.FirstOrDefault(b => b.BuildingType == BuildingTypes.Farm
+                && b.Status == BuildingStatus.Completed);
+            if (farm != null)
+            {
+                var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY,
+                    t => t.X == farm.TileX && t.Y == farm.TileY, maxRadius: 40);
+                if (path.Count > 0) return path;
+            }
+        }
+
         if (citizen.CurrentGoal == "GatherResources" && citizen.HomeSettlementId != null)
         {
             var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
@@ -480,12 +530,32 @@ public class CitizenSystem : IScheduledSystem
             }
         }
 
+        // Audit finding (population collapse, live verification): this
+        // wander target used to be offset from the citizen's OWN current
+        // tile every tick with no pull toward home - for a settled citizen
+        // that repeatedly falls back to Explore, each tick's random step
+        // compounds on the last with nothing ever biasing them back,
+        // producing a genuine random walk. Over the hundreds of ticks a
+        // settlement survives, this let settled citizens end up dozens of
+        // tiles from their settlement's stored food/water and any built
+        // infrastructure, where they then starved or died of exposure alone
+        // - directly observed live after the Phase 1 food-chain fixes still
+        // left population collapsing by Year 2. Anchoring the wander
+        // target on the home settlement (not the citizen's drifting
+        // position) keeps a settled citizen's exploring bounded near home
+        // and self-correcting if they've already drifted away.
+        var homeSettlement = citizen.HomeSettlementId != null
+            ? _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId)
+            : null;
+        var anchorX = homeSettlement?.TileX ?? citizen.TileX;
+        var anchorY = homeSettlement?.TileY ?? citizen.TileY;
+
         var dx = System.Random.Shared.Next(-8, 9);
         var dy = System.Random.Shared.Next(-8, 9);
-        var targetX = Math.Clamp(citizen.TileX + dx, 0, map.Width - 1);
-        var targetY = Math.Clamp(citizen.TileY + dy, 0, map.Height - 1);
+        var targetX = Math.Clamp(anchorX + dx, 0, map.Width - 1);
+        var targetY = Math.Clamp(anchorY + dy, 0, map.Height - 1);
         return Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY,
-            t => t.X == targetX && t.Y == targetY);
+            t => t.X == targetX && t.Y == targetY, maxRadius: 70);
     }
 
     private void Eat(Citizen citizen)
@@ -569,22 +639,44 @@ public class CitizenSystem : IScheduledSystem
         ["Clay"] = ResourceType.Clay,
     };
 
-    private static string GetNextNeededBuilding(Settlement settlement)
+    // Audit finding 3d: HasAvailableHousing only counts Completed houses,
+    // so with no cap here the settlement queued (and paid Wood/Stone/Clay
+    // for) another House the instant materials were affordable, even while
+    // several previous House plans sat unbuilt and unstaffed - one
+    // settlement in the audit's Year 2 run reached 164 total buildings
+    // against 76 completed, starving Farm/Storage of the same materials.
+    private const int MaxUnbuiltHousePlans = 2;
+
+    private static string? GetNextNeededBuilding(Settlement settlement)
     {
         bool Has(string type) => settlement.Buildings
             .Any(b => b.BuildingType == type && b.Status != BuildingStatus.Ruined);
 
         if (!Has(BuildingTypes.Storage)) return BuildingTypes.Storage;
-        if (!Has(BuildingTypes.Well)) return BuildingTypes.Well;
+
+        // Audit finding 3b: Farm is the only building that actually
+        // produces food, but previously sat third in this queue behind
+        // Storage and Well - a fresh settlement's entire early materials
+        // budget went to buildings that don't feed anyone.
         if (!Has(BuildingTypes.Farm)) return BuildingTypes.Farm;
-        if (!settlement.HasAvailableHousing) return BuildingTypes.House;
+        if (!Has(BuildingTypes.Well)) return BuildingTypes.Well;
+
+        var unbuiltHouses = settlement.Buildings.Count(b =>
+            b.BuildingType == BuildingTypes.House
+            && b.Status is BuildingStatus.Planned or BuildingStatus.UnderConstruction);
+        if (!settlement.HasAvailableHousing && unbuiltHouses < MaxUnbuiltHousePlans)
+            return BuildingTypes.House;
+
         if (!Has(BuildingTypes.Workshop)) return BuildingTypes.Workshop;
-        return BuildingTypes.House;
+
+        return null;
     }
 
     private static string? GetNeededMaterial(Settlement settlement)
     {
         var neededBuilding = GetNextNeededBuilding(settlement);
+        if (neededBuilding == null) return null;
+
         var costs = BuildingTypes.GetCost(neededBuilding);
 
         return costs

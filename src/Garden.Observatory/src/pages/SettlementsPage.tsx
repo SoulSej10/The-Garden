@@ -446,7 +446,12 @@ function SettlementDetailPanel({ detail }: { detail: SettlementDetail }) {
           <Progress value={detail.soilHealth} />
           <span className="w-24 text-xs text-right">Soil {detail.soilHealth.toFixed(0)}</span>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">Wildlife: {detail.wildlifePopulation.toFixed(0)}</p>
+        <p className="mt-2 text-xs">
+          <span className="font-medium">{detail.wildlifePopulation.toFixed(0)}</span>{' '}
+          <span className="text-muted-foreground">
+            wildlife (aggregate estimate from forest habitat in this territory, not individual animals)
+          </span>
+        </p>
       </div>
 
       <div>

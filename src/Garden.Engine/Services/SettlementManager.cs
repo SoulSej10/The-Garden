@@ -70,6 +70,14 @@ public class SettlementManager
         };
         settlement.Buildings.Add(shelter);
 
+        // Audit finding 3a: a settlement founded with zero food is
+        // food-insecure from tick zero, before a single Farm exists or has
+        // had time to be planted and harvested - a small buffer buys the
+        // days needed for Storage/Farm construction and the first planting
+        // cycle to happen before hunger forces every citizen into pure
+        // survival foraging.
+        settlement.Storage.Add("Food", 25);
+
         _worldState.Settlements.Add(settlement);
 
         _eventBus.Publish(new SettlementFoundedEvent

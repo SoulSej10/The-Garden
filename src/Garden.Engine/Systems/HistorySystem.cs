@@ -517,17 +517,24 @@ public class HistorySystem : IScheduledSystem
 
     private void OnForestExpanded(ForestExpandedEvent e)
     {
+        // EcologySystem now publishes one aggregated event per weekly tick
+        // instead of one per tile - that alone is what stops this from
+        // flooding the archive (previously 65% of all sampled history
+        // records were ForestExpanded). Severity stays a flat Medium
+        // (5.0), matching every other single-occurrence-per-tick event,
+        // rather than being scaled by area - a lone tile changing in a
+        // quiet week is exactly as archive-worthy as it always was.
         Archive(HistoryCategories.Nature, "ForestExpanded",
-            $"A Forest Expands Near ({e.TileX}, {e.TileY})",
-            $"A forest expanded by {e.AreaExpanded} tile(s) near ({e.TileX}, {e.TileY}).",
+            $"Forest Cover Grows Near ({e.TileX}, {e.TileY})",
+            $"Forest cover expanded by {e.AreaExpanded} tile(s) this week, most recently near ({e.TileX}, {e.TileY}).",
             string.Empty, e.TileX, e.TileY, e.Tick, [], [], 5.0);
     }
 
     private void OnForestDeclined(ForestDeclinedEvent e)
     {
         Archive(HistoryCategories.Nature, "ForestDeclined",
-            $"A Forest Recedes Near ({e.TileX}, {e.TileY})",
-            $"Drought caused a forest to decline by {e.AreaLost} tile(s) near ({e.TileX}, {e.TileY}).",
+            $"Forest Recedes Near ({e.TileX}, {e.TileY})",
+            $"Drought caused forest cover to decline by {e.AreaLost} tile(s) this week, most recently near ({e.TileX}, {e.TileY}).",
             string.Empty, e.TileX, e.TileY, e.Tick, [], [], 5.0);
     }
 

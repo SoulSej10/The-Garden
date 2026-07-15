@@ -82,6 +82,7 @@ public class SystemController : ControllerBase
             {
                 Tick = time.Tick,
                 Year = time.Year,
+                Month = time.Month,
                 Day = time.Day,
                 Season = time.Season.ToString(),
                 IsRunning = _coordinator.IsRunning,

@@ -54,7 +54,12 @@ public class DashboardController : ControllerBase
                 Status = _coordinator.IsRunning ? "Running" : "Paused",
                 Tick = time.Tick,
                 Speed = _coordinator.TargetSpeed,
-                WorldAge = $"{time.Year}y {time.Day}d"
+                // Audit finding 06: SimulationTime.Month is a real, correctly
+                // computed property that was never surfaced anywhere in the
+                // API or frontend - the dashboard's "world age" read as
+                // years/days only, with no way to tell where in the year
+                // the simulation currently was.
+                WorldAge = $"{time.Year}y {time.Month}m {time.Day}d"
             },
             Population = new
             {

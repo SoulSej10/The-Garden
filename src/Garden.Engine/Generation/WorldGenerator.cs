@@ -73,6 +73,19 @@ public class WorldGenerator
             var highGroundWeight = Math.Clamp((n + 1.0) / 2.0, 0.0, 1.0);
             n = n * 0.8 + (ridge * 2.0 - 1.0) * 0.2 * highGroundWeight;
 
+            // Audit finding 09: a single low-frequency elevation field
+            // combined with percentile cutoffs and a border-only edge
+            // falloff structurally guaranteed one dominant interior
+            // continent ringed by coastal ocean - nothing in the interior
+            // could ever independently swing toward "sea." An uncorrelated
+            // second low-frequency field (different noise offset, not a
+            // re-derivation of the same one) blended in here lets interior
+            // regions separately dip toward ocean or rise toward land, so
+            // islands and inland seas become possible on the same cutoffs
+            // rather than only the border ever qualifying as ocean.
+            var continentMask = FractalNoise(x * 0.009 + 4096, y * 0.009 + 4096, octaves: 3, persistence: 0.5, lacunarity: 2.0);
+            n = n * 0.65 + continentMask * 0.35;
+
             // Blend toward deep ocean near the map border only - a fixed
             // blend, not a subtraction, so it cannot distort the mapping
             // used for the rest of the grid.

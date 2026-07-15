@@ -69,6 +69,12 @@ export default function WorldMapPage() {
     queryKey: ['tile', selectedTile?.x, selectedTile?.y],
     queryFn: () => fetchTile(selectedTile!.x, selectedTile!.y),
     enabled: selectedTile !== null,
+    // Audit finding 07: every sibling query on this page (mapData,
+    // citizensData, settlementsData) refetches on an interval, but this one
+    // didn't - so the underlying tile terrain kept changing (real
+    // EcologySystem mutation, not a rendering bug) while an open detail
+    // panel silently kept showing whatever was true at the moment of the click.
+    refetchInterval: 5000,
   })
 
   const handleSelectTile = useCallback((x: number, y: number) => {

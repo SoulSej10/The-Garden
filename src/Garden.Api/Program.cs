@@ -144,8 +144,24 @@ using (var scope = app.Services.CreateScope())
             progLog.LogWarning(
                 "Discarding a fully-dead saved world ({Count} citizens, all deceased) and starting fresh",
                 staleCitizens);
-            await db.Citizens.ExecuteDeleteAsync();
-            await db.Settlements.ExecuteDeleteAsync();
+
+            // Same fix as SystemController.ResetWorld: a settlement/citizen
+            // that's been running for a while has accumulated child rows
+            // (CulturalTrait, Building, Building_Items, Settlements_Items,
+            // CitizenMemory) that EF's owned-entity cascade tracking doesn't
+            // reliably reach, so plain ExecuteDeleteAsync on Citizens/
+            // Settlements 23503s on the first foreign key it hits - this
+            // startup path crashed on every fully-dead world with any real
+            // history, defeating the entire point of auto-recovery.
+            await db.Database.ExecuteSqlRawAsync(@"
+                DELETE FROM ""CitizenMemory"";
+                DELETE FROM ""Building_Items"";
+                DELETE FROM ""Building"";
+                DELETE FROM ""Settlements_Items"";
+                DELETE FROM ""CulturalTrait"";
+                DELETE FROM ""Citizens"";
+                DELETE FROM ""Settlements"";
+            ");
         }
 
         var spawnSystem = scope.ServiceProvider.GetRequiredService<SpawnSystem>();

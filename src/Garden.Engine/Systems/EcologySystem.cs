@@ -38,15 +38,57 @@ public class EcologySystem : IScheduledSystem
             _ => 1.0
         };
 
+        // Audit finding 05: this weekly pass can cross the spread/convert
+        // threshold on many tiles in the same call, and each one used to
+        // publish its own ForestExpandedEvent immediately - live sampling
+        // showed ForestExpanded as 65% of the entire history archive,
+        // drowning out births, deaths, and everything else. Accumulate the
+        // whole week's changes and publish one summary event instead, the
+        // same "aggregate, don't archive per-occurrence" treatment already
+        // applied to FarmHarvested/TradeCompleted in SignificanceEvaluator.
+        var expandedCount = 0;
+        var declinedCount = 0;
+        var expandedLastX = 0;
+        var expandedLastY = 0;
+        var declinedLastX = 0;
+        var declinedLastY = 0;
+
         foreach (var tile in _worldState.Map.GetAllTiles())
         {
-            ProcessVegetationGrowth(tile, growthModifier, tick);
+            ProcessVegetationGrowth(tile, growthModifier, tick,
+                ref expandedCount, ref expandedLastX, ref expandedLastY,
+                ref declinedCount, ref declinedLastX, ref declinedLastY);
+        }
+
+        if (expandedCount > 0)
+        {
+            _eventBus.Publish(new ForestExpandedEvent
+            {
+                Tick = tick,
+                TileX = expandedLastX,
+                TileY = expandedLastY,
+                AreaExpanded = expandedCount
+            });
+        }
+
+        if (declinedCount > 0)
+        {
+            _eventBus.Publish(new ForestDeclinedEvent
+            {
+                Tick = tick,
+                TileX = declinedLastX,
+                TileY = declinedLastY,
+                AreaLost = declinedCount
+            });
         }
 
         _nextExecutionTick = tick + IntervalTicks;
     }
 
-    private void ProcessVegetationGrowth(World.Entities.WorldTile tile, double growthModifier, long tick)
+    private void ProcessVegetationGrowth(
+        World.Entities.WorldTile tile, double growthModifier, long tick,
+        ref int expandedCount, ref int expandedLastX, ref int expandedLastY,
+        ref int declinedCount, ref int declinedLastX, ref int declinedLastY)
     {
         if (tile.Terrain is TerrainType.Ocean or TerrainType.River or TerrainType.Lake or TerrainType.Swamp or TerrainType.Mountains)
             return;
@@ -60,7 +102,13 @@ public class EcologySystem : IScheduledSystem
         {
             if (new System.Random((int)(tick + tile.X * 1000 + tile.Y)).NextDouble() < 0.01)
             {
-                SpreadForest(tile, tick);
+                var spread = SpreadForest(tile, tick);
+                if (spread != null)
+                {
+                    expandedCount++;
+                    expandedLastX = spread.Value.X;
+                    expandedLastY = spread.Value.Y;
+                }
             }
         }
 
@@ -69,46 +117,32 @@ public class EcologySystem : IScheduledSystem
             if (new System.Random((int)(tick + tile.X * 1000 + tile.Y)).NextDouble() < 0.005 * growthPotential)
             {
                 tile.Terrain = TerrainType.Forest;
-                _eventBus.Publish(new ForestExpandedEvent
-                {
-                    Tick = tick,
-                    TileX = tile.X,
-                    TileY = tile.Y,
-                    AreaExpanded = 1
-                });
+                expandedCount++;
+                expandedLastX = tile.X;
+                expandedLastY = tile.Y;
             }
         }
 
         if (tile.Terrain == TerrainType.Forest && tile.Moisture < 0.15 && tile.Temperature > 30)
         {
             tile.Terrain = TerrainType.Grassland;
-            _eventBus.Publish(new ForestDeclinedEvent
-            {
-                Tick = tick,
-                TileX = tile.X,
-                TileY = tile.Y,
-                AreaLost = 1
-            });
+            declinedCount++;
+            declinedLastX = tile.X;
+            declinedLastY = tile.Y;
         }
     }
 
-    private void SpreadForest(World.Entities.WorldTile sourceTile, long tick)
+    private (int X, int Y)? SpreadForest(World.Entities.WorldTile sourceTile, long tick)
     {
         var neighbors = _worldState.Map.GetNeighbors(sourceTile.X, sourceTile.Y)
             .Where(n => n.Terrain is TerrainType.Plains or TerrainType.Grassland && n.Moisture > 0.3)
             .ToList();
 
-        if (neighbors.Count == 0) return;
+        if (neighbors.Count == 0) return null;
 
         var target = neighbors[new System.Random((int)tick).Next(neighbors.Count)];
         target.Terrain = TerrainType.Forest;
 
-        _eventBus.Publish(new ForestExpandedEvent
-        {
-            Tick = tick,
-            TileX = target.X,
-            TileY = target.Y,
-            AreaExpanded = 1
-        });
+        return (target.X, target.Y);
     }
 }

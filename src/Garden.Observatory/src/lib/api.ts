@@ -707,7 +707,7 @@ export interface SystemHealth {
 }
 
 export interface SystemStatistics {
-  simulation: { tick: number; year: number; day: number; season: string; isRunning: boolean; speed: number; tickDurationMs: number; uptimeMs: number }
+  simulation: { tick: number; year: number; month: number; day: number; season: string; isRunning: boolean; speed: number; tickDurationMs: number; uptimeMs: number }
   world: { totalCitizens: number; aliveCitizens: number; deadCitizens: number; totalSettlements: number; activeKingdoms: number; totalBuildings: number; activeTradeRoutes: number; technologiesDiscovered: number; religions: number; historyRecords: number }
   performance: { workingSetMB: number; privateMemoryMB: number; threadCount: number; handleCount: number; cpuTime: number }
 }
