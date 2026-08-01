@@ -204,7 +204,6 @@ export function WorldStage() {
           onSelectTile={handleSelectTile}
           onPan={handlePan}
           onZoom={handleZoom}
-          fill={isMaxZoom}
           overlays={overlays}
           className="h-full w-full rounded-none border-none"
         />

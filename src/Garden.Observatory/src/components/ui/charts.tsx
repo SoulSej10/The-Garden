@@ -63,37 +63,73 @@ export function LineChart({ data, height = 72, color = 'var(--color-primary)', l
   )
 }
 
-interface BarChartDatum {
+interface LineSeries {
   label: string
-  value: number
-  color?: string
+  data: number[]
+  color: string
 }
 
-interface BarChartProps {
-  data: BarChartDatum[]
+interface MultiLineChartProps {
+  series: LineSeries[]
   height?: number
   formatValue?: (v: number) => string
 }
 
-export function BarChart({ data, height = 96, formatValue }: BarChartProps) {
+/** Same visual language as LineChart, multiple named/colored lines sharing one scale - for direct comparisons like births vs deaths over time. */
+export function MultiLineChart({ series, height = 88, formatValue }: MultiLineChartProps) {
   const fmt = formatValue ?? ((v: number) => Math.round(v).toString())
-  const max = Math.max(...data.map((d) => d.value), 1)
+  const width = 300
+  const longestLen = Math.max(...series.map((s) => s.data.length), 0)
+
+  if (longestLen < 2) {
+    return (
+      <div className="flex items-center justify-center text-xs text-muted-foreground" style={{ height }}>
+        Gathering data…
+      </div>
+    )
+  }
+
+  const allValues = series.flatMap((s) => s.data)
+  const min = Math.min(...allValues, 0)
+  const max = Math.max(...allValues, 1)
+  const range = max - min || 1
+  const padTop = 8
+  const padBottom = 18
+  const plotHeight = height - padTop - padBottom
+  const gridLines = [0, 0.5, 1].map((f) => padTop + plotHeight * f)
 
   return (
-    <div className="flex items-end gap-2" style={{ height }}>
-      {data.map((d) => {
-        const barHeight = Math.max(2, (d.value / max) * (height - 28))
-        return (
-          <div key={d.label} className="flex flex-1 flex-col items-center justify-end gap-1">
-            <span className="text-[10px] font-semibold tabular-nums">{fmt(d.value)}</span>
-            <div
-              className="w-full rounded-t-md transition-all duration-500"
-              style={{ height: barHeight, background: d.color ?? 'var(--color-primary)' }}
-            />
-            <span className="truncate text-[9px] text-muted-foreground">{d.label}</span>
-          </div>
-        )
-      })}
+    <div>
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="h-auto w-full" style={{ height }}>
+        {gridLines.map((y) => (
+          <line key={y} x1={0} x2={width} y1={y} y2={y} stroke="currentColor" strokeOpacity={0.08} strokeWidth={1} />
+        ))}
+        {series.map((s) => {
+          if (s.data.length < 2) return null
+          const points = s.data.map((v, i) => {
+            const x = (i / (s.data.length - 1)) * width
+            const y = padTop + plotHeight - ((v - min) / range) * plotHeight
+            return { x, y }
+          })
+          const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
+          const last = points[points.length - 1]
+          return (
+            <g key={s.label}>
+              <path d={linePath} fill="none" stroke={s.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="transition-all duration-500" />
+              <circle cx={last.x} cy={last.y} r={3} fill={s.color} />
+            </g>
+          )
+        })}
+      </svg>
+      <div className="mt-1 flex items-center justify-center gap-4">
+        {series.map((s) => (
+          <span key={s.label} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+            {s.label} <span className="font-semibold tabular-nums text-foreground">{fmt(s.data[s.data.length - 1] ?? 0)}</span>
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
+
