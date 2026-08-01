@@ -3,6 +3,7 @@ import { MagnifyingGlass, PersonSimpleRun, Moon, Sun, Scroll } from '@phosphor-i
 import { usePanelState } from '@/lib/usePanelState'
 import { useCitizenHub, useSettlementHub, useHistoryHub } from '@/lib/useSimulationHub'
 import { pushNotification } from '@/components/NotificationToast'
+import { useLocalStorageState } from '@/lib/useLocalStorageState'
 import { cn } from '@/lib/utils'
 
 /**
@@ -16,12 +17,14 @@ import { cn } from '@/lib/utils'
  */
 export function TopRightCluster({ onOpenSearch }: { onOpenSearch: () => void }) {
   const { openPanel } = usePanelState()
-  const [dark, setDark] = useState(false)
+  // Default true (dark) for anyone without a stored preference yet -
+  // matches the inline script in index.html that applies the class before
+  // React mounts, so there's no flash-of-light-mode on load.
+  const [dark, setDark] = useLocalStorageState<boolean>('garden.theme.dark', true)
   const [reduceMotion, setReduceMotion] = useState(false)
   const [pulse, setPulse] = useState(false)
 
   useEffect(() => {
-    setDark(document.documentElement.classList.contains('dark'))
     setReduceMotion(localStorage.getItem('reduce-motion') === 'true')
   }, [])
   useEffect(() => {

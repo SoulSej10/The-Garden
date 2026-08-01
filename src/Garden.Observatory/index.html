@@ -5,6 +5,16 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>garden-observatory</title>
+    <script>
+      // Applied synchronously, before React mounts, so the page never
+      // flashes light-mode-then-dark on load. Defaults to dark for anyone
+      // without a stored preference yet.
+      try {
+        var stored = localStorage.getItem('garden.theme.dark')
+        var dark = stored === null ? true : JSON.parse(stored)
+        document.documentElement.classList.toggle('dark', dark)
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

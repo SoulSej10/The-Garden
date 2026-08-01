@@ -54,10 +54,11 @@ export function GlobeView({ worldWidth, worldHeight, onSelectTile }: GlobeViewPr
     const tileMap = new Map<string, (typeof mapData.tiles)[number]>()
     for (const t of mapData.tiles) tileMap.set(`${t.x},${t.y}`, t)
 
-    // Terrain texture - a couple of canvas pixels per tile (crisper than
-    // 1:1 without needing real image scaling), painted directly rather than
-    // going through the flat-map canvas draw loop since a globe has no
-    // pan/zoom/tileSize to account for, just the raw grid.
+    // Terrain texture - painted at a low base resolution (one block per
+    // tile, cheap to compute) then smoothly upscaled onto a much larger
+    // canvas so the sphere reads as dense, continuous terrain rather than
+    // visibly blocky squares - the flat map's per-tile grid is the point
+    // there, but a globe is meant to look like a planet, not a spreadsheet.
     const texScale = 2
     const texCanvas = document.createElement('canvas')
     texCanvas.width = worldWidth * texScale
@@ -90,10 +91,26 @@ export function GlobeView({ worldWidth, worldHeight, onSelectTile }: GlobeViewPr
         tctx.fillRect(x * texScale, y * texScale, texScale, texScale)
       }
     }
-    const texture = new THREE.CanvasTexture(texCanvas)
+    // Smooth upscale pass: the browser's own bilinear image scaling blends
+    // the hard tile edges into continuous gradients, then a light blur
+    // softens the remaining high-frequency detail - this is what actually
+    // makes the globe read as dense terrain instead of visible squares.
+    const upscale = 4
+    const smoothCanvas = document.createElement('canvas')
+    smoothCanvas.width = texCanvas.width * upscale
+    smoothCanvas.height = texCanvas.height * upscale
+    const sctx = smoothCanvas.getContext('2d')!
+    sctx.imageSmoothingEnabled = true
+    sctx.imageSmoothingQuality = 'high'
+    sctx.filter = 'blur(3px)'
+    sctx.drawImage(texCanvas, 0, 0, smoothCanvas.width, smoothCanvas.height)
+
+    const texture = new THREE.CanvasTexture(smoothCanvas)
     texture.colorSpace = THREE.SRGBColorSpace
-    texture.minFilter = THREE.LinearFilter
-    texture.magFilter = THREE.NearestFilter
+    texture.minFilter = THREE.LinearMipmapLinearFilter
+    texture.magFilter = THREE.LinearFilter
+    texture.anisotropy = 4
+    texture.generateMipmaps = true
     // Explicit repeat wrap (rather than the default clamp-to-edge) avoids a
     // visible seam artifact from UV sampling exactly at the u=0/u=1 wrap on
     // a sphere - a well-known gotcha independent of the data seam above.

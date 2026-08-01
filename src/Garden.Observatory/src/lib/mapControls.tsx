@@ -38,7 +38,11 @@ const MapControlsContext = createContext<MapControlsValue | null>(null)
  * the rail-controlled settings live here.
  */
 export function MapControlsProvider({ children }: { children: ReactNode }) {
-  const [viewSize, setViewSize] = useLocalStorageState<number>('garden.map.viewSize', 64)
+  // Default to a value guaranteed to exceed maxViewSize (whatever the
+  // actual world dimensions turn out to be) so a first-time visitor lands
+  // on the Planet/globe tier rather than a mid-zoom crop. Not Infinity -
+  // that round-trips through JSON.stringify as null and breaks persistence.
+  const [rawViewSize, setViewSize] = useLocalStorageState<number>('garden.map.viewSize', 999999)
   const [showLabels, setShowLabels] = useLocalStorageState<boolean>('garden.map.showLabels', false)
   const [showCitizens, setShowCitizens] = useLocalStorageState<boolean>('garden.map.showCitizens', true)
   const [showSettlements, setShowSettlements] = useLocalStorageState<boolean>('garden.map.showSettlements', true)
@@ -51,6 +55,11 @@ export function MapControlsProvider({ children }: { children: ReactNode }) {
   const worldWidth = worldStatus?.width ?? 256
   const worldHeight = worldStatus?.height ?? 256
   const maxViewSize = Math.max(worldWidth, worldHeight)
+  // The stored sentinel (see above) is only ever meant to resolve to "the
+  // largest real tier" - clamp it here so every consumer (isMaxZoom checks,
+  // the rail's active-tier highlight) can compare directly against
+  // maxViewSize without knowing about the sentinel at all.
+  const viewSize = Math.min(rawViewSize, maxViewSize)
 
   const viewSizeOptions = useMemo(() => {
     const sizes = BASE_VIEW_SIZES.filter((s) => s < maxViewSize)
