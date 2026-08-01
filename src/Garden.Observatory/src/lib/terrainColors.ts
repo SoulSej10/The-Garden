@@ -4,28 +4,32 @@ export interface TerrainColorEntry {
   highlight?: string
 }
 
+// A deliberately punchier, more saturated palette than realistic cartography
+// muted tones - leans cool (blues/teals/violets dominate) with warm accents
+// reserved for desert/volcanic/lava contrast, closer to a strategy-game map
+// (Civilization/Humankind) than a muted topographic reference.
 export const TERRAIN_PALETTE: Record<string, TerrainColorEntry> = {
-  Ocean: { label: 'Ocean', color: '#16436b' },
-  Coast: { label: 'Coast', color: '#e3d3a4' },
-  Plains: { label: 'Plains', color: '#cddc8f' },
-  Grassland: { label: 'Grassland', color: '#4f9e42' },
-  Forest: { label: 'Forest', color: '#26492b' },
-  Hills: { label: 'Hills', color: '#a67c4d' },
-  Mountains: { label: 'Mountains', color: '#918d86', highlight: '#c9c5bd' },
-  Swamp: { label: 'Swamp', color: '#3c4f47' },
-  River: { label: 'River', color: '#2f9fe0' },
-  Lake: { label: 'Lake', color: '#4a7fbf' },
+  Ocean: { label: 'Ocean', color: '#0f5fa8' },
+  Coast: { label: 'Coast', color: '#f2cf85' },
+  Plains: { label: 'Plains', color: '#c8e05a' },
+  Grassland: { label: 'Grassland', color: '#3ec95e' },
+  Forest: { label: 'Forest', color: '#0f6b4a' },
+  Hills: { label: 'Hills', color: '#c98a3f' },
+  Mountains: { label: 'Mountains', color: '#8577a8', highlight: '#c4b8e8' },
+  Swamp: { label: 'Swamp', color: '#1f5c52' },
+  River: { label: 'River', color: '#22c3f0' },
+  Lake: { label: 'Lake', color: '#2f8fe0' },
   // Layered geological generator additions (WorldGenerator.GenerateSpecialTerrain)
-  Desert: { label: 'Desert', color: '#e0b96a' },
-  Badlands: { label: 'Badlands', color: '#a8543a', highlight: '#c97a52' },
-  Canyon: { label: 'Canyon', color: '#8a3f2e', highlight: '#b8613f' },
-  Glacier: { label: 'Glacier', color: '#dceef5', highlight: '#ffffff' },
-  Fjord: { label: 'Fjord', color: '#3d5a73' },
-  VolcanicIsland: { label: 'Volcanic Island', color: '#3a2a28', highlight: '#e0592a' },
-  GeothermalField: { label: 'Geothermal Field', color: '#8a6d3f', highlight: '#e8943a' },
-  CoralReef: { label: 'Coral Reef', color: '#2dbfa8' },
-  Delta: { label: 'Delta', color: '#6b8f4e' },
-  Crater: { label: 'Crater', color: '#5c5850', highlight: '#2e2b27' },
+  Desert: { label: 'Desert', color: '#f0b43e' },
+  Badlands: { label: 'Badlands', color: '#c1512f', highlight: '#e67a4a' },
+  Canyon: { label: 'Canyon', color: '#8a2f1f', highlight: '#c94f2f' },
+  Glacier: { label: 'Glacier', color: '#c8f0fa', highlight: '#ffffff' },
+  Fjord: { label: 'Fjord', color: '#1f5878' },
+  VolcanicIsland: { label: 'Volcanic Island', color: '#241a1c', highlight: '#ff6a2e' },
+  GeothermalField: { label: 'Geothermal Field', color: '#7a5a35', highlight: '#ffb238' },
+  CoralReef: { label: 'Coral Reef', color: '#1fd6b8' },
+  Delta: { label: 'Delta', color: '#5ba847' },
+  Crater: { label: 'Crater', color: '#5a5468', highlight: '#2b2733' },
 }
 
 export const TERRAIN_LABELS: Record<string, string> = {

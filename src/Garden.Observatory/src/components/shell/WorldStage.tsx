@@ -152,8 +152,8 @@ export function WorldStage() {
           const gy = s.tileY - viewport.offsetY
           if (gx < 0 || gy < 0 || gx >= viewport.gridWidth || gy >= viewport.gridHeight) continue
 
-          const cx = viewport.originX + gx * viewport.tileSize + viewport.tileSize / 2
-          const cy = viewport.originY + gy * viewport.tileSize + viewport.tileSize / 2
+          const cx = viewport.originX + gx * viewport.tileWidth + viewport.tileWidth / 2
+          const cy = viewport.originY + gy * viewport.tileHeight + viewport.tileHeight / 2
           const r = Math.max(3, Math.min(8, viewport.tileSize * 0.4))
 
           ctx.beginPath()
@@ -175,8 +175,8 @@ export function WorldStage() {
           const gy = c.tileY - viewport.offsetY
           if (gx < 0 || gy < 0 || gx >= viewport.gridWidth || gy >= viewport.gridHeight) continue
 
-          const cx = viewport.originX + gx * viewport.tileSize + viewport.tileSize / 2
-          const cy = viewport.originY + gy * viewport.tileSize + viewport.tileSize / 2
+          const cx = viewport.originX + gx * viewport.tileWidth + viewport.tileWidth / 2
+          const cy = viewport.originY + gy * viewport.tileHeight + viewport.tileHeight / 2
           const r = Math.max(1.2, Math.min(3, viewport.tileSize * 0.15))
 
           ctx.beginPath()
@@ -204,6 +204,7 @@ export function WorldStage() {
           onSelectTile={handleSelectTile}
           onPan={handlePan}
           onZoom={handleZoom}
+          fill={isMaxZoom}
           overlays={overlays}
           className="h-full w-full rounded-none border-none"
         />

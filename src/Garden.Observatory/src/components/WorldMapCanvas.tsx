@@ -13,7 +13,10 @@ export interface MapTileLite {
 }
 
 export interface MapViewport {
+  /** Smaller of tileWidth/tileHeight - used only for stroke/label/highlight thresholds. */
   tileSize: number
+  tileWidth: number
+  tileHeight: number
   originX: number
   originY: number
   gridWidth: number
@@ -37,6 +40,14 @@ interface WorldMapCanvasProps {
   onZoom?: (direction: 1 | -1, centerTile: { x: number; y: number }) => void
   overlays?: MapOverlay[]
   className?: string
+  /**
+   * Stretch tiles to fill the container edge-to-edge instead of preserving
+   * square tiles and letterboxing. Only sensible at the most zoomed-out
+   * tier, where individual tiles are a couple of pixels and non-square
+   * stretching is imperceptible - at any readable zoom level this would
+   * visibly distort terrain shape.
+   */
+  fill?: boolean
 }
 
 const DRAG_THRESHOLD_PX = 4
@@ -71,6 +82,7 @@ export function WorldMapCanvas({
   onZoom,
   overlays,
   className,
+  fill = false,
 }: WorldMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -83,6 +95,8 @@ export function WorldMapCanvas({
   const overlaysRef = useRef(overlays)
   const viewportRef = useRef<MapViewport>({
     tileSize: 16,
+    tileWidth: 16,
+    tileHeight: 16,
     originX: 0,
     originY: 0,
     gridWidth,
@@ -156,7 +170,7 @@ export function WorldMapCanvas({
     ctx.fillStyle = 'rgba(148, 163, 184, 0.12)'
     ctx.fillRect(0, 0, cssWidth, cssHeight)
 
-    const { tileSize, originX, originY } = viewport
+    const { tileSize, tileWidth, tileHeight, originX, originY } = viewport
     const previewDx = panPreviewRef.current.dx
     const previewDy = panPreviewRef.current.dy
     const tileMap = tileMapRef.current
@@ -166,31 +180,31 @@ export function WorldMapCanvas({
 
     for (let row = 0; row < gh; row++) {
       const worldY = oy + row
-      const screenY = originY + previewDy + row * tileSize
-      if (screenY + tileSize < 0 || screenY > cssHeight) continue
+      const screenY = originY + previewDy + row * tileHeight
+      if (screenY + tileHeight < 0 || screenY > cssHeight) continue
 
       for (let col = 0; col < gw; col++) {
         const worldX = ox + col
-        const screenX = originX + previewDx + col * tileSize
-        if (screenX + tileSize < 0 || screenX > cssWidth) continue
+        const screenX = originX + previewDx + col * tileWidth
+        if (screenX + tileWidth < 0 || screenX > cssWidth) continue
 
         const tile = tileMap.get(`${worldX},${worldY}`)
         if (!tile) continue
 
         const entry = getTerrainColor(tile.terrain, tile.isRiver, tile.isLake)
         ctx.fillStyle = entry.color
-        ctx.fillRect(screenX, screenY, tileSize, tileSize)
+        ctx.fillRect(screenX, screenY, tileWidth, tileHeight)
 
         if (entry.highlight && tileSize >= 6) {
           ctx.fillStyle = entry.highlight
           const hs = Math.max(2, tileSize * 0.4)
-          ctx.fillRect(screenX + tileSize * 0.12, screenY + tileSize * 0.12, hs, hs)
+          ctx.fillRect(screenX + tileWidth * 0.12, screenY + tileHeight * 0.12, hs, hs)
         }
 
         if (tileSize >= 10) {
           ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)'
           ctx.lineWidth = 1
-          ctx.strokeRect(screenX + 0.5, screenY + 0.5, tileSize - 1, tileSize - 1)
+          ctx.strokeRect(screenX + 0.5, screenY + 0.5, tileWidth - 1, tileHeight - 1)
         }
 
         if (labels && tileSize >= 14) {
@@ -200,8 +214,8 @@ export function WorldMapCanvas({
           ctx.textBaseline = 'middle'
           ctx.fillText(
             TERRAIN_LABELS[tile.terrain] ?? '?',
-            screenX + tileSize / 2,
-            screenY + tileSize / 2 + 1
+            screenX + tileWidth / 2,
+            screenY + tileHeight / 2 + 1
           )
         }
 
@@ -209,16 +223,16 @@ export function WorldMapCanvas({
         if (isSelected) {
           ctx.strokeStyle = '#0f172a'
           ctx.lineWidth = 2
-          ctx.strokeRect(screenX + 1, screenY + 1, tileSize - 2, tileSize - 2)
+          ctx.strokeRect(screenX + 1, screenY + 1, tileWidth - 2, tileHeight - 2)
         }
 
         const isHovered = hovered?.x === worldX && hovered?.y === worldY
         if (isHovered && !isSelected) {
           ctx.fillStyle = 'rgba(255, 255, 255, 0.25)'
-          ctx.fillRect(screenX, screenY, tileSize, tileSize)
+          ctx.fillRect(screenX, screenY, tileWidth, tileHeight)
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
           ctx.lineWidth = 1.5
-          ctx.strokeRect(screenX + 0.75, screenY + 0.75, tileSize - 1.5, tileSize - 1.5)
+          ctx.strokeRect(screenX + 0.75, screenY + 0.75, tileWidth - 1.5, tileHeight - 1.5)
         }
       }
     }
@@ -242,16 +256,35 @@ export function WorldMapCanvas({
     canvas.style.width = `${rect.width}px`
     canvas.style.height = `${rect.height}px`
 
-    const rawTileSize = Math.min(rect.width / gw, rect.height / gh)
-    const tileSize = Math.max(MIN_TILE_SIZE, Math.min(MAX_TILE_SIZE, Math.floor(rawTileSize)))
-    const drawnWidth = tileSize * gw
-    const drawnHeight = tileSize * gh
+    if (fill) {
+      // Stretch to fill the container exactly - no letterbox margins, tiles
+      // may be non-square. Only used at the most zoomed-out tier (see the
+      // `fill` prop doc) where individual tiles are a couple of pixels and
+      // the distortion isn't perceptible.
+      const tileWidth = rect.width / gw
+      const tileHeight = rect.height / gh
+      viewportRef.current = {
+        ...viewportRef.current,
+        tileSize: Math.min(tileWidth, tileHeight),
+        tileWidth,
+        tileHeight,
+        originX: 0,
+        originY: 0,
+      }
+    } else {
+      const rawTileSize = Math.min(rect.width / gw, rect.height / gh)
+      const tileSize = Math.max(MIN_TILE_SIZE, Math.min(MAX_TILE_SIZE, Math.floor(rawTileSize)))
+      const drawnWidth = tileSize * gw
+      const drawnHeight = tileSize * gh
 
-    viewportRef.current = {
-      ...viewportRef.current,
-      tileSize,
-      originX: Math.max(0, (rect.width - drawnWidth) / 2),
-      originY: Math.max(0, (rect.height - drawnHeight) / 2),
+      viewportRef.current = {
+        ...viewportRef.current,
+        tileSize,
+        tileWidth: tileSize,
+        tileHeight: tileSize,
+        originX: Math.max(0, (rect.width - drawnWidth) / 2),
+        originY: Math.max(0, (rect.height - drawnHeight) / 2),
+      }
     }
 
     scheduleDraw()
@@ -265,15 +298,15 @@ export function WorldMapCanvas({
     const observer = new ResizeObserver(() => recomputeViewport())
     observer.observe(container)
     return () => observer.disconnect()
-  }, [gridWidth, gridHeight])
+  }, [gridWidth, gridHeight, fill])
 
   function screenToTile(px: number, py: number) {
     const viewport = viewportRef.current
     const localX = px - viewport.originX
     const localY = py - viewport.originY
     if (localX < 0 || localY < 0) return null
-    const col = Math.floor(localX / viewport.tileSize)
-    const row = Math.floor(localY / viewport.tileSize)
+    const col = Math.floor(localX / viewport.tileWidth)
+    const row = Math.floor(localY / viewport.tileHeight)
     if (col < 0 || col >= viewport.gridWidth || row < 0 || row >= viewport.gridHeight) return null
     return { x: viewport.offsetX + col, y: viewport.offsetY + row }
   }
@@ -357,9 +390,9 @@ export function WorldMapCanvas({
 
       if (ps.isDragging) {
         const { dx, dy } = panPreviewRef.current
-        const tileSize = viewportRef.current.tileSize
-        const deltaTilesX = -Math.round(dx / tileSize)
-        const deltaTilesY = -Math.round(dy / tileSize)
+        const { tileWidth, tileHeight } = viewportRef.current
+        const deltaTilesX = -Math.round(dx / tileWidth)
+        const deltaTilesY = -Math.round(dy / tileHeight)
         panPreviewRef.current = { dx: 0, dy: 0 }
         pointerStateRef.current = null
         scheduleDraw()
