@@ -4,21 +4,23 @@ import { VitalsCluster } from '@/components/hud/VitalsCluster'
 import { TimeHud } from '@/components/hud/TimeHud'
 import { TopRightCluster } from '@/components/hud/TopRightCluster'
 import { CompassRail } from '@/components/hud/CompassRail'
+import { MapNavRail } from '@/components/hud/MapNavRail'
+import { MapStatusPanel } from '@/components/hud/MapStatusPanel'
 import { MapFooterBar } from '@/components/hud/MapFooterBar'
 import { PanelHost } from '@/components/panels/PanelHost'
 import GlobalSearch from '@/components/GlobalSearch'
 import NotificationArea from '@/components/NotificationArea'
 import { useNotificationBus } from '@/components/NotificationToast'
+import { MapControlsProvider } from '@/lib/mapControls'
 
 /**
- * The permanent stage - a fixed two-pane layout (map column + sidebar
- * column) rather than the earlier full-bleed-map-with-floating-chrome
- * model. The map stays the largest, always-visible element, but is now a
- * bounded pane with a header/footer instead of the whole viewport; the
- * sidebar is a permanent tab strip over a persistent display window
- * (PanelHost) instead of a slide-in overlay, so world state (population,
- * recent events, whichever tab is open) reads at a glance without any
- * panel needing to be opened first.
+ * The permanent stage - a fixed three-region layout: a narrow map-control
+ * rail, the bounded map column (header, map, status strip, footer), and a
+ * sidebar column (search/utility row, docked tab menu, persistent display
+ * window). Replaces the earlier full-bleed-map-with-floating-chrome model:
+ * the map is now a bounded pane rather than the whole viewport, and
+ * selecting a sidebar tab swaps content in place instead of sliding an
+ * overlay panel over the map.
  */
 export default function AtlasShell() {
   const [searchOpen, setSearchOpen] = useState(false)
@@ -27,15 +29,22 @@ export default function AtlasShell() {
   return (
     <div className="h-dvh w-dvw overflow-hidden bg-background-deep font-sans text-foreground">
       <div className="flex h-full w-full flex-col lg:flex-row">
-        {/* Map column */}
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-          <VitalsCluster />
-          <div className="relative min-h-0 flex-1">
-            <WorldStage />
-            <TimeHud />
+        <MapControlsProvider>
+          <div className="hidden lg:block">
+            <MapNavRail />
           </div>
-          <MapFooterBar />
-        </div>
+
+          {/* Map column */}
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+            <VitalsCluster />
+            <div className="relative min-h-0 flex-1">
+              <WorldStage />
+              <TimeHud />
+            </div>
+            <MapStatusPanel />
+            <MapFooterBar />
+          </div>
+        </MapControlsProvider>
 
         {/* Sidebar column */}
         <div className="flex h-[70dvh] w-full shrink-0 flex-col border-t border-border/70 lg:h-full lg:w-[26rem] lg:border-l lg:border-t-0">

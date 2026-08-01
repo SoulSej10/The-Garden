@@ -1,23 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
-import { Rows, Sparkle, UsersThree, HouseLine, X } from '@phosphor-icons/react'
+import { X } from '@phosphor-icons/react'
 import { fetchMap, fetchTile, fetchWorldStatus, fetchCitizens, fetchSettlements } from '@/lib/api'
 import type { TileData } from '@/lib/api'
 import { WorldMapCanvas, type MapOverlay } from '@/components/WorldMapCanvas'
 import { useLocalStorageState } from '@/lib/useLocalStorageState'
-import { cn } from '@/lib/utils'
+import { useMapControls } from '@/lib/mapControls'
 import { WeatherVeil } from './WeatherVeil'
-
-// Reference ROW count per zoom tier - the actual fetched/rendered grid is
-// gridHeight=tier, gridWidth=round(tier*aspectRatio), so every tier below
-// "Max" fills the actual screen rectangle edge-to-edge (tiles stay square,
-// wider screens just show proportionally more columns) instead of forcing
-// a square crop that letterboxes on any non-square viewport. "Max" is the
-// one deliberate exception - the whole (square) world genuinely can't fill
-// a wide rectangle without distortion or cropping, so it letterboxes on
-// purpose as the "see the whole planet" view.
-const BASE_VIEW_SIZES = [24, 40, 64, 100, 160] as const
-const VIEW_SIZE_LABELS: Record<number, string> = { 24: 'Local', 40: 'Near', 64: 'Regional', 100: 'Wide', 160: 'Continental' }
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
@@ -32,14 +21,10 @@ function clamp(value: number, min: number, max: number) {
  * as floating HUD pieces instead of a page header + sidebar cards.
  */
 export function WorldStage() {
-  const [viewSize, setViewSize] = useLocalStorageState<number>('garden.map.viewSize', 64)
+  const { viewSize, setViewSize, changeViewSizeRef, viewSizeOptions, maxViewSize, showLabels, showCitizens, showSettlements } = useMapControls()
   const [offsetX, setOffsetX] = useLocalStorageState<number>('garden.map.offsetX', 0)
   const [offsetY, setOffsetY] = useLocalStorageState<number>('garden.map.offsetY', 0)
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null)
-  const [showLabels, setShowLabels] = useLocalStorageState<boolean>('garden.map.showLabels', false)
-  const [showCitizens, setShowCitizens] = useLocalStorageState<boolean>('garden.map.showCitizens', true)
-  const [showSettlements, setShowSettlements] = useLocalStorageState<boolean>('garden.map.showSettlements', true)
-  const [toolbarOpen, setToolbarOpen] = useState(false)
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
   const stageRef = useRef<HTMLDivElement | null>(null)
 
@@ -61,12 +46,6 @@ export function WorldStage() {
   })
   const worldWidth = worldStatus?.width ?? 256
   const worldHeight = worldStatus?.height ?? 256
-  const maxViewSize = Math.max(worldWidth, worldHeight)
-
-  const viewSizeOptions = useMemo(() => {
-    const sizes = BASE_VIEW_SIZES.filter((s) => s < maxViewSize)
-    return [...sizes, maxViewSize] as number[]
-  }, [maxViewSize])
 
   const aspect = viewport.width / Math.max(1, viewport.height)
   const isMaxZoom = viewSize >= maxViewSize
@@ -156,6 +135,13 @@ export function WorldStage() {
     [offsetX, offsetY, gridWidth, gridHeight, worldWidth, worldHeight, gridForTier, setViewSize, setOffsetX, setOffsetY]
   )
 
+  useEffect(() => {
+    changeViewSizeRef.current = handleViewSizeChange
+    return () => {
+      changeViewSizeRef.current = null
+    }
+  }, [changeViewSizeRef, handleViewSizeChange])
+
   const overlays = useMemo(() => {
     const list: MapOverlay[] = []
 
@@ -234,71 +220,6 @@ export function WorldStage() {
       {viewSize <= 100 && (
         <WeatherVeil offsetX={offsetX} offsetY={offsetY} gridWidth={gridWidth} gridHeight={gridHeight} />
       )}
-
-      {/* Map toolbar — top-center, collapses to a single icon so it never
-          competes with the vitals cluster / chronicle bell in the corners. */}
-      <div className="pointer-events-none absolute inset-x-0 top-4 z-30 flex justify-center">
-        <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-border/70 bg-panel/90 p-1 shadow-atlas-lg backdrop-blur-md">
-          <button
-            onClick={() => setToolbarOpen((v) => !v)}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            title="Map layers"
-            aria-expanded={toolbarOpen}
-          >
-            <Rows size={16} weight="bold" />
-          </button>
-          {toolbarOpen && (
-            <>
-              <div className="mx-0.5 h-5 w-px bg-border" />
-              {viewSizeOptions.map((size) => (
-                <button
-                  key={size}
-                  onClick={() => handleViewSizeChange(size)}
-                  className={cn(
-                    'h-8 rounded-full px-3 font-display text-xs font-medium transition-colors',
-                    viewSize === size
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  )}
-                >
-                  {size >= maxViewSize ? 'Planet' : (VIEW_SIZE_LABELS[size] ?? `${size}`)}
-                </button>
-              ))}
-              <div className="mx-0.5 h-5 w-px bg-border" />
-              <button
-                onClick={() => setShowLabels((v) => !v)}
-                className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
-                  showLabels ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-                )}
-                title="Terrain labels"
-              >
-                <Sparkle size={16} weight={showLabels ? 'fill' : 'regular'} />
-              </button>
-              <button
-                onClick={() => setShowSettlements((v) => !v)}
-                className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
-                  showSettlements ? 'bg-status-thriving text-status-thriving-foreground' : 'text-muted-foreground hover:bg-accent'
-                )}
-                title="Settlements layer"
-              >
-                <HouseLine size={16} weight={showSettlements ? 'fill' : 'regular'} />
-              </button>
-              <button
-                onClick={() => setShowCitizens((v) => !v)}
-                className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
-                  showCitizens ? 'bg-status-water text-status-water-foreground' : 'text-muted-foreground hover:bg-accent'
-                )}
-                title="Citizens layer"
-              >
-                <UsersThree size={16} weight={showCitizens ? 'fill' : 'regular'} />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
 
       {/* Tile inspector — bottom-left, only present once something is
           actually selected, so the world stays clear otherwise. */}
