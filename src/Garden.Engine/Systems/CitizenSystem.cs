@@ -526,7 +526,7 @@ public class CitizenSystem : IScheduledSystem
             return;
         }
 
-        if (citizen.CurrentGoal == "FindFood" && HasFoodAt(tile))
+        if (citizen.CurrentGoal == "FindFood" && HasFoodAccess(citizen, tile))
         {
             Eat(citizen);
             return;
@@ -640,7 +640,7 @@ public class CitizenSystem : IScheduledSystem
 
         if (citizen.CurrentGoal == "FindFood")
         {
-            var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY, HasFoodAt);
+            var path = Pathfinder.FindNearestPath(map, citizen.TileX, citizen.TileY, t => HasFoodAccess(citizen, t));
             if (path.Count > 0) return path;
         }
 
@@ -1094,6 +1094,40 @@ public class CitizenSystem : IScheduledSystem
         return settlement != null
             && settlement.IsWithinTerritory(tile.X, tile.Y)
             && settlement.Buildings.Any(b => b.BuildingType == BuildingTypes.Well && b.Status == BuildingStatus.Completed);
+    }
+
+    /// <summary>
+    /// A tile has food access for a citizen if it's naturally forageable, or
+    /// if it's within a home settlement that has actual Food in its shared
+    /// Storage - mirrors HasWaterAccess's natural-vs-Well distinction.
+    ///
+    /// Root-cause fix (production-scale extinction, 256x256 continuous
+    /// run): Eat() already preferred settlement.Storage's "Food" over wild
+    /// foraging once called, but MoveTowardGoal only ever CALLED Eat() when
+    /// the citizen's current tile itself passed HasFoodAt (a WildPlants
+    /// deposit, or Forest/Grassland/Plains/water terrain). A citizen
+    /// standing at their settlement's home base - working, resting, on a
+    /// built-up or non-forageable tile - could have HomeSettlementId set
+    /// and the settlement could be sitting on 100 units of farmed Food, and
+    /// still never trigger a single Eat() call, because the gate checked
+    /// the ground under their feet, not what their community had stored.
+    /// Confirmed live: settlements with healthy stockpiles (foodReserves:
+    /// 100) and completed buildings still lost their entire population to
+    /// Starvation/Dehydration in roughly equal measure, identically before
+    /// and after the founding-location fix - the stockpile and Needs.Hunger
+    /// were two connected-in-code-but-practically-disconnected systems.
+    /// A citizen anywhere within their own settlement's territory can now
+    /// draw down the shared stockpile regardless of the specific tile.
+    /// </summary>
+    private bool HasFoodAccess(Citizen citizen, World.Entities.WorldTile tile)
+    {
+        if (HasFoodAt(tile)) return true;
+        if (citizen.HomeSettlementId == null) return false;
+
+        var settlement = _worldState.Settlements.FirstOrDefault(s => s.Id == citizen.HomeSettlementId);
+        return settlement != null
+            && settlement.IsWithinTerritory(tile.X, tile.Y)
+            && settlement.Storage.GetQuantity("Food") >= 1;
     }
 
     private bool HasWellAccess(Citizen citizen)

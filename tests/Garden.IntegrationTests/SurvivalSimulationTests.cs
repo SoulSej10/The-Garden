@@ -164,6 +164,112 @@ public class SurvivalSimulationTests
     }
 
     /// <summary>
+    /// Reproduces the reported production-scale extinction directly: the
+    /// live server runs on a 256x256 map (appsettings.json's
+    /// World:Width/Height/Seed = 256/256/42, matched here) with 40 citizens,
+    /// and total population extinction was observed after roughly 500-1000
+    /// ticks (~3-6 in-game weeks) even at settlements with healthy food
+    /// stockpiles (foodReserves: 100) and completed buildings - identically
+    /// before and after the founding-location fix, meaning founding
+    /// location was never the bottleneck. The 80x80/100x100 tests above
+    /// passed throughout that investigation without reproducing the failure,
+    /// because a harsher, much larger map changes the ratio of settlement
+    /// territory to open wilderness and how far a citizen's home tile sits
+    /// from forageable terrain - exactly the gap the HasFoodAccess fix
+    /// targets (a settlement's stored Food was only ever consumed when a
+    /// citizen happened to be standing on a WildPlants/Forest/Grassland/
+    /// Plains/water tile, not simply within their own settlement's
+    /// territory). Runs well past the reported 500-1000 tick failure
+    /// window (2500 ticks, ~3.5 months) to give the regression real margin.
+    /// </summary>
+    [Fact]
+    [Trait("Category", "Slow")]
+    public void Population_SurvivesProductionScale_256Map_InsteadOfExtinction()
+    {
+        var worldState = new WorldState();
+        var eventBus = new EventBus();
+
+        var generator = new WorldGenerator(seed: 42);
+        worldState.Map = generator.Generate(256, 256);
+        worldState.IsInitialized = true;
+
+        var populationManager = new PopulationManager();
+        var settlementManager = new SettlementManager(worldState, eventBus, NullLogger<SettlementManager>.Instance);
+        var constructionSystem = new ConstructionSystem(worldState, settlementManager, eventBus, NullLogger<ConstructionSystem>.Instance);
+        var citizenSystem = new CitizenSystem(worldState, eventBus, NullLogger<CitizenSystem>.Instance, populationManager, settlementManager, constructionSystem);
+        var agingSystem = new AgingSystem(worldState, eventBus, NullLogger<AgingSystem>.Instance);
+        var reproductionSystem = new ReproductionSystem(worldState, eventBus, NullLogger<ReproductionSystem>.Instance, populationManager);
+        var resourceSystem = new ResourceSystem(worldState, eventBus, NullLogger<ResourceSystem>.Instance);
+        var agricultureSystem = new AgricultureSystem(worldState, eventBus, NullLogger<AgricultureSystem>.Instance);
+        var economySystem = new EconomySystem(worldState, eventBus, NullLogger<EconomySystem>.Instance);
+
+        // The production server (Program.cs) also runs these systems, which
+        // this integration test previously omitted - most relevantly,
+        // WeatherSystem/NaturalEventsSystem/HydrologySystem/EcologySystem/
+        // DecomposerSystem can all move tile moisture, resource regen, and
+        // settlement SoilHealth around underneath the food/water economy,
+        // and DiseaseSystem/PopulationEcologySystem add their own mortality.
+        // Registered here in the same order as Program.cs so this test
+        // exercises the same production tick pipeline, not a simplified one.
+        var weatherSystem = new WeatherSystem(worldState, eventBus, NullLogger<WeatherSystem>.Instance);
+        var naturalEventsSystem = new NaturalEventsSystem(worldState, eventBus, NullLogger<NaturalEventsSystem>.Instance);
+        var seasonSystem = new SeasonSystem(worldState, eventBus, NullLogger<SeasonSystem>.Instance);
+        var hydrologySystem = new HydrologySystem(worldState, NullLogger<HydrologySystem>.Instance);
+        var ecologySystem = new EcologySystem(worldState, eventBus, NullLogger<EcologySystem>.Instance);
+        var populationEcologySystem = new PopulationEcologySystem(worldState, eventBus);
+        var diseaseSystem = new DiseaseSystem(worldState, eventBus);
+        var decomposerSystem = new DecomposerSystem(worldState, eventBus);
+
+        var spawnSystem = new SpawnSystem(worldState, eventBus, NullLogger<SpawnSystem>.Instance);
+        spawnSystem.SpawnInitialPopulation(40);
+
+        const int ticksToRun = 24 * 105; // ~3.5 months - well past the reported 500-1000 tick collapse window
+        for (long tick = 1; tick <= ticksToRun; tick++)
+        {
+            worldState.CurrentTime = SimulationTime.FromTick(tick);
+
+            weatherSystem.Execute();
+            naturalEventsSystem.Execute();
+            seasonSystem.Execute();
+            hydrologySystem.Execute();
+            resourceSystem.Execute();
+            ecologySystem.Execute();
+            citizenSystem.Execute();
+            populationEcologySystem.Execute();
+            diseaseSystem.Execute();
+            decomposerSystem.Execute();
+            agingSystem.Execute();
+            reproductionSystem.Execute();
+            constructionSystem.Execute();
+            agricultureSystem.Execute();
+            economySystem.Execute();
+
+            eventBus.ClearPendingEvents();
+
+            if (tick % 240 == 0) // every ~10 days
+            {
+                var snapshot = worldState.Citizens.Where(c => c.IsAlive).ToList();
+                _output.WriteLine($"Tick {tick}: alive={snapshot.Count} settlements={worldState.Settlements.Count} " +
+                    (snapshot.Count > 0 ? $"avgHealth={snapshot.Average(c => c.Needs.Health):F1}" : "") +
+                    $" totalFood={worldState.Settlements.Sum(s => s.Storage.GetQuantity("Food")):F0}");
+            }
+        }
+
+        var alive = worldState.Citizens.Where(c => c.IsAlive).ToList();
+        _output.WriteLine($"Final: alive={alive.Count}/{worldState.Citizens.Count} total ever lived. " +
+            $"Death causes: {string.Join(", ", populationManager.DeathCauses.Select(kv => $"{kv.Key}={kv.Value}"))}");
+
+        Assert.True(alive.Count > 0,
+            $"Population went fully extinct on the 256x256 production-scale map within {ticksToRun} ticks. " +
+            $"Death causes: {string.Join(", ", populationManager.DeathCauses.Select(kv => $"{kv.Key}={kv.Value}"))}");
+
+        var survivalRate = alive.Count / 40.0;
+        Assert.True(survivalRate > 0.3,
+            $"Expected population to remain viable (not just barely non-zero) at production scale, but only " +
+            $"{alive.Count}/40 survived. Death causes: {string.Join(", ", populationManager.DeathCauses.Select(kv => $"{kv.Key}={kv.Value}"))}");
+    }
+
+    /// <summary>
     /// Traces the exact tick-by-tick needs/goal/position history of the
     /// first few citizens who die of Dehydration, to see what actually
     /// happens leading up to death rather than guessing from aggregate

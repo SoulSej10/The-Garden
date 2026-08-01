@@ -1,6 +1,7 @@
 using Garden.Core.Identifiers;
 using Garden.Engine.Events;
 using Garden.Engine.Services;
+using Garden.Engine.Systems;
 using Garden.World.Collections;
 using Garden.World.Entities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -21,7 +22,8 @@ public class TradeRouteServiceTests
     {
         var world = new WorldState();
         var eventBus = new EventBus();
-        var service = new TradeRouteService(world, eventBus, NullLogger<TradeRouteService>.Instance);
+        var economySystem = new EconomySystem(world, eventBus, NullLogger<EconomySystem>.Instance);
+        var service = new TradeRouteService(world, eventBus, NullLogger<TradeRouteService>.Instance, economySystem);
         return (world, service);
     }
 

@@ -1,5 +1,6 @@
 using Garden.Core.Events;
 using Garden.Core.Interfaces;
+using Garden.Engine.Systems;
 using Garden.World.Collections;
 using Garden.World.Entities;
 using Microsoft.Extensions.Logging;
@@ -11,14 +12,16 @@ public class TradeRouteService
     private readonly WorldState _worldState;
     private readonly IEventBus _eventBus;
     private readonly ILogger<TradeRouteService> _logger;
+    private readonly EconomySystem _economySystem;
 
     private static readonly string[] TradeGoods = ["Food", "Wood", "Stone", "Planks", "Clay", "Tools"];
 
-    public TradeRouteService(WorldState worldState, IEventBus eventBus, ILogger<TradeRouteService> logger)
+    public TradeRouteService(WorldState worldState, IEventBus eventBus, ILogger<TradeRouteService> logger, EconomySystem economySystem)
     {
         _worldState = worldState;
         _eventBus = eventBus;
         _logger = logger;
+        _economySystem = economySystem;
     }
 
     public void EvaluateTradeRoutes(long tick)
@@ -27,6 +30,18 @@ public class TradeRouteService
             .Where(s => s.MemberIds.Count >= 2)
             .ToList();
 
+        // A flat 25-tile cutoff was sized for the old 100x100 world, where
+        // settlements naturally spawned close together. On the current
+        // 256x256 (or larger, config-driven - see World:Width/Height in
+        // appsettings.json) world, SpawnSystem's minimum-separation rule
+        // spreads settlements far enough apart that almost no pair ever
+        // fell within 25 tiles, so trade routes silently never formed
+        // despite every other part of this system working correctly.
+        // Scaling the radius to a fraction of the map's diagonal keeps the
+        // "nearby settlements trade" premise intact at any world size.
+        var mapDiagonal = Math.Sqrt(Math.Pow(_worldState.Map.Width, 2) + Math.Pow(_worldState.Map.Height, 2));
+        var tradeRadius = Math.Max(25, mapDiagonal * 0.35);
+
         for (var i = 0; i < settlements.Count; i++)
         {
             for (var j = i + 1; j < settlements.Count; j++)
@@ -34,7 +49,7 @@ public class TradeRouteService
                 var a = settlements[i];
                 var b = settlements[j];
                 var dist = Math.Abs(a.TileX - b.TileX) + Math.Abs(a.TileY - b.TileY);
-                if (dist > 25) continue;
+                if (dist > tradeRadius) continue;
 
                 var existing = _worldState.TradeRoutes
                     .FirstOrDefault(r =>
@@ -165,7 +180,7 @@ public class TradeRouteService
             good, from.Name, to.Name);
     }
 
-    private static void ExecuteTrip(TradeRoute route, Settlement from, Settlement to, string good, long tick)
+    private void ExecuteTrip(TradeRoute route, Settlement from, Settlement to, string good, long tick)
     {
         var available = from.Storage.GetQuantity(good);
         if (available < 5) return;
@@ -182,5 +197,12 @@ public class TradeRouteService
         route.TotalVolumeTransported += amount;
         route.TripCount++;
         route.LastTripTick = tick;
+
+        // The route itself already tracked TripCount/TotalVolumeTransported,
+        // but nothing ever incremented EconomySystem.TotalTrades - the one
+        // counter the frontend's Overview/Almanac "Trades" stat actually
+        // reads - so trade could be happening correctly and still always
+        // display as 0.
+        _economySystem.RecordTrade();
     }
 }
