@@ -4,6 +4,8 @@ import { VitalsCluster } from '@/components/hud/VitalsCluster'
 import { TimeHud } from '@/components/hud/TimeHud'
 import { TopRightCluster } from '@/components/hud/TopRightCluster'
 import { CompassRail } from '@/components/hud/CompassRail'
+import { CivilizationOverview } from '@/components/hud/CivilizationOverview'
+import { LiveEventTicker } from '@/components/hud/LiveEventTicker'
 import { PanelHost } from '@/components/panels/PanelHost'
 import GlobalSearch from '@/components/GlobalSearch'
 import NotificationArea from '@/components/NotificationArea'
@@ -23,7 +25,9 @@ export default function AtlasShell() {
     <div className="relative h-dvh w-dvw overflow-hidden bg-background-deep font-sans text-foreground">
       <WorldStage />
       <VitalsCluster />
+      <CivilizationOverview />
       <TopRightCluster onOpenSearch={() => setSearchOpen(true)} />
+      <LiveEventTicker />
       <TimeHud />
       <CompassRail />
       <PanelHost />

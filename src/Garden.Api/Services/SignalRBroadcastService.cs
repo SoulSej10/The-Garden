@@ -61,6 +61,38 @@ public class SignalRBroadcastService : BackgroundService
                 "Harvest", "Normal");
         });
 
+        _eventBus.Subscribe<DroughtStartedEvent>(e =>
+        {
+            _ = _broadcast.SignificantEvent(
+                $"Drought Near ({e.TileX}, {e.TileY})",
+                "A prolonged dry spell has taken hold.",
+                "Disaster", "High");
+        });
+
+        _eventBus.Subscribe<WildfireStartedEvent>(e =>
+        {
+            _ = _broadcast.SignificantEvent(
+                $"Wildfire Near ({e.TileX}, {e.TileY})",
+                $"Burned {e.TilesBurned} tile(s) amid drought conditions.",
+                "Disaster", "High");
+        });
+
+        _eventBus.Subscribe<FloodStartedEvent>(e =>
+        {
+            _ = _broadcast.SignificantEvent(
+                $"Flooding Near ({e.TileX}, {e.TileY})",
+                e.NearestSettlementName is not null ? $"Rivers overtopped their banks near {e.NearestSettlementName}." : "Rivers overtopped their banks.",
+                "Disaster", "High");
+        });
+
+        _eventBus.Subscribe<VolcanicEruptionEvent>(e =>
+        {
+            _ = _broadcast.SignificantEvent(
+                e.FormedNewLand ? $"New Island Formed at ({e.TileX}, {e.TileY})" : $"Volcanic Eruption at ({e.TileX}, {e.TileY})",
+                e.FormedNewLand ? "An eruption built new land above the waterline." : "An eruption reshaped the surrounding terrain.",
+                "Disaster", "High");
+        });
+
         _ = Task.Run(async () =>
         {
             while (!stoppingToken.IsCancellationRequested)

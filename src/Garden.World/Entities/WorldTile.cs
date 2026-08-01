@@ -14,6 +14,14 @@ public class WorldTile
     public double Temperature { get; set; }
     public bool IsRiver { get; set; }
     public bool IsLake { get; set; }
+    // Geological generator outputs (WorldGenerator) - see Garden.Core.World.PlateBoundaryType
+    // for BoundaryType's meaning. Relief is post-erosion local elevation variance (drives
+    // Badlands/Canyon/Fjord classification); FlowAccumulation is the D8 upstream-drainage
+    // count (log-normalized 0..1), used both for river tiering and as a Flood-event input.
+    public PlateBoundaryType BoundaryType { get; set; }
+    public bool IsVolcanic { get; set; }
+    public double Relief { get; set; }
+    public double FlowAccumulation { get; set; }
     // Rebalancing audit finding 2: tracks consecutive weeks this tile's
     // Trees deposit has sat near-depleted from harvesting - EcologySystem
     // uses sustained depletion as a chance to revert Forest back to

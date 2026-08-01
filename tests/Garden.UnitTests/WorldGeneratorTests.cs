@@ -20,8 +20,16 @@ public class WorldGeneratorTests
     [InlineData(1)]
     [InlineData(42)]
     [InlineData(9999)]
-    public void Generate_ProducesBalancedTerrainDistribution_NoSingleTypeDominates(int seed)
+    public void Generate_ProducesVariedTerrainDistribution_ArchetypeDrivenNotDegenerate(int seed)
     {
+        // The layered geological generator (plates + boundary uplift +
+        // erosion) deliberately does NOT guarantee identical land/sea
+        // proportions per seed the way the old percentile-cutoff system
+        // did - a WaterWorld-archetype seed and a Supercontinent-archetype
+        // seed are SUPPOSED to look very different (see WorldGenerator's
+        // class doc and ADR notes). This test only guards against genuinely
+        // degenerate output (a seed producing an unplayable single-terrain
+        // map), not against archetype variance itself.
         var generator = new WorldGenerator(seed);
         var map = generator.Generate(100, 100);
         var tiles = map.GetAllTiles().ToList();
@@ -30,24 +38,34 @@ public class WorldGeneratorTests
         var byTerrain = tiles.GroupBy(t => t.Terrain)
             .ToDictionary(g => g.Key, g => g.Count() * 100.0 / total);
 
-        _output.WriteLine($"Seed {seed}: {string.Join(", ", byTerrain.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}={kv.Value:F1}%"))}");
+        _output.WriteLine($"Seed {seed}, archetype={generator.Archetype}: {string.Join(", ", byTerrain.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}={kv.Value:F1}%"))}");
 
-        // Regression guard: terrain type used to be classified against
-        // FIXED absolute elevation cutoffs. A single low-octave noise field
-        // only has ~1.5 wavelengths across a 100-tile map, so a particular
-        // seed could easily produce one dominant high-elevation region
-        // covering half the map (up to 62.8% mountains was observed across
-        // 60 random seeds). Elevation is now classified by PERCENTILE rank
-        // within each generated map, which guarantees terrain-type
-        // proportions stay consistent regardless of seed - mountains should
-        // always land close to their ~12% target share.
+        Assert.True(byTerrain.Count >= 6, $"Expected at least 6 distinct terrain types, got {byTerrain.Count}");
+
         foreach (var (terrain, pct) in byTerrain)
         {
-            Assert.True(pct < 30.0, $"{terrain} covers {pct:F1}% of the map - terrain generation is not balanced");
+            Assert.True(pct < 90.0, $"{terrain} covers {pct:F1}% of the map - that's a degenerate single-terrain world, not archetype variance");
         }
 
-        Assert.True(byTerrain.GetValueOrDefault(TerrainType.Mountains) < 16.0,
-            $"Mountains cover {byTerrain.GetValueOrDefault(TerrainType.Mountains):F1}% - should be a sparse percentile-capped share, not dominate the map");
+        Assert.True(byTerrain.GetValueOrDefault(TerrainType.Mountains) < 30.0,
+            $"Mountains cover {byTerrain.GetValueOrDefault(TerrainType.Mountains):F1}% - should stay a minority even on a mountain-heavy collision-rich seed");
+    }
+
+    [Fact]
+    public void Generate_AtProductionScale_CompletesWithinBudget()
+    {
+        // 256x256 is the configured default world size (appsettings.json
+        // World:Width/Height) - this is the real perf regression guard for
+        // the erosion pass, which the design doc flagged as the dominant
+        // cost (estimated ~0.5-1.5s total, erosion-bound).
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var generator = new WorldGenerator(42);
+        var map = generator.Generate(256, 256);
+        sw.Stop();
+
+        _output.WriteLine($"256x256 generation took {sw.ElapsedMilliseconds}ms, archetype={generator.Archetype}");
+        Assert.Equal(65536, map.GetAllTiles().Count());
+        Assert.True(sw.ElapsedMilliseconds < 10000, $"Generation took {sw.ElapsedMilliseconds}ms - expected well under 10s at this scale");
     }
 
     [Theory]
@@ -69,7 +87,9 @@ public class WorldGeneratorTests
             "Expected habitable plains/grassland tiles to exist");
 
         // The dead center of the map should not deterministically be ocean -
-        // that was the old "bullseye" bug (elevation = distance from center).
+        // that was the old "bullseye" bug (elevation = distance from
+        // center). The new plate-based generator has no such center bias by
+        // construction, but this guard is cheap to keep.
         var center = map.GetTile(30, 30);
         var centerRegionOceanCount = new List<(int, int)>
         {

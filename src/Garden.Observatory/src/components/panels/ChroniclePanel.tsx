@@ -32,6 +32,11 @@ export default function ChroniclePanel() {
   const { data: timeline } = useQuery({ queryKey: ['history-timeline', page], queryFn: () => fetchHistoryTimeline(page, 30), refetchInterval: 5000 })
   const { data: stories } = useQuery({ queryKey: ['stories'], queryFn: () => fetchStories(1, 20), refetchInterval: 10000 })
   const { data: facets } = useQuery({ queryKey: ['history-facets'], queryFn: fetchHistoryFacets, staleTime: 60000 })
+  const { data: disasterEvents } = useQuery({
+    queryKey: ['history-disasters'],
+    queryFn: () => searchHistory({ category: 'Disaster' }, 1, 50),
+    refetchInterval: 8000,
+  })
 
   const hasActiveFilter =
     searchQuery.length > 0 || searchCategory.length > 0 || searchSettlementId.length > 0 || searchFromTick.length > 0 || searchToTick.length > 0
@@ -66,6 +71,7 @@ export default function ChroniclePanel() {
         <TabsList>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="stories">Stories</TabsTrigger>
+          <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="search">Search</TabsTrigger>
         </TabsList>
 
@@ -113,6 +119,30 @@ export default function ChroniclePanel() {
                 )}
               </div>
             ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="events" className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Droughts, wildfires, floods, and volcanic eruptions - triggered by the spatial weather grid and the map's own geology, not scripted.
+          </p>
+          {!disasterEvents || disasterEvents.records.length === 0 ? (
+            <EmptyNote>No natural events recorded yet. Sustained dry or stormy weather somewhere on the map will eventually trigger one.</EmptyNote>
+          ) : (
+            <div className="space-y-2">
+              {disasterEvents.records.map((record: HistoryRecord) => (
+                <div key={record.id} className="panel-carved border border-status-danger/30 bg-status-danger/5 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{record.title}</span>
+                    <Badge variant="status-danger" className="text-[10px]">{record.eventType}</Badge>
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{record.description}</p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground/60">
+                    Y{record.year} D{record.day} · {record.season}{record.locationName && ` · ${record.locationName}`}
+                  </p>
+                </div>
+              ))}
+            </div>
           )}
         </TabsContent>
 

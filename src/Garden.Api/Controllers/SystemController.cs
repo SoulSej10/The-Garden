@@ -243,7 +243,9 @@ public class SystemController : ControllerBase
             _saveLoadService.ResetLineage();
 
             var seed = Random.Shared.Next();
-            _worldInitializer.Reinitialize(width: 100, height: 100, seed: seed);
+            var worldWidth = _configuration.GetValue("World:Width", 256);
+            var worldHeight = _configuration.GetValue("World:Height", 256);
+            _worldInitializer.Reinitialize(width: worldWidth, height: worldHeight, seed: seed);
             _spawnSystem.SpawnInitialPopulation(count: 50);
 
             _coordinator.Clock.Reset();

@@ -414,7 +414,17 @@ export function WorldMapCanvas({
       canvas.removeEventListener('pointercancel', handlePointerCancel)
       canvas.removeEventListener('pointerleave', handlePointerLeave)
       canvas.removeEventListener('wheel', handleWheel)
-      if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+      // Resetting rafRef here (not just cancelling) matters under StrictMode:
+      // dev mode double-invokes every mount effect once synchronously
+      // (mount -> cleanup -> mount) before any rAF has a chance to fire. If
+      // this cleanup only cancelled the frame without clearing the ref,
+      // scheduleDraw's `rafRef.current != null` guard stayed permanently
+      // true after the real mount, silently blocking every future draw -
+      // the canvas stayed visually blank forever, with no thrown error.
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
     }
   }, [])
 

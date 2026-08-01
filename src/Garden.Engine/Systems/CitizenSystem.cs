@@ -327,11 +327,22 @@ public class CitizenSystem : IScheduledSystem
             // consider founding a new one here.
             // Personality traits are rolled on a 0-10 scale (see SpawnSystem).
             var communityUrge = citizen.Personality.Compassion + (10 - citizen.Personality.Introversion);
-            // Require water within a short walk - a settlement founded far
-            // from any water source dooms its members to a losing race
-            // against thirst on every supply run for the rest of its life.
-            var nearWater = Pathfinder.FindNearestPath(_worldState.Map, citizen.TileX, citizen.TileY, HasWaterAt, maxRadius: 8).Count > 0;
-            if (communityUrge > 11 && citizen.Needs.Energy > 30 && nearWater)
+            // Require water within the settlement's own starting territory
+            // (Settlement.TerritoryRadius defaults to 5) rather than just a
+            // wider 8-tile search - HasWaterAccess/HasFoodAt's "in-territory"
+            // fallback (used once no Well is built yet) only recognizes
+            // natural water/food inside that same radius, so a site that only
+            // passed an 8-tile search could still leave the settlement with
+            // no sustainable source once founded, dooming it to a slow bleed
+            // of dehydration/starvation deaths on every supply trip.
+            const int foundingRadius = 5;
+            var nearWater = Pathfinder.FindNearestPath(_worldState.Map, citizen.TileX, citizen.TileY, HasWaterAt, maxRadius: foundingRadius).Count > 0;
+            // Same reasoning as nearWater, for food - founding on Hills/Desert/
+            // Canyon/Glacier/etc. with no forage source anywhere nearby was
+            // producing settlements that starved out within weeks once the
+            // world generator started producing far more non-arable terrain.
+            var nearFood = Pathfinder.FindNearestPath(_worldState.Map, citizen.TileX, citizen.TileY, HasFoodAt, maxRadius: foundingRadius).Count > 0;
+            if (communityUrge > 11 && citizen.Needs.Energy > 30 && nearWater && nearFood)
             {
                 var name = GenerateSettlementName();
                 var settlement = _settlementManager.FoundSettlement(

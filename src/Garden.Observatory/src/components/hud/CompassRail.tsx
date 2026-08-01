@@ -12,10 +12,14 @@ const ITEMS: { id: PanelId; icon: typeof UsersThree; label: string }[] = [
 ]
 
 /**
- * Bottom-right icon dock — the only "navigation" left in the app. No labels
- * by default (icon + tooltip), so it reads as a HUD control cluster rather
- * than a sidebar. Opening a panel never navigates away from the world; it
- * just adds a floating layer on top of it.
+ * Bottom-right dock - the only "navigation" left in the app. Labeled pills,
+ * not bare icon circles: the brief explicitly asked for controls that
+ * "communicate purpose through icons, labels, grouping" rather than hidden
+ * menus. This is a deliberate, flagged partial exception to the
+ * minimal-chrome HUD principle elsewhere in the shell - worth reverting to
+ * icon-only if it ever reads as cluttered at this corner's width budget.
+ * Opening a panel never navigates away from the world; it just adds a
+ * floating layer on top of it.
  */
 export function CompassRail() {
   const { panel, openPanel, closePanel } = usePanelState()
@@ -34,13 +38,14 @@ export function CompassRail() {
               aria-label={item.label}
               aria-pressed={active}
               className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-full transition-colors',
+                'flex h-9 items-center gap-1.5 rounded-full px-3 font-display text-xs font-medium transition-colors',
                 active
                   ? 'bg-primary text-primary-foreground shadow-atlas'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )}
             >
-              <Icon size={18} weight={active ? 'fill' : 'regular'} />
+              <Icon size={16} weight={active ? 'fill' : 'regular'} />
+              <span className="hidden sm:inline">{item.label}</span>
             </button>
           )
         })}

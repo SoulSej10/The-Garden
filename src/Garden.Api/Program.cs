@@ -79,6 +79,7 @@ using (var scope = app.Services.CreateScope())
     var scheduler = scope.ServiceProvider.GetRequiredService<Garden.Core.Interfaces.ISimulationScheduler>();
 
     scheduler.Register(scope.ServiceProvider.GetRequiredService<WeatherSystem>());
+    scheduler.Register(scope.ServiceProvider.GetRequiredService<NaturalEventsSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<SeasonSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<HydrologySystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<ResourceSystem>());
@@ -107,7 +108,10 @@ using (var scope = app.Services.CreateScope())
     scheduler.Register(scope.ServiceProvider.GetRequiredService<LegendSystem>());
     scheduler.Register(scope.ServiceProvider.GetRequiredService<CivilizationSystem>());
 
-    initializer.Initialize(width: 100, height: 100, seed: 42);
+    var worldWidth = app.Configuration.GetValue("World:Width", 256);
+    var worldHeight = app.Configuration.GetValue("World:Height", 256);
+    var worldSeed = app.Configuration.GetValue("World:Seed", 42);
+    initializer.Initialize(width: worldWidth, height: worldHeight, seed: worldSeed);
 
     var worldState = scope.ServiceProvider.GetRequiredService<WorldState>();
     var progLog = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();

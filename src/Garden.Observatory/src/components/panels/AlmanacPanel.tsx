@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { fetchWeather, fetchClimate, fetchResources, fetchEvents, fetchSimulationStatus, fetchEconomy } from '@/lib/api'
+import { fetchWeather, fetchClimate, fetchResources, fetchEvents, fetchSimulationStatus, fetchEconomy, fetchGeology } from '@/lib/api'
 
 /**
  * Environment + Economy merged into one "world knowledge" reference. The
@@ -19,6 +19,7 @@ export default function AlmanacPanel() {
   const { data: resources } = useQuery({ queryKey: ['resources'], queryFn: fetchResources, refetchInterval: 5000 })
   const { data: events } = useQuery({ queryKey: ['environment-events'], queryFn: () => fetchEvents(20), refetchInterval: 5000 })
   const { data: economy } = useQuery({ queryKey: ['economy'], queryFn: fetchEconomy, refetchInterval: 3000 })
+  const { data: geology } = useQuery({ queryKey: ['geology'], queryFn: fetchGeology, refetchInterval: 15000 })
 
   const weatherBadgeVariant =
     weather?.condition === 'Clear' ? 'default' : weather?.condition === 'Storm' || weather?.condition === 'HeavyRain' ? 'destructive' : 'secondary'
@@ -46,6 +47,8 @@ export default function AlmanacPanel() {
           <TabsTrigger value="climate">Climate</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
+          <TabsTrigger value="geology">Geology</TabsTrigger>
+          <TabsTrigger value="ecology">Ecology</TabsTrigger>
           <TabsTrigger value="economy">Economy</TabsTrigger>
         </TabsList>
 
@@ -123,6 +126,64 @@ export default function AlmanacPanel() {
             </div>
           ) : (
             <Empty>No events recorded.</Empty>
+          )}
+        </TabsContent>
+
+        <TabsContent value="geology" className="space-y-4">
+          {!geology ? (
+            <Empty>Reading the rock…</Empty>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                This world formed as a <span className="font-medium text-foreground">{geology.archetype}</span> - {geology.totalTiles.toLocaleString()} tiles, shaped by plate boundaries, erosion, and climate rather than a single noise field.
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <MiniStat label="Volcanic tiles" value={geology.volcanicTileCount} />
+                <MiniStat label="Avg relief" value={geology.averageRelief.toFixed(2)} />
+                <MiniStat label="Forest cover" value={`${geology.forestCoverPercent.toFixed(0)}%`} />
+              </div>
+              <div>
+                <p className="mb-1.5 font-display text-xs font-semibold uppercase tracking-wide text-muted-foreground">Terrain</p>
+                <div className="space-y-1">
+                  {Object.entries(geology.terrainBreakdown).slice(0, 10).map(([terrain, pct]) => (
+                    <div key={terrain} className="flex items-center gap-2">
+                      <span className="w-28 shrink-0 truncate text-xs text-muted-foreground">{terrain}</span>
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-status-thriving" style={{ width: `${Math.min(100, pct * 2)}%` }} />
+                      </div>
+                      <span className="w-10 shrink-0 text-right text-xs tabular-nums">{pct.toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="mb-1.5 font-display text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tectonic boundaries</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {Object.entries(geology.boundaryBreakdown).map(([type, pct]) => (
+                    <InfoRow key={type} label={type} value={`${pct.toFixed(1)}%`} />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="ecology" className="space-y-4">
+          {!geology ? (
+            <Empty>Reading the undergrowth…</Empty>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                Forest cover is genuinely simulated tile-by-tile - it spreads, recedes, and burns based on moisture, temperature, and terrain, not a fixed decoration.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <MiniStat label="Forest cover" value={`${geology.forestCoverPercent.toFixed(1)}%`} />
+                <MiniStat label="Total land tiles" value={geology.totalTiles - (geology.terrainBreakdown['Ocean'] ? Math.round((geology.terrainBreakdown['Ocean'] / 100) * geology.totalTiles) : 0)} />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Wildlife population and soil health are tracked per-settlement (a deliberate aggregate, not individually-simulated animals) - see each settlement's Nature tab in the Settlements panel for those numbers.
+              </p>
+            </>
           )}
         </TabsContent>
 

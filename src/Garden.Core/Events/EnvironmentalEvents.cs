@@ -60,3 +60,23 @@ public record DroughtStartedEvent : EnvironmentalEvent
 }
 
 public record DroughtEndedEvent : EnvironmentalEvent;
+
+// Published by NaturalEventsSystem, driven by WeatherSystem's spatial
+// weather cells (drought/flood) or WorldTile.IsVolcanic (eruption). Each
+// resolves within the tick it's detected on rather than simulating
+// multi-day spread/recession - a deliberate simplification, documented at
+// the publish site.
+public record WildfireStartedEvent : EnvironmentalEvent
+{
+    public int TilesBurned { get; init; }
+}
+
+public record FloodStartedEvent : EnvironmentalEvent
+{
+    public string? NearestSettlementName { get; init; }
+}
+
+public record VolcanicEruptionEvent : EnvironmentalEvent
+{
+    public bool FormedNewLand { get; init; }
+}

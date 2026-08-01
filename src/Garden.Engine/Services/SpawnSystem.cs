@@ -32,7 +32,18 @@ public class SpawnSystem
             and not TerrainType.Mountains
             and not TerrainType.River;
 
-        var habitable = map.GetAllTiles().Where(IsHabitable).ToList();
+        // Land alone isn't enough to spawn on - matches CitizenSystem.HasFoodAt's
+        // rules for what can actually feed someone. Hills, Desert, Canyon,
+        // Badlands, Glacier and similar now make up a large share of the map
+        // under the new generator and have no forage/hunt source at all, so
+        // spawning clusters there (even briefly, before they could relocate)
+        // was starving settlements out within weeks.
+        static bool HasFood(World.Entities.WorldTile t) =>
+            t.Terrain is TerrainType.Forest or TerrainType.Grassland or TerrainType.Plains
+            || t.IsRiver || t.IsLake || t.Terrain == TerrainType.Coast
+            || t.Resources.Any(r => r.Type == ResourceType.WildPlants && r.Quantity > 0);
+
+        var habitable = map.GetAllTiles().Where(t => IsHabitable(t) && HasFood(t)).ToList();
 
         if (habitable.Count == 0)
         {

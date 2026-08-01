@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { Rows, Sparkle, UsersThree, HouseLine, X } from '@phosphor-icons/react'
 import { fetchMap, fetchTile, fetchWorldStatus, fetchCitizens, fetchSettlements } from '@/lib/api'
@@ -8,7 +8,16 @@ import { useLocalStorageState } from '@/lib/useLocalStorageState'
 import { cn } from '@/lib/utils'
 import { WeatherVeil } from './WeatherVeil'
 
-const BASE_VIEW_SIZES = [10, 20, 30, 50] as const
+// Reference ROW count per zoom tier - the actual fetched/rendered grid is
+// gridHeight=tier, gridWidth=round(tier*aspectRatio), so every tier below
+// "Max" fills the actual screen rectangle edge-to-edge (tiles stay square,
+// wider screens just show proportionally more columns) instead of forcing
+// a square crop that letterboxes on any non-square viewport. "Max" is the
+// one deliberate exception - the whole (square) world genuinely can't fill
+// a wide rectangle without distortion or cropping, so it letterboxes on
+// purpose as the "see the whole planet" view.
+const BASE_VIEW_SIZES = [24, 40, 64, 100, 160] as const
+const VIEW_SIZE_LABELS: Record<number, string> = { 24: 'Local', 40: 'Near', 64: 'Regional', 100: 'Wide', 160: 'Continental' }
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
@@ -23,7 +32,7 @@ function clamp(value: number, min: number, max: number) {
  * as floating HUD pieces instead of a page header + sidebar cards.
  */
 export function WorldStage() {
-  const [viewSize, setViewSize] = useLocalStorageState<number>('garden.map.viewSize', 30)
+  const [viewSize, setViewSize] = useLocalStorageState<number>('garden.map.viewSize', 64)
   const [offsetX, setOffsetX] = useLocalStorageState<number>('garden.map.offsetX', 0)
   const [offsetY, setOffsetY] = useLocalStorageState<number>('garden.map.offsetY', 0)
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null)
@@ -31,20 +40,32 @@ export function WorldStage() {
   const [showCitizens, setShowCitizens] = useLocalStorageState<boolean>('garden.map.showCitizens', true)
   const [showSettlements, setShowSettlements] = useLocalStorageState<boolean>('garden.map.showSettlements', true)
   const [toolbarOpen, setToolbarOpen] = useState(false)
+  const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
+
+  useEffect(() => {
+    const onResize = () => setViewport({ width: window.innerWidth, height: window.innerHeight })
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   const { data: worldStatus } = useQuery({
     queryKey: ['world-status-bounds'],
     queryFn: fetchWorldStatus,
     staleTime: Infinity,
   })
-  const worldWidth = worldStatus?.width ?? 100
-  const worldHeight = worldStatus?.height ?? 100
+  const worldWidth = worldStatus?.width ?? 256
+  const worldHeight = worldStatus?.height ?? 256
   const maxViewSize = Math.max(worldWidth, worldHeight)
 
   const viewSizeOptions = useMemo(() => {
     const sizes = BASE_VIEW_SIZES.filter((s) => s < maxViewSize)
     return [...sizes, maxViewSize] as number[]
   }, [maxViewSize])
+
+  const aspect = viewport.width / Math.max(1, viewport.height)
+  const isMaxZoom = viewSize >= maxViewSize
+  const gridHeight = isMaxZoom ? worldHeight : clamp(Math.round(viewSize), 1, worldHeight)
+  const gridWidth = isMaxZoom ? worldWidth : clamp(Math.round(viewSize * aspect), 1, worldWidth)
 
   const { data: citizensData } = useQuery({
     queryKey: ['world-map-citizens'],
@@ -61,9 +82,9 @@ export function WorldStage() {
   })
 
   const { data: mapData } = useQuery({
-    queryKey: ['world-map', viewSize, offsetX, offsetY],
-    queryFn: () => fetchMap(offsetX, offsetY, viewSize, viewSize),
-    refetchInterval: viewSize * viewSize > 900 ? 20000 : 5000,
+    queryKey: ['world-map', gridWidth, gridHeight, offsetX, offsetY],
+    queryFn: () => fetchMap(offsetX, offsetY, gridWidth, gridHeight),
+    refetchInterval: gridWidth * gridHeight > 4000 ? 20000 : 5000,
     placeholderData: keepPreviousData,
   })
 
@@ -80,10 +101,21 @@ export function WorldStage() {
 
   const handlePan = useCallback(
     (deltaTilesX: number, deltaTilesY: number) => {
-      setOffsetX((prev) => clamp(prev + deltaTilesX, 0, Math.max(0, worldWidth - viewSize)))
-      setOffsetY((prev) => clamp(prev + deltaTilesY, 0, Math.max(0, worldHeight - viewSize)))
+      setOffsetX((prev) => clamp(prev + deltaTilesX, 0, Math.max(0, worldWidth - gridWidth)))
+      setOffsetY((prev) => clamp(prev + deltaTilesY, 0, Math.max(0, worldHeight - gridHeight)))
     },
-    [viewSize, worldWidth, worldHeight, setOffsetX, setOffsetY]
+    [gridWidth, gridHeight, worldWidth, worldHeight, setOffsetX, setOffsetY]
+  )
+
+  const gridForTier = useCallback(
+    (size: number) => {
+      const max = size >= maxViewSize
+      return {
+        h: max ? worldHeight : clamp(Math.round(size), 1, worldHeight),
+        w: max ? worldWidth : clamp(Math.round(size * aspect), 1, worldWidth),
+      }
+    },
+    [maxViewSize, worldWidth, worldHeight, aspect]
   )
 
   const handleZoom = useCallback(
@@ -94,26 +126,28 @@ export function WorldStage() {
       const newSize = viewSizeOptions[nextIndex]
       if (newSize === viewSize) return
 
-      const maxOffsetX = Math.max(0, worldWidth - newSize)
-      const maxOffsetY = Math.max(0, worldHeight - newSize)
+      const { w: newGridWidth, h: newGridHeight } = gridForTier(newSize)
+      const maxOffsetX = Math.max(0, worldWidth - newGridWidth)
+      const maxOffsetY = Math.max(0, worldHeight - newGridHeight)
       setViewSize(newSize)
-      setOffsetX(clamp(centerTile.x - Math.floor(newSize / 2), 0, maxOffsetX))
-      setOffsetY(clamp(centerTile.y - Math.floor(newSize / 2), 0, maxOffsetY))
+      setOffsetX(clamp(centerTile.x - Math.floor(newGridWidth / 2), 0, maxOffsetX))
+      setOffsetY(clamp(centerTile.y - Math.floor(newGridHeight / 2), 0, maxOffsetY))
     },
-    [viewSize, worldWidth, worldHeight, viewSizeOptions, setViewSize, setOffsetX, setOffsetY]
+    [viewSize, worldWidth, worldHeight, viewSizeOptions, gridForTier, setViewSize, setOffsetX, setOffsetY]
   )
 
   const handleViewSizeChange = useCallback(
     (size: number) => {
-      const centerX = offsetX + Math.floor(viewSize / 2)
-      const centerY = offsetY + Math.floor(viewSize / 2)
-      const maxOffsetX = Math.max(0, worldWidth - size)
-      const maxOffsetY = Math.max(0, worldHeight - size)
+      const centerX = offsetX + Math.floor(gridWidth / 2)
+      const centerY = offsetY + Math.floor(gridHeight / 2)
+      const { w: newGridWidth, h: newGridHeight } = gridForTier(size)
+      const maxOffsetX = Math.max(0, worldWidth - newGridWidth)
+      const maxOffsetY = Math.max(0, worldHeight - newGridHeight)
       setViewSize(size)
-      setOffsetX(clamp(centerX - Math.floor(size / 2), 0, maxOffsetX))
-      setOffsetY(clamp(centerY - Math.floor(size / 2), 0, maxOffsetY))
+      setOffsetX(clamp(centerX - Math.floor(newGridWidth / 2), 0, maxOffsetX))
+      setOffsetY(clamp(centerY - Math.floor(newGridHeight / 2), 0, maxOffsetY))
     },
-    [offsetX, offsetY, viewSize, worldWidth, worldHeight, setViewSize, setOffsetX, setOffsetY]
+    [offsetX, offsetY, gridWidth, gridHeight, worldWidth, worldHeight, gridForTier, setViewSize, setOffsetX, setOffsetY]
   )
 
   const overlays = useMemo(() => {
@@ -169,8 +203,8 @@ export function WorldStage() {
       {mapData?.tiles ? (
         <WorldMapCanvas
           tiles={mapData.tiles}
-          gridWidth={viewSize}
-          gridHeight={viewSize}
+          gridWidth={gridWidth}
+          gridHeight={gridHeight}
           offsetX={offsetX}
           offsetY={offsetY}
           selectedTile={selectedTile}
@@ -187,7 +221,13 @@ export function WorldStage() {
         </div>
       )}
 
-      <WeatherVeil />
+      {/* Weather is only legible as a spatial texture once tiles are big
+          enough to actually see - at zoomed-out tiers dozens of overlapping
+          per-cell gradients just compound into an indistinct haze over the
+          whole map, which is exactly what was making the map unreadable. */}
+      {viewSize <= 100 && (
+        <WeatherVeil offsetX={offsetX} offsetY={offsetY} gridWidth={gridWidth} gridHeight={gridHeight} />
+      )}
 
       {/* Map toolbar — top-center, collapses to a single icon so it never
           competes with the vitals cluster / chronicle bell in the corners. */}
@@ -215,7 +255,7 @@ export function WorldStage() {
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
                 >
-                  {size === maxViewSize ? 'Max' : `${size}×${size}`}
+                  {size >= maxViewSize ? 'Planet' : (VIEW_SIZE_LABELS[size] ?? `${size}`)}
                 </button>
               ))}
               <div className="mx-0.5 h-5 w-px bg-border" />

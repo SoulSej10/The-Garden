@@ -70,6 +70,23 @@ export interface WeatherData {
   humidityModifier: number
 }
 
+export interface WeatherGridCell {
+  cellX: number
+  cellY: number
+  condition: string
+  intensity: number
+  windDirX: number
+  windDirY: number
+  windStrength: number
+}
+
+export interface WeatherGrid {
+  cellsX: number
+  cellsY: number
+  tileSize: number
+  cells: WeatherGridCell[]
+}
+
 export interface ClimateData {
   zones: Array<{
     zone: string
@@ -79,6 +96,16 @@ export interface ClimateData {
     avgElevation: number
   }>
   derived: boolean
+}
+
+export interface GeologyData {
+  archetype: string
+  totalTiles: number
+  volcanicTileCount: number
+  averageRelief: number
+  forestCoverPercent: number
+  terrainBreakdown: Record<string, number>
+  boundaryBreakdown: Record<string, number>
 }
 
 export interface ResourcesData {
@@ -126,8 +153,18 @@ export async function fetchWeather(): Promise<WeatherData> {
   return data
 }
 
+export async function fetchWeatherGrid(): Promise<WeatherGrid> {
+  const { data } = await api.get('/environment/weather/grid')
+  return data
+}
+
 export async function fetchClimate(): Promise<ClimateData> {
   const { data } = await api.get('/environment/climate')
+  return data
+}
+
+export async function fetchGeology(): Promise<GeologyData> {
+  const { data } = await api.get('/environment/geology')
   return data
 }
 

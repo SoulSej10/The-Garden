@@ -95,6 +95,15 @@ public class HistorySystem : IScheduledSystem
         _eventBus.Subscribe<ForestExpandedEvent>(OnForestExpanded);
         _eventBus.Subscribe<ForestDeclinedEvent>(OnForestDeclined);
 
+        // NaturalEventsSystem (layered geological generator follow-on):
+        // subscribed at introduction time, continuing the practice this file's
+        // own comments repeatedly flag as the fix for TG-001 Law IV violations.
+        _eventBus.Subscribe<DroughtStartedEvent>(OnDroughtStarted);
+        _eventBus.Subscribe<DroughtEndedEvent>(OnDroughtEnded);
+        _eventBus.Subscribe<WildfireStartedEvent>(OnWildfireStarted);
+        _eventBus.Subscribe<FloodStartedEvent>(OnFloodStarted);
+        _eventBus.Subscribe<VolcanicEruptionEvent>(OnVolcanicEruption);
+
         // RFC-007 (specification/RFC/RFC-007-borders-territorial-influence.md):
         // subscribed at introduction time this time, rather than being found
         // missing later - the same TG-001 Law IV pattern Week 1 Day 1 and
@@ -513,6 +522,49 @@ public class HistorySystem : IScheduledSystem
             e.SettlementAName, 0, 0, e.Tick,
             [e.SettlementAId.Value.ToString(), e.SettlementBId.Value.ToString()],
             [e.SettlementAName, e.SettlementBName], 5.0, e.SettlementAId.Value.ToString());
+    }
+
+    private void OnDroughtStarted(DroughtStartedEvent e)
+    {
+        Archive(HistoryCategories.Disaster, "DroughtStarted",
+            $"Drought Sets In Near ({e.TileX}, {e.TileY})",
+            $"A prolonged dry spell has taken hold near ({e.TileX}, {e.TileY}), {e.SeverityLevel} days without meaningful rain.",
+            string.Empty, e.TileX, e.TileY, e.Tick, [], [], 6.0);
+    }
+
+    private void OnDroughtEnded(DroughtEndedEvent e)
+    {
+        Archive(HistoryCategories.Disaster, "DroughtEnded",
+            $"Drought Breaks Near ({e.TileX}, {e.TileY})",
+            $"Rain has returned to the region near ({e.TileX}, {e.TileY}), ending the dry spell.",
+            string.Empty, e.TileX, e.TileY, e.Tick, [], [], 4.0);
+    }
+
+    private void OnWildfireStarted(WildfireStartedEvent e)
+    {
+        Archive(HistoryCategories.Disaster, "WildfireStarted",
+            $"Wildfire Near ({e.TileX}, {e.TileY})",
+            $"A wildfire broke out amid drought conditions near ({e.TileX}, {e.TileY}), burning {e.TilesBurned} tile(s) before it ran out of fuel.",
+            string.Empty, e.TileX, e.TileY, e.Tick, [], [], 7.0);
+    }
+
+    private void OnFloodStarted(FloodStartedEvent e)
+    {
+        var locationPhrase = e.NearestSettlementName is not null ? $" near {e.NearestSettlementName}" : string.Empty;
+        Archive(HistoryCategories.Disaster, "FloodStarted",
+            $"Flooding Near ({e.TileX}, {e.TileY})",
+            $"Sustained heavy rain overtopped the river{locationPhrase}, flooding the surrounding lowlands near ({e.TileX}, {e.TileY}).",
+            e.NearestSettlementName ?? string.Empty, e.TileX, e.TileY, e.Tick, [], [], 6.5);
+    }
+
+    private void OnVolcanicEruption(VolcanicEruptionEvent e)
+    {
+        var title = e.FormedNewLand ? $"A New Island Rises at ({e.TileX}, {e.TileY})" : $"Volcanic Eruption at ({e.TileX}, {e.TileY})";
+        var description = e.FormedNewLand
+            ? $"An eruption at ({e.TileX}, {e.TileY}) built new land above the waterline, forming a volcanic island."
+            : $"An eruption at ({e.TileX}, {e.TileY}) reshaped the surrounding terrain.";
+        Archive(HistoryCategories.Disaster, "VolcanicEruption", title, description,
+            string.Empty, e.TileX, e.TileY, e.Tick, [], [], e.FormedNewLand ? 9.0 : 7.5);
     }
 
     private void OnForestExpanded(ForestExpandedEvent e)

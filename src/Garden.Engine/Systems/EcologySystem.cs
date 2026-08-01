@@ -123,7 +123,12 @@ public class EcologySystem : IScheduledSystem
         if (tile.Moisture < 0.2 || tile.Temperature < 0)
             return;
 
-        var growthPotential = tile.Moisture * (tile.Temperature / 40.0) * growthModifier;
+        // Layered geological generator tie-in: Relief (post-erosion local
+        // elevation variance) dampens growth on rocky/eroded ground - a
+        // Badlands-adjacent tile with decent moisture still shouldn't green
+        // over as readily as flat, settled soil.
+        var reliefDamping = 1.0 - tile.Relief * 0.6;
+        var growthPotential = tile.Moisture * (tile.Temperature / 40.0) * growthModifier * reliefDamping;
 
         if (tile.Terrain == TerrainType.Forest && growthPotential > 0.5)
         {

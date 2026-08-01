@@ -44,10 +44,19 @@ public class WorldInitializer
         var map = generator.Generate(width, height);
 
         _worldState.Map = map;
+        _worldState.Archetype = generator.Archetype;
+        _worldState.ClimateZones.Clear();
+        _worldState.ClimateZones.AddRange(generator.ClimateZones);
         _worldState.IsInitialized = true;
 
         sw.Stop();
-        _logger.LogInformation("World initialized in {ElapsedMs}ms ({TotalTiles} tiles)",
-            sw.ElapsedMilliseconds, width * height);
+        _logger.LogInformation("World initialized in {ElapsedMs}ms ({TotalTiles} tiles), archetype={Archetype}",
+            sw.ElapsedMilliseconds, width * height, generator.Archetype);
+
+        var terrainCounts = map.GetAllTiles()
+            .GroupBy(t => t.Terrain)
+            .OrderByDescending(g => g.Count())
+            .Select(g => $"{g.Key}={g.Count() * 100.0 / (width * height):F1}%");
+        _logger.LogInformation("Terrain distribution: {Distribution}", string.Join(", ", terrainCounts));
     }
 }

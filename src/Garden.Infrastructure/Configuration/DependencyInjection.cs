@@ -59,6 +59,7 @@ public static class DependencyInjection
         services.AddHostedService<SimulationHostedService>();
 
         services.AddSingleton<WeatherSystem>();
+        services.AddSingleton<NaturalEventsSystem>();
         services.AddSingleton<SeasonSystem>();
         services.AddSingleton<HydrologySystem>();
         services.AddSingleton<ResourceSystem>();
