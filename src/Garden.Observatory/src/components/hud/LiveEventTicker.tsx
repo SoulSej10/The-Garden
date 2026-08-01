@@ -34,29 +34,31 @@ function toneFor(category: string) {
 }
 
 /**
- * Right-side world activity feed, below TopRightCluster - the Chronicle
- * (full searchable history) still exists as a panel, but the player
- * shouldn't need to open it just to notice the world is doing something.
- * Polls the same timeline endpoint the Chronicle panel's Timeline tab uses;
- * newest record renders first and replays its entrance animation via a
- * fresh `key`, so the feed visibly "arrives" rather than silently updating.
+ * World activity feed - part of the sidebar's Overview tab. The Chronicle
+ * (full searchable history) still exists as its own tab, but the player
+ * shouldn't need to switch to it just to notice the world is doing
+ * something. Polls the same timeline endpoint the Chronicle panel's
+ * Timeline tab uses; newest record renders first and replays its entrance
+ * animation via a fresh `key`, so the feed visibly "arrives" rather than
+ * silently updating.
  */
 export function LiveEventTicker() {
   const { data: timeline } = useQuery({
     queryKey: ['live-event-ticker'],
-    queryFn: () => fetchHistoryTimeline(1, 7),
+    queryFn: () => fetchHistoryTimeline(1, 12),
     refetchInterval: 4000,
   })
 
   const entries = timeline?.entries ?? []
-  if (entries.length === 0) return null
 
   return (
-    <div className="pointer-events-none absolute right-4 top-20 z-20 hidden w-64 lg:block md:right-6 md:top-[4.75rem]">
-      <div className="pointer-events-auto panel-carved-r space-y-1 border border-border/70 bg-panel/85 p-2.5 shadow-atlas backdrop-blur-md">
-        <p className="px-1 pb-0.5 font-display text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          World Activity
-        </p>
+    <div className="space-y-1 border-t border-border/60 p-3">
+      <p className="px-1 pb-0.5 font-display text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        World Activity
+      </p>
+      {entries.length === 0 ? (
+        <p className="px-1 py-4 text-center text-xs text-muted-foreground">Nothing has happened yet.</p>
+      ) : (
         <div className="space-y-0.5">
           {entries.map((entry: HistoryRecord) => {
             const Icon = eventIcon(entry.eventType)
@@ -79,7 +81,7 @@ export function LiveEventTicker() {
             )
           })}
         </div>
-      </div>
+      )}
     </div>
   )
 }

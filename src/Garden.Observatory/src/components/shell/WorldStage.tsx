@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { Rows, Sparkle, UsersThree, HouseLine, X } from '@phosphor-icons/react'
 import { fetchMap, fetchTile, fetchWorldStatus, fetchCitizens, fetchSettlements } from '@/lib/api'
@@ -41,11 +41,17 @@ export function WorldStage() {
   const [showSettlements, setShowSettlements] = useLocalStorageState<boolean>('garden.map.showSettlements', true)
   const [toolbarOpen, setToolbarOpen] = useState(false)
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
+  const stageRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const onResize = () => setViewport({ width: window.innerWidth, height: window.innerHeight })
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    const el = stageRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect
+      if (rect) setViewport({ width: rect.width, height: rect.height })
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [])
 
   const { data: worldStatus } = useQuery({
@@ -199,7 +205,7 @@ export function WorldStage() {
   }, [showSettlements, settlementsData, showCitizens, citizensData])
 
   return (
-    <div className="absolute inset-0">
+    <div ref={stageRef} className="relative h-full w-full">
       {mapData?.tiles ? (
         <WorldMapCanvas
           tiles={mapData.tiles}

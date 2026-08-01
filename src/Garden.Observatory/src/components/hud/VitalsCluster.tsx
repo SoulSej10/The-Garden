@@ -14,8 +14,7 @@ function weatherIcon(condition?: string) {
 }
 
 /**
- * Top-left HUD corner: the world's vital signs, always visible, never a
- * grid of equal-sized dashboard cards. Population prefers the SignalR
+ * Docked header bar above the map column. Population prefers the SignalR
  * citizenHub push (see useSimulationHub.ts, previously built but never
  * consumed anywhere) and falls back to the polled dashboard summary -
  * so the count keeps moving even if the push channel is still connecting.
@@ -36,21 +35,19 @@ export function VitalsCluster() {
   const WeatherIcon = weatherIcon(weather)
 
   return (
-    <div className="pointer-events-none absolute left-4 top-4 z-30 md:left-6 md:top-6">
-      <div className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-border/70 bg-panel/90 py-1.5 pl-1.5 pr-2 shadow-atlas-lg backdrop-blur-md">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-primary">
-          <Leaf size={16} weight="fill" />
-        </div>
-        <span className="hidden pl-1.5 pr-2.5 font-display text-sm font-semibold sm:inline">The Garden</span>
-        <div className="hidden h-6 w-px bg-border sm:block" />
-        <VitalChip icon={<UsersThree size={14} weight="bold" />} value={alive} title="Living citizens" />
-        <VitalChip icon={<HouseLine size={14} weight="bold" />} value={settlements} title="Settlements" />
-        <VitalChip
-          icon={<WeatherIcon size={14} weight="bold" />}
-          value={temperature != null ? `${Math.round(temperature)}°` : undefined}
-          title={season ? `${season} · ${weather}` : weather}
-        />
+    <div className="flex h-14 shrink-0 items-center gap-0.5 border-b border-border/70 bg-panel/60 px-3 backdrop-blur-md">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-primary">
+        <Leaf size={16} weight="fill" />
       </div>
+      <span className="pl-1.5 pr-3 font-display text-sm font-semibold">The Garden</span>
+      <div className="h-6 w-px bg-border" />
+      <VitalChip icon={<UsersThree size={14} weight="bold" />} value={alive} title="Living citizens" />
+      <VitalChip icon={<HouseLine size={14} weight="bold" />} value={settlements} title="Settlements" />
+      <VitalChip
+        icon={<WeatherIcon size={14} weight="bold" />}
+        value={temperature != null ? `${Math.round(temperature)}°` : undefined}
+        title={season ? `${season} · ${weather}` : weather}
+      />
     </div>
   )
 }

@@ -7,14 +7,13 @@ import { cn } from '@/lib/utils'
 const HISTORY_LENGTH = 40
 
 /**
- * Left-side persistent readout, below VitalsCluster. VitalsCluster answers
- * "is the world alive right now" in one glance (population/settlements/
- * weather); this answers "which direction is it moving" - population and
- * food trend as sparklines built from samples taken on the client (no
- * history endpoint returns a timeseries), births/deaths/food/labor as
- * always-visible numbers instead of requiring a trip into the Almanac or
- * Chronicle panels. Secondary-priority content per the "glanceable in three
- * seconds" brief - sits quietly under the vitals, never competes with them.
+ * Default content of the sidebar's display window (panel = null / "Overview"
+ * tab). VitalsCluster answers "is the world alive right now" in one glance
+ * (population/settlements/weather); this answers "which direction is it
+ * moving" - population and food trend as sparklines built from samples taken
+ * on the client (no history endpoint returns a timeseries), births/deaths/
+ * food/labor as always-visible numbers instead of requiring a trip into the
+ * Almanac panel.
  */
 export function CivilizationOverview() {
   const { data: summary } = useQuery({
@@ -44,35 +43,33 @@ export function CivilizationOverview() {
   const foodTrend = trendDirection(foodHistory)
 
   return (
-    <div className="pointer-events-none absolute left-4 top-16 z-20 hidden w-56 sm:block md:left-6 md:top-[4.25rem]">
-      <div className="pointer-events-auto panel-carved space-y-2.5 border border-border/70 bg-panel/85 p-3 shadow-atlas backdrop-blur-md">
-        <p className="font-display text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Civilization
-        </p>
+    <div className="space-y-3 p-3">
+      <p className="font-display text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Civilization
+      </p>
 
-        <TrendRow
-          label="Population"
-          value={population}
-          history={populationHistory}
-          trend={populationTrend}
-        />
-        <TrendRow label="Settlement food" value={food != null ? Math.round(food) : undefined} history={foodHistory} trend={foodTrend} />
+      <TrendRow
+        label="Population"
+        value={population}
+        history={populationHistory}
+        trend={populationTrend}
+      />
+      <TrendRow label="Settlement food" value={food != null ? Math.round(food) : undefined} history={foodHistory} trend={foodTrend} />
 
-        <div className="grid grid-cols-2 gap-1.5 border-t border-border/60 pt-2">
-          <MiniStat icon={<Baby size={12} weight="bold" />} label="Births" value={historyStats?.births} tone="thriving" />
-          <MiniStat icon={<Skull size={12} weight="bold" />} label="Deaths" value={historyStats?.deaths} tone="danger" />
-          <MiniStat icon={<HouseLine size={12} weight="bold" />} label="Buildings" value={summary.settlements.totalBuildings} />
-          <MiniStat icon={<Hammer size={12} weight="bold" />} label="Goods" value={economy?.globalGoodsCrafted != null ? Math.round(economy.globalGoodsCrafted) : undefined} />
-        </div>
+      <div className="grid grid-cols-2 gap-1.5 border-t border-border/60 pt-2.5">
+        <MiniStat icon={<Baby size={12} weight="bold" />} label="Births" value={historyStats?.births} tone="thriving" />
+        <MiniStat icon={<Skull size={12} weight="bold" />} label="Deaths" value={historyStats?.deaths} tone="danger" />
+        <MiniStat icon={<HouseLine size={12} weight="bold" />} label="Buildings" value={summary.settlements.totalBuildings} />
+        <MiniStat icon={<Hammer size={12} weight="bold" />} label="Goods" value={economy?.globalGoodsCrafted != null ? Math.round(economy.globalGoodsCrafted) : undefined} />
+      </div>
 
-        <div className="flex items-center justify-between border-t border-border/60 pt-2 text-[10px] text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Basket size={11} weight="bold" /> Trades {economy?.globalTradeCount ?? '–'}
-          </span>
-          <span className="flex items-center gap-1">
-            <GaugeIcon size={11} weight="bold" /> Avg age {summary.population.averageAge != null ? Math.round(summary.population.averageAge) : '–'}
-          </span>
-        </div>
+      <div className="flex items-center justify-between border-t border-border/60 pt-2.5 text-[10px] text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Basket size={11} weight="bold" /> Trades {economy?.globalTradeCount ?? '–'}
+        </span>
+        <span className="flex items-center gap-1">
+          <GaugeIcon size={11} weight="bold" /> Avg age {summary.population.averageAge != null ? Math.round(summary.population.averageAge) : '–'}
+        </span>
       </div>
     </div>
   )

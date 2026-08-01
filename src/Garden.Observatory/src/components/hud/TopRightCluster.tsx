@@ -81,41 +81,39 @@ export function TopRightCluster({ onOpenSearch }: { onOpenSearch: () => void }) 
   }, [historyHub.notification])
 
   return (
-    <div className="pointer-events-none absolute right-4 top-4 z-30 flex items-center gap-2 md:right-6 md:top-6">
-      <div className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-border/70 bg-panel/90 p-1 shadow-atlas-lg backdrop-blur-md">
-        <button
-          onClick={onOpenSearch}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          title="Search (Ctrl+K)"
-        >
-          <MagnifyingGlass size={15} />
-        </button>
-        <button
-          onClick={() => setReduceMotion((r) => !r)}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          title={reduceMotion ? 'Motion reduced' : 'Reduce motion'}
-          aria-pressed={reduceMotion}
-        >
-          <PersonSimpleRun size={15} weight={reduceMotion ? 'fill' : 'regular'} />
-        </button>
-        <button
-          onClick={() => setDark((d) => !d)}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          title="Toggle day / night"
-        >
-          {dark ? <Sun size={15} /> : <Moon size={15} />}
-        </button>
-      </div>
-
+    <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border/70 bg-panel/60 px-3 backdrop-blur-md">
+      <button
+        onClick={onOpenSearch}
+        className="flex h-9 flex-1 items-center gap-2 rounded-full border border-border/70 bg-card px-3 text-left text-xs text-muted-foreground transition-colors hover:bg-accent/60"
+      >
+        <MagnifyingGlass size={14} />
+        <span className="flex-1">Search the world…</span>
+        <kbd className="hidden rounded border border-border/70 px-1 text-[10px] sm:inline">Ctrl K</kbd>
+      </button>
+      <button
+        onClick={() => setReduceMotion((r) => !r)}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        title={reduceMotion ? 'Motion reduced' : 'Reduce motion'}
+        aria-pressed={reduceMotion}
+      >
+        <PersonSimpleRun size={15} weight={reduceMotion ? 'fill' : 'regular'} />
+      </button>
+      <button
+        onClick={() => setDark((d) => !d)}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        title="Toggle day / night"
+      >
+        {dark ? <Sun size={15} /> : <Moon size={15} />}
+      </button>
       <button
         onClick={() => openPanel('chronicle')}
         className={cn(
-          'pointer-events-auto relative flex h-11 w-11 items-center justify-center rounded-full border border-border/70 bg-panel/90 text-muted-foreground shadow-atlas-lg backdrop-blur-md transition-colors hover:text-foreground',
+          'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
           pulse && 'text-primary'
         )}
         title="Chronicle"
       >
-        <Scroll size={18} weight={pulse ? 'fill' : 'regular'} />
+        <Scroll size={16} weight={pulse ? 'fill' : 'regular'} />
         {pulse && <span className="absolute inset-0 animate-ping rounded-full border-2 border-primary" />}
       </button>
     </div>
