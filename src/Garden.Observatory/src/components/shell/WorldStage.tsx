@@ -7,6 +7,7 @@ import { WorldMapCanvas, type MapOverlay } from '@/components/WorldMapCanvas'
 import { useLocalStorageState } from '@/lib/useLocalStorageState'
 import { useMapControls } from '@/lib/mapControls'
 import { WeatherVeil } from './WeatherVeil'
+import { GlobeView } from './GlobeView'
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
@@ -69,6 +70,7 @@ export function WorldStage() {
   const { data: mapData } = useQuery({
     queryKey: ['world-map', gridWidth, gridHeight, offsetX, offsetY],
     queryFn: () => fetchMap(offsetX, offsetY, gridWidth, gridHeight),
+    enabled: !isMaxZoom,
     refetchInterval: gridWidth * gridHeight > 4000 ? 20000 : 5000,
     placeholderData: keepPreviousData,
   })
@@ -192,7 +194,9 @@ export function WorldStage() {
 
   return (
     <div ref={stageRef} className="relative h-full w-full">
-      {mapData?.tiles ? (
+      {isMaxZoom ? (
+        <GlobeView worldWidth={worldWidth} worldHeight={worldHeight} onSelectTile={handleSelectTile} />
+      ) : mapData?.tiles ? (
         <WorldMapCanvas
           tiles={mapData.tiles}
           gridWidth={gridWidth}
