@@ -4,6 +4,19 @@ import * as THREE from 'three'
 import { fetchMap } from '@/lib/api'
 import { getTerrainColor } from '@/lib/terrainColors'
 
+// Deterministic PRNG so the cloud pattern is stable across re-renders
+// instead of reshuffling every time mapData refetches.
+function mulberry32(seed: number) {
+  let a = seed
+  return () => {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
 interface GlobeViewProps {
   worldWidth: number
   worldHeight: number
@@ -50,10 +63,30 @@ export function GlobeView({ worldWidth, worldHeight, onSelectTile }: GlobeViewPr
     texCanvas.width = worldWidth * texScale
     texCanvas.height = worldHeight * texScale
     const tctx = texCanvas.getContext('2d')!
+    function colorAt(x: number, y: number) {
+      const tile = tileMap.get(`${((x % worldWidth) + worldWidth) % worldWidth},${y}`)
+      return tile ? getTerrainColor(tile.terrain, tile.isRiver, tile.isLake).color : '#0b2a44'
+    }
     for (let y = 0; y < worldHeight; y++) {
       for (let x = 0; x < worldWidth; x++) {
-        const tile = tileMap.get(`${x},${y}`)
-        tctx.fillStyle = tile ? getTerrainColor(tile.terrain, tile.isRiver, tile.isLake).color : '#0b2a44'
+        tctx.fillStyle = colorAt(x, y)
+        tctx.fillRect(x * texScale, y * texScale, texScale, texScale)
+      }
+    }
+    // The world map is a bounded grid, not generated as seamlessly
+    // wrapping terrain - column 0 and the last column are geologically
+    // unrelated, which reads as a hard, jarring seam once wrapped around a
+    // sphere. Cross-fading a few columns on each side of the wrap softens
+    // it into a blend instead of a visible line.
+    const seamWidth = Math.max(2, Math.round(worldWidth * 0.02))
+    for (let y = 0; y < worldHeight; y++) {
+      for (let i = -seamWidth; i < seamWidth; i++) {
+        const t = (i + seamWidth) / (seamWidth * 2)
+        const a = new THREE.Color(colorAt(i, y))
+        const b = new THREE.Color(colorAt(i + worldWidth, y))
+        const blended = a.clone().lerp(b, t)
+        tctx.fillStyle = `#${blended.getHexString()}`
+        const x = ((i % worldWidth) + worldWidth) % worldWidth
         tctx.fillRect(x * texScale, y * texScale, texScale, texScale)
       }
     }
@@ -61,10 +94,40 @@ export function GlobeView({ worldWidth, worldHeight, onSelectTile }: GlobeViewPr
     texture.colorSpace = THREE.SRGBColorSpace
     texture.minFilter = THREE.LinearFilter
     texture.magFilter = THREE.NearestFilter
+    // Explicit repeat wrap (rather than the default clamp-to-edge) avoids a
+    // visible seam artifact from UV sampling exactly at the u=0/u=1 wrap on
+    // a sphere - a well-known gotcha independent of the data seam above.
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.ClampToEdgeWrapping
+
+    // Cloud layer - a second, slightly larger sphere with a procedural
+    // scattered-blob texture, rotating at its own slower independent speed
+    // so weather visibly drifts relative to the terrain beneath it instead
+    // of being painted onto the same surface.
+    const cloudCanvas = document.createElement('canvas')
+    cloudCanvas.width = 512
+    cloudCanvas.height = 256
+    const cctx = cloudCanvas.getContext('2d')!
+    const cloudSeed = mulberry32(1337)
+    for (let i = 0; i < 90; i++) {
+      const cx = cloudSeed() * cloudCanvas.width
+      const cy = cloudSeed() * cloudCanvas.height
+      const r = 14 + cloudSeed() * 34
+      const grad = cctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+      grad.addColorStop(0, 'rgba(255,255,255,0.85)')
+      grad.addColorStop(1, 'rgba(255,255,255,0)')
+      cctx.fillStyle = grad
+      cctx.beginPath()
+      cctx.arc(cx, cy, r, 0, Math.PI * 2)
+      cctx.fill()
+    }
+    const cloudTexture = new THREE.CanvasTexture(cloudCanvas)
+    cloudTexture.wrapS = THREE.RepeatWrapping
+    cloudTexture.wrapT = THREE.ClampToEdgeWrapping
 
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100)
-    camera.position.z = 2.6
+    camera.position.z = 1.65
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -97,13 +160,43 @@ export function GlobeView({ worldWidth, worldHeight, onSelectTile }: GlobeViewPr
     const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
     globeGroup.add(sphere)
 
-    // Faint atmosphere rim - purely decorative, sells the "planet" read.
-    const atmosphereGeometry = new THREE.SphereGeometry(1.03, 64, 64)
-    const atmosphereMaterial = new THREE.MeshBasicMaterial({
-      color: 0x6db7ff,
+    const cloudGeometry = new THREE.SphereGeometry(1.012, 64, 64)
+    const cloudMaterial = new THREE.MeshStandardMaterial({
+      map: cloudTexture,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.75,
+      depthWrite: false,
+    })
+    const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial)
+    globeGroup.add(clouds)
+
+    // Fresnel rim glow - the classic cheap "atmospheric scattering" trick:
+    // a slightly larger backside-rendered sphere that only lights up at
+    // grazing angles, additively blended so it reads as a soft glowing
+    // halo instead of a solid shell. This is the "planet in space" cosmos
+    // read a flat translucent sphere doesn't sell on its own.
+    const atmosphereGeometry = new THREE.SphereGeometry(1.06, 64, 64)
+    const atmosphereMaterial = new THREE.ShaderMaterial({
+      uniforms: { glowColor: { value: new THREE.Color(0x6db7ff) } },
+      vertexShader: `
+        varying vec3 vNormal;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 glowColor;
+        varying vec3 vNormal;
+        void main() {
+          float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.0);
+          gl_FragColor = vec4(glowColor, 1.0) * intensity;
+        }
+      `,
       side: THREE.BackSide,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false,
     })
     globeGroup.add(new THREE.Mesh(atmosphereGeometry, atmosphereMaterial))
 
@@ -119,6 +212,13 @@ export function GlobeView({ worldWidth, worldHeight, onSelectTile }: GlobeViewPr
     let dragging = false
     let lastX = 0
     let lastY = 0
+    // Separate from lastX/lastY (which move every frame during a drag) -
+    // this anchors the click-vs-drag threshold to the total distance
+    // travelled since pointerdown, not just the final micro-movement
+    // before release, which was always ~0 and made every drag also fire a
+    // tile-select click at wherever the cursor ended up.
+    let downX = 0
+    let downY = 0
     let velocityY = 0.0009
     let velocityX = 0
     const raycaster = new THREE.Raycaster()
@@ -155,6 +255,8 @@ export function GlobeView({ worldWidth, worldHeight, onSelectTile }: GlobeViewPr
       dragging = true
       lastX = e.clientX
       lastY = e.clientY
+      downX = e.clientX
+      downY = e.clientY
       renderer.domElement.setPointerCapture(e.pointerId)
     }
     function onPointerMove(e: PointerEvent) {
@@ -176,8 +278,8 @@ export function GlobeView({ worldWidth, worldHeight, onSelectTile }: GlobeViewPr
     function onPointerUp(e: PointerEvent) {
       if (!dragging) return
       dragging = false
-      const dx = e.clientX - lastX
-      const dy = e.clientY - lastY
+      const dx = e.clientX - downX
+      const dy = e.clientY - downY
       if (Math.abs(dx) < 3 && Math.abs(dy) < 3) {
         const hit = pick(e.clientX, e.clientY)
         if (hit) onSelectTileRef.current(hit.x, hit.y)
@@ -188,7 +290,7 @@ export function GlobeView({ worldWidth, worldHeight, onSelectTile }: GlobeViewPr
     }
     function onWheel(e: WheelEvent) {
       e.preventDefault()
-      camera.position.z = Math.max(1.5, Math.min(5, camera.position.z + e.deltaY * 0.0025))
+      camera.position.z = Math.max(1.25, Math.min(3.5, camera.position.z + e.deltaY * 0.0025))
     }
 
     renderer.domElement.addEventListener('pointerdown', onPointerDown)
@@ -208,6 +310,9 @@ export function GlobeView({ worldWidth, worldHeight, onSelectTile }: GlobeViewPr
         velocityX *= 0.94
         velocityY += (0.0009 - velocityY) * 0.02
       }
+      // Clouds drift independently of the terrain beneath them regardless
+      // of drag state, same as real weather not being locked to the ground.
+      clouds.rotation.y += 0.00025
       renderer.render(scene, camera)
       rafId = requestAnimationFrame(animate)
     }
@@ -224,6 +329,9 @@ export function GlobeView({ worldWidth, worldHeight, onSelectTile }: GlobeViewPr
       renderer.domElement.removeEventListener('wheel', onWheel)
       sphereGeometry.dispose()
       sphereMaterial.dispose()
+      cloudGeometry.dispose()
+      cloudMaterial.dispose()
+      cloudTexture.dispose()
       atmosphereGeometry.dispose()
       atmosphereMaterial.dispose()
       starGeometry.dispose()
