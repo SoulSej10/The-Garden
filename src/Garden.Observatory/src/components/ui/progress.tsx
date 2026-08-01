@@ -5,14 +5,9 @@ import { cn } from "@/lib/utils"
 /**
  * The filled portion (the actual current value) is controlled by
  * `indicatorClassName`. `className` only styles the track - the empty
- * remainder behind the fill, always a neutral color.
- *
- * Previously `className` was applied to the track while the fill was
- * hardcoded to `bg-primary` regardless of what callers passed in, so
- * severity colors (red/yellow/green) ended up on the empty portion of the
- * bar instead of the filled portion showing the actual value - callers
- * couldn't tell which section represented "how much," just that colors
- * changed somewhere on the bar.
+ * remainder behind the fill, always a neutral color. Callers pass a
+ * status-* background (see badge.tsx variants) on the indicator so severity
+ * reads consistently with the rest of the app's status vocabulary.
  */
 function Progress({
   className,
@@ -28,13 +23,16 @@ function Progress({
       aria-valuemax={100}
       aria-valuenow={value}
       className={cn(
-        "relative h-2 w-full overflow-hidden rounded-full bg-muted",
+        "relative h-2.5 w-full overflow-hidden rounded-full bg-muted",
         className
       )}
       {...props}
     >
       <div
-        className={cn("h-full w-full flex-1 bg-primary transition-all", indicatorClassName)}
+        className={cn(
+          "h-full w-full flex-1 rounded-full bg-primary transition-all duration-500 ease-out",
+          indicatorClassName
+        )}
         style={{ transform: `translateX(-${100 - (value ?? 0)}%)` }}
       />
     </div>

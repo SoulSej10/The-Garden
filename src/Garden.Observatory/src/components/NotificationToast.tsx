@@ -32,10 +32,10 @@ export function useNotificationBus() {
   return notifications
 }
 
-const severityColors: Record<string, string> = {
-  High: 'border-red-500 bg-red-50 dark:bg-red-950',
-  Normal: 'border-blue-500 bg-blue-50 dark:bg-blue-950',
-  Info: 'border-green-500 bg-green-50 dark:bg-green-950',
+const severityAccent: Record<string, string> = {
+  High: 'bg-status-danger',
+  Normal: 'bg-status-water',
+  Info: 'bg-status-thriving',
 }
 
 export function NotificationToast({ notification }: { notification: Notification }) {
@@ -49,13 +49,14 @@ export function NotificationToast({ notification }: { notification: Notification
 
   return (
     <div
-      className={`border-l-4 p-3 rounded-r-md shadow-md transition-all duration-300 ${
-        visible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full'
-      } ${severityColors[notification.severity] ?? 'border-gray-500 bg-gray-50'}`}
+      className={`animate-shine panel-carved relative overflow-hidden border border-border/70 bg-panel/95 p-3 pl-4 shadow-atlas-lg backdrop-blur-md transition-all duration-300 ${
+        visible ? 'translate-x-0 opacity-100' : 'translate-x-6 opacity-0'
+      }`}
     >
-      <p className="text-xs font-semibold">{notification.title}</p>
-      <p className="text-xs text-muted-foreground">{notification.description}</p>
-      <span className="text-[10px] text-muted-foreground/60">{notification.category}</span>
+      <span className={`absolute inset-y-0 left-0 w-1 ${severityAccent[notification.severity] ?? 'bg-muted-foreground'}`} />
+      <p className="font-display text-xs font-semibold">{notification.title}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{notification.description}</p>
+      <span className="mt-1 inline-block text-[10px] uppercase tracking-wide text-muted-foreground/70">{notification.category}</span>
     </div>
   )
 }

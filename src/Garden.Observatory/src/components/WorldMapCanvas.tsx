@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { getTerrainColor, TERRAIN_LABELS } from '@/lib/terrainColors'
+import { cn } from '@/lib/utils'
 
 export interface MapTileLite {
   x: number
@@ -35,6 +36,7 @@ interface WorldMapCanvasProps {
   onPan: (deltaTilesX: number, deltaTilesY: number) => void
   onZoom?: (direction: 1 | -1, centerTile: { x: number; y: number }) => void
   overlays?: MapOverlay[]
+  className?: string
 }
 
 const DRAG_THRESHOLD_PX = 4
@@ -68,6 +70,7 @@ export function WorldMapCanvas({
   onPan,
   onZoom,
   overlays,
+  className,
 }: WorldMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -416,7 +419,10 @@ export function WorldMapCanvas({
   }, [])
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden rounded-md border bg-muted/20">
+    <div
+      ref={containerRef}
+      className={cn('relative h-full w-full overflow-hidden rounded-md border bg-muted/20', className)}
+    >
       <canvas ref={canvasRef} className="block cursor-grab active:cursor-grabbing" />
       <div
         ref={tooltipRef}

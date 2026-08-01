@@ -1,53 +1,118 @@
 @import "tailwindcss";
 
+/* Self-hosted via Fontsource (no CDN, no runtime fetch) — see Appendix on font
+   choice: Outfit stands in for a Cabinet-Grotesk-style warm geometric display
+   face (not npm-distributable), paired with Inter Tight for dense data/body
+   text, and Lora reserved narrowly for the Chronicle panel's in-world prose. */
+@import "@fontsource/outfit/500.css";
+@import "@fontsource/outfit/600.css";
+@import "@fontsource/outfit/700.css";
+@import "@fontsource/outfit/800.css";
+@import "@fontsource/inter-tight/400.css";
+@import "@fontsource/inter-tight/500.css";
+@import "@fontsource/inter-tight/600.css";
+@import "@fontsource/inter-tight/700.css";
+@import "@fontsource/lora/400.css";
+@import "@fontsource/lora/400-italic.css";
+@import "@fontsource/lora/600.css";
+
 @custom-variant dark (&:is(.dark *));
 
+/*
+  Design system: "The Living Atlas"
+  A naturalist field-instrument, not a SaaS dashboard. One warm gold chrome
+  accent for interactive UI; a small fixed semantic set (health / hunger /
+  danger / thriving / water) used ONLY for status meaning, never decoration,
+  never interchanged. Never pure #000/#fff in either mode.
+*/
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
+  /* Day Atlas — warm parchment, ink-moss text */
+  --background: oklch(0.965 0.014 84);
+  --background-deep: oklch(0.925 0.02 82);
+  --foreground: oklch(0.22 0.025 152);
+  --card: oklch(0.985 0.008 84);
+  --card-foreground: oklch(0.22 0.025 152);
+  --panel: oklch(0.955 0.016 83);
+  --panel-foreground: oklch(0.22 0.025 152);
+  --muted: oklch(0.9 0.018 80);
+  --muted-foreground: oklch(0.46 0.03 145);
+  --border: oklch(0.84 0.02 78);
+  --input: oklch(0.88 0.02 80);
+  --ring: oklch(0.72 0.13 78);
+
+  --primary: oklch(0.72 0.13 78);
+  --primary-foreground: oklch(0.18 0.03 80);
+  --secondary: oklch(0.88 0.03 145);
+  --secondary-foreground: oklch(0.22 0.04 150);
+  --accent: oklch(0.88 0.05 78);
+  --accent-foreground: oklch(0.22 0.03 80);
+
+  --destructive: oklch(0.55 0.19 27);
+  --destructive-foreground: oklch(0.98 0.01 27);
+
+  /* Fixed semantic status set — status meaning only, everywhere consistent */
+  --status-health: oklch(0.62 0.14 152);
+  --status-health-foreground: oklch(0.98 0.01 152);
+  --status-hunger: oklch(0.72 0.16 58);
+  --status-hunger-foreground: oklch(0.2 0.03 58);
+  --status-danger: oklch(0.56 0.2 27);
+  --status-danger-foreground: oklch(0.98 0.01 27);
+  --status-thriving: oklch(0.76 0.15 82);
+  --status-thriving-foreground: oklch(0.2 0.03 82);
+  --status-water: oklch(0.64 0.1 213);
+  --status-water-foreground: oklch(0.98 0.01 213);
+
+  --shadow-color: 152 15% 20%;
   --radius: 0.75rem;
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.141 0.005 285.823);
-  --card-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.274 0.006 286.033);
-  --input: oklch(0.274 0.006 286.033);
-  --ring: oklch(0.442 0.017 285.786);
+  /* Night Atlas — deep moss-black, warm bone text */
+  --background: oklch(0.175 0.018 155);
+  --background-deep: oklch(0.135 0.016 155);
+  --foreground: oklch(0.93 0.014 85);
+  --card: oklch(0.215 0.02 155);
+  --card-foreground: oklch(0.93 0.014 85);
+  --panel: oklch(0.195 0.02 155);
+  --panel-foreground: oklch(0.93 0.014 85);
+  --muted: oklch(0.26 0.02 155);
+  --muted-foreground: oklch(0.68 0.02 100);
+  --border: oklch(0.3 0.024 155);
+  --input: oklch(0.28 0.022 155);
+  --ring: oklch(0.78 0.14 80);
+
+  --primary: oklch(0.78 0.14 80);
+  --primary-foreground: oklch(0.16 0.03 80);
+  --secondary: oklch(0.3 0.03 150);
+  --secondary-foreground: oklch(0.93 0.02 90);
+  --accent: oklch(0.32 0.045 90);
+  --accent-foreground: oklch(0.95 0.02 90);
+
+  --destructive: oklch(0.6 0.2 25);
+  --destructive-foreground: oklch(0.98 0.01 25);
+
+  --status-health: oklch(0.68 0.15 152);
+  --status-health-foreground: oklch(0.15 0.02 152);
+  --status-hunger: oklch(0.75 0.16 60);
+  --status-hunger-foreground: oklch(0.16 0.02 60);
+  --status-danger: oklch(0.66 0.2 27);
+  --status-danger-foreground: oklch(0.15 0.02 27);
+  --status-thriving: oklch(0.8 0.15 84);
+  --status-thriving-foreground: oklch(0.16 0.02 84);
+  --status-water: oklch(0.72 0.1 213);
+  --status-water-foreground: oklch(0.15 0.02 213);
+
+  --shadow-color: 155 40% 3%;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-deep: var(--background-deep);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-panel: var(--panel);
+  --color-panel-foreground: var(--panel-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
@@ -61,6 +126,22 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  --color-status-health: var(--status-health);
+  --color-status-health-foreground: var(--status-health-foreground);
+  --color-status-hunger: var(--status-hunger);
+  --color-status-hunger-foreground: var(--status-hunger-foreground);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-foreground: var(--status-danger-foreground);
+  --color-status-thriving: var(--status-thriving);
+  --color-status-thriving-foreground: var(--status-thriving-foreground);
+  --color-status-water: var(--status-water);
+  --color-status-water-foreground: var(--status-water-foreground);
+
+  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --font-chronicle: "Lora", ui-serif, Georgia, serif;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -72,18 +153,115 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-    font-family: system-ui, -apple-system, sans-serif;
+    @apply bg-background text-foreground font-sans;
+  }
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
   }
 }
 
-/* TG-OBS-008 (Performance & Accessibility): "Reduced motion options" -
-   respects the OS-level prefers-reduced-motion setting automatically, and
-   the .reduce-motion class (toggled from TopBar) lets a player override it
-   manually regardless of their OS setting. Collapses transitions/animations
-   to nearly-instant rather than removing them outright, since a few
-   elements (e.g. Radix primitives) key their own show/hide logic off
-   animationend/transitionend firing at all. */
+/* Carved-corner shape system: ONE rule for all major panels — two sharp
+   corners, two large-radius corners, like a worn parchment plate. Chips and
+   buttons stay full-pill (see components); inputs stay --radius-md. */
+.panel-carved {
+  border-radius: 1.75rem 0.375rem 1.75rem 0.375rem;
+}
+.panel-carved-r {
+  border-radius: 0.375rem 1.75rem 0.375rem 1.75rem;
+}
+
+/* CSS-only view swap (roster ↔ inspector, list ↔ ledger): plain conditional
+   render + this on-mount keyframe, deliberately NOT Motion's AnimatePresence
+   here - a two-child key-swap inside AnimatePresence proved unreliable in
+   this app's dev environment (the exiting child's animation never
+   completed, leaving both children stuck mounted permanently). A single
+   entering element replaying a CSS animation on mount has no such failure
+   mode. */
+@keyframes view-swap-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-view-swap {
+  animation: view-swap-in 0.22s ease-out;
+}
+
+@keyframes backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-backdrop {
+  animation: backdrop-fade-in 0.2s ease-out;
+}
+
+@keyframes panel-slide-in {
+  from { opacity: 0; transform: translateX(3rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-panel-slide {
+  animation: panel-slide-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dialog-pop-in {
+  from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-dialog-pop {
+  animation: dialog-pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Shadows tinted to the palette's own hue, never pure black */
+.shadow-atlas {
+  box-shadow: 0 1px 2px hsl(var(--shadow-color) / 0.08),
+    0 12px 32px -8px hsl(var(--shadow-color) / 0.28);
+}
+.shadow-atlas-lg {
+  box-shadow: 0 4px 12px hsl(var(--shadow-color) / 0.12),
+    0 24px 64px -12px hsl(var(--shadow-color) / 0.38);
+}
+
+/* Thin, tinted scrollbars for panel-internal scroll areas */
+.scroll-atlas {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.scroll-atlas::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-atlas::-webkit-scrollbar-track { background: transparent; }
+.scroll-atlas::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 999px;
+}
+
+@keyframes shine-sweep {
+  from { background-position: -150% 0; }
+  to { background-position: 250% 0; }
+}
+.animate-shine {
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    hsl(var(--shadow-color) / 0) 45%,
+    color-mix(in oklch, var(--primary) 55%, transparent) 50%,
+    hsl(var(--shadow-color) / 0) 55%,
+    transparent 70%
+  );
+  background-size: 250% 100%;
+  animation: shine-sweep 2.2s ease-in-out infinite;
+}
+
+@keyframes drift-slow {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(1.5%, 1%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+.animate-drift {
+  animation: drift-slow 40s ease-in-out infinite;
+}
+
+/* TG-OBS-008 (Performance & Accessibility): respects OS-level
+   prefers-reduced-motion automatically; the .reduce-motion class (toggled
+   from the HUD) lets a player override it manually regardless of OS setting.
+   Collapses to near-instant rather than removing outright, since some
+   elements key show/hide logic off animationend/transitionend firing at all. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;

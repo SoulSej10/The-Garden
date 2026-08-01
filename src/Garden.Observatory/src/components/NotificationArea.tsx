@@ -12,7 +12,7 @@ export default function NotificationArea({ notifications }: { notifications: Not
   if (notifications.length === 0) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2">
+    <div className="pointer-events-none fixed right-4 top-20 z-50 flex w-72 flex-col gap-2 md:right-6 md:top-24">
       {notifications.map((n) => (
         <NotificationToast key={n.id} notification={n} />
       ))}

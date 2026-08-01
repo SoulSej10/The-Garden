@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div className="relative w-full overflow-auto">
+    <div className="scroll-atlas relative w-full overflow-auto">
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}
@@ -18,7 +18,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("sticky top-0 z-10 bg-background [&_tr]:border-b", className)}
+      className={cn("sticky top-0 z-10 bg-panel [&_tr]:border-b [&_tr]:border-border", className)}
       {...props}
     />
   )
@@ -39,7 +39,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "h-11 border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+        "h-11 border-b border-border/70 transition-colors hover:bg-accent/40 data-[state=selected]:bg-accent/60",
         className
       )}
       {...props}
@@ -52,7 +52,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "h-10 px-2 text-left align-middle font-display text-xs font-semibold uppercase tracking-wide text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className
       )}
       {...props}

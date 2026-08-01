@@ -1,32 +1,34 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import DashboardPage from './pages/DashboardPage.tsx'
-import EnvironmentPage from './pages/EnvironmentPage.tsx'
-import WorldMapPage from './pages/WorldMapPage.tsx'
-import CitizensPage from './pages/CitizensPage.tsx'
-import SettlementsPage from './pages/SettlementsPage.tsx'
-import EconomyPage from './pages/EconomyPage.tsx'
-import HistoryPage from './pages/HistoryPage.tsx'
-import CivilizationPage from './pages/CivilizationPage.tsx'
-import ProductionDashboardPage from './pages/ProductionDashboardPage.tsx'
-import DiagnosticsPage from './pages/DiagnosticsPage.tsx'
-import Layout from './components/Layout.tsx'
+import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom'
+import AtlasShell from './components/shell/AtlasShell.tsx'
+import type { PanelId } from './lib/usePanelState'
+
+/**
+ * The old app was ten routed pages. The new one is a single persistent
+ * world with panels layered over it (see AtlasShell + usePanelState). These
+ * routes exist only so old bookmarks/links keep working - they redirect
+ * into the panel query-param scheme instead of 404ing.
+ */
+function LegacyRedirect({ panel }: { panel: PanelId }) {
+  const [params] = useSearchParams()
+  const selected = params.get('selected')
+  const target = `/?panel=${panel}${selected ? `&selected=${encodeURIComponent(selected)}` : ''}`
+  return <Navigate to={target} replace />
+}
 
 function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/environment" element={<EnvironmentPage />} />
-        <Route path="/map" element={<WorldMapPage />} />
-        <Route path="/citizens" element={<CitizensPage />} />
-        <Route path="/settlements" element={<SettlementsPage />} />
-        <Route path="/economy" element={<EconomyPage />} />
-        <Route path="/history" element={<HistoryPage />} />
-        <Route path="/civilization" element={<CivilizationPage />} />
-        <Route path="/production" element={<ProductionDashboardPage />} />
-        <Route path="/diagnostics" element={<DiagnosticsPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
+      <Route path="/" element={<AtlasShell />} />
+      <Route path="/environment" element={<LegacyRedirect panel="almanac" />} />
+      <Route path="/economy" element={<LegacyRedirect panel="almanac" />} />
+      <Route path="/map" element={<Navigate to="/" replace />} />
+      <Route path="/citizens" element={<LegacyRedirect panel="citizens" />} />
+      <Route path="/settlements" element={<LegacyRedirect panel="settlements" />} />
+      <Route path="/history" element={<LegacyRedirect panel="chronicle" />} />
+      <Route path="/civilization" element={<LegacyRedirect panel="civilization" />} />
+      <Route path="/production" element={<LegacyRedirect panel="steward" />} />
+      <Route path="/diagnostics" element={<LegacyRedirect panel="steward" />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
